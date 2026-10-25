@@ -1,0 +1,1 @@
+ALTER TABLE "study_sessions" ADD COLUMN "is_filler" boolean DEFAULT false NOT NULL;

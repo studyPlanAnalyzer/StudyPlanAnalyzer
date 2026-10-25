@@ -1,0 +1,110 @@
+[
+  {
+    "category": "IQ_LOGIC",
+    "gradeGroup": "GROUP_4_7",
+    "difficulty": "easy",
+    "questionText": "What comes next in the pattern: 2, 4, 6, 8, ?",
+    "option1": "9",
+    "option2": "10",
+    "option3": "12",
+    "option4": "16",
+    "correctAnswer": "10",
+    "explanation": "Each number increases by 2, so after 8 comes 10."
+  },
+  {
+    "category": "SCIENCE",
+    "gradeGroup": "GROUP_4_7",
+    "difficulty": "easy",
+    "questionText": "Which part of the plant absorbs water from the soil?",
+    "option1": "Leaves",
+    "option2": "Roots",
+    "option3": "Petals",
+    "option4": "Stem",
+    "correctAnswer": "Roots",
+    "explanation": "Roots grow underground and pull in water and nutrients from the soil."
+  },
+  {
+    "category": "GENERAL_KNOWLEDGE",
+    "gradeGroup": "GROUP_4_7",
+    "difficulty": "medium",
+    "questionText": "Which is the tallest mountain in the world?",
+    "option1": "K2",
+    "option2": "Mount Everest",
+    "option3": "Kangchenjunga",
+    "option4": "Annapurna",
+    "correctAnswer": "Mount Everest",
+    "explanation": "Mount Everest, on the Nepal-China border, stands at about 8,849 meters."
+  },
+  {
+    "category": "IQ_LOGIC",
+    "gradeGroup": "GROUP_8_10",
+    "difficulty": "medium",
+    "questionText": "If all Zips are Zaps, and all Zaps are Zops, are all Zips definitely Zops?",
+    "option1": "Yes",
+    "option2": "No",
+    "option3": "Only sometimes",
+    "option4": "Not enough information",
+    "correctAnswer": "Yes",
+    "explanation": "This follows the transitive property: if A implies B and B implies C, then A implies C."
+  },
+  {
+    "category": "SCIENCE",
+    "gradeGroup": "GROUP_8_10",
+    "difficulty": "medium",
+    "questionText": "What is the powerhouse of the cell?",
+    "option1": "Nucleus",
+    "option2": "Ribosome",
+    "option3": "Mitochondria",
+    "option4": "Golgi body",
+    "correctAnswer": "Mitochondria",
+    "explanation": "Mitochondria generate most of the cell's supply of ATP, the energy currency of the cell."
+  },
+  {
+    "category": "GENERAL_KNOWLEDGE",
+    "gradeGroup": "GROUP_8_10",
+    "difficulty": "medium",
+    "questionText": "Which river is the longest in the world?",
+    "option1": "Amazon River",
+    "option2": "Nile River",
+    "option3": "Yangtze River",
+    "option4": "Mississippi River",
+    "correctAnswer": "Nile River",
+    "explanation": "The Nile, flowing through northeastern Africa, is generally considered the longest river at about 6,650 km."
+  },
+  {
+    "category": "IQ_LOGIC",
+    "gradeGroup": "GROUP_4_7",
+    "difficulty": "medium",
+    "questionText": "A farmer has 10 sheep. All but 6 run away. How many sheep are left?",
+    "option1": "4",
+    "option2": "6",
+    "option3": "10",
+    "option4": "0",
+    "correctAnswer": "6",
+    "explanation": "\"All but 6\" means 6 remain — the phrase describes how many are left, not how many ran away."
+  },
+  {
+    "category": "SCIENCE",
+    "gradeGroup": "GROUP_8_10",
+    "difficulty": "hard",
+    "questionText": "What gas do plants absorb from the air during photosynthesis?",
+    "option1": "Oxygen",
+    "option2": "Nitrogen",
+    "option3": "Carbon dioxide",
+    "option4": "Hydrogen",
+    "correctAnswer": "Carbon dioxide",
+    "explanation": "Plants take in carbon dioxide and, using sunlight, convert it into glucose and oxygen."
+  },
+  {
+    "category": "GENERAL_KNOWLEDGE",
+    "gradeGroup": "GROUP_4_7",
+    "difficulty": "easy",
+    "questionText": "How many continents are there on Earth?",
+    "option1": "5",
+    "option2": "6",
+    "option3": "7",
+    "option4": "8",
+    "correctAnswer": "7",
+    "explanation": "The seven continents are Asia, Africa, North America, South America, Antarctica, Europe, and Australia."
+  }
+]
