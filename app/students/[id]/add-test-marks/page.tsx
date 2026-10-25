@@ -9,6 +9,14 @@ import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 
+type EntryRow = {
+  m: TestMarkEntry;
+  topicId: string | null;
+  obtained: string;
+  full: string;
+  label: string;
+};
+
 interface Subject {
   id: string;
   name: string;
@@ -130,7 +138,7 @@ export default function AddTestMarksPage({
 
   // The marks this form will save: one per subject, or one per topic.
   function entries() {
-    return marks.flatMap((m) =>
+    return marks.flatMap<EntryRow>((m) =>
       m.byTopic
         ? Object.entries(m.topicMarks)
             .filter(([, t]) => t.obtained !== '')

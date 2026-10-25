@@ -6,14 +6,14 @@ import {
   getUserFromRequest,
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
-import { withErrorHandling } from "@/lib/api/handler";
+import { withErrorHandling } from '@/lib/api/handler';
 
 async function loadOwnedSubject(subjectId: string, parentId: string) {
   const [row] = await db
     .select({ subject: schema.subjects })
     .from(schema.subjects)
     .innerJoin(
-      schema.studen
+      schema.students,
       eq(schema.students.id, schema.subjects.studentId),
     )
     .where(
@@ -49,58 +49,56 @@ const updateSubjectSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const PUT = withErrorHandling(async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
-  const user = await getUserFromRequest(req);
-  if (!user) return unauthorizedResponse();
+export const PUT = withErrorHandling(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return unauthorizedResponse();
 
-  const existing = await loadOwnedSubject(params.id, user.id);
-  if (!existing)
-    return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+    const existing = await loadOwnedSubject(params.id, user.id);
+    if (!existing)
+      return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
 
-  const body = await req.json();
-  const parsed = updateSubjectSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-  if (Object.keys(parsed.data).length === 0) {
-    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
-  }
+    const body = await req.json();
+    const parsed = updateSubjectSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+    }
 
-  const [subject] = await db
-    .update(schema.subjects)
-    .set(parsed.data)
-    .where(eq(schema.subjects.id, params.id))
-    .returning();
+    const [subject] = await db
+      .update(schema.subjects)
+      .set(parsed.data)
+      .where(eq(schema.subjects.id, params.id))
+      .returning();
 
-  if (parsed.data.isActive === false && existing.isActive) {
-    await removeOpenSessionsForSubject(params.id);
-  }
+    if (parsed.data.isActive === false && existing.isActive) {
+      await removeOpenSessionsForSubject(params.id);
+    }
 
-  return NextResponse.json({ subject });
-});
+    return NextResponse.json({ subject });
+  },
+);
 
 // Permanent delete. Cascades to the subject's topics, spaced-repetition state
 // and marks (so it also erases that subject's marks history). Completed
 // sessions stay but lose their subject/topic link. The UI only offers this
 // for archived subjects; archiving is the normal way to retire one.
-export const DELETE = withErrorHandling(async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
-  const user = await getUserFromRequest(req);
-  if (!user) return unauthorizedResponse();
+export const DELETE = withErrorHandling(
+  async (req: NextRequest, { params }: { params: { id: string } }) => {
+    const user = await getUserFromRequest(req);
+    if (!user) return unauthorizedResponse();
 
-  const existing = await loadOwnedSubject(params.id, user.id);
-  if (!existing)
-    return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+    const existing = await loadOwnedSubject(params.id, user.id);
+    if (!existing)
+      return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
 
-  await removeOpenSessionsForSubject(params.id);
-  await db.delete(schema.subjects).where(eq(schema.subjects.id, params.id));
-  return NextResponse.json({ success: true });
-});
+    await removeOpenSessionsForSubject(params.id);
+    await db.delete(schema.subjects).where(eq(schema.subjects.id, params.id));
+    return NextResponse.json({ success: true });
+  },
+);
