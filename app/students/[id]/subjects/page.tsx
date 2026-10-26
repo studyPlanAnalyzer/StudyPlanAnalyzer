@@ -1,5 +1,6 @@
 'use client';
 
+import { subjectClashFor } from '@/lib/subject-name';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -400,6 +401,12 @@ export default function SubjectsPage({ params }: { params: { id: string } }) {
                   key={s.id}
                   subject={s}
                   edited={s.id in draft.subjectEdits || s.id in draft.isActive}
+                  otherNames={[
+                    ...subjects
+                      .filter((o) => o.id !== s.id)
+                      .map((o) => draft.subjectEdits[o.id]?.name ?? o.name),
+                    ...draft.subjects.map((o) => o.name),
+                  ]}
                   topics={topicsFor(s.id)}
                   editedTopicIds={Object.keys(draft.topicEdits)}
                   draftTopics={draft.topics
@@ -536,6 +543,7 @@ export default function SubjectsPage({ params }: { params: { id: string } }) {
 function SubjectCard({
   subject,
   edited,
+  otherNames,
   topics,
   editedTopicIds,
   draftTopics,
@@ -548,6 +556,8 @@ function SubjectCard({
 }: {
   subject: Subject;
   edited: boolean;
+  // Every other subject's name, to catch a rename that makes two the same.
+  otherNames: string[];
   topics: Topic[];
   editedTopicIds: string[];
   draftTopics: (DraftTopic & { i: number })[];
@@ -570,8 +580,11 @@ function SubjectCard({
   const subTopicsOf = (id: string) =>
     topics.filter((t) => t.parentTopicId === id);
 
+  const renameClash =
+    name.trim() !== subject.name ? subjectClashFor(name, otherNames) : null;
+
   function done() {
-    if (!name.trim()) return;
+    if (!name.trim() || renameClash) return;
     onEdit({ name: name.trim(), fullMarks, examWeight });
     setIsEditing(false);
   }
@@ -621,6 +634,9 @@ function SubjectCard({
           <Button size="sm" variant="secondary" onClick={cancel}>
             Cancel
           </Button>
+          {renameClash && (
+            <p className="w-full text-xs text-red-600">{renameClash}</p>
+          )}
         </div>
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -943,14 +959,9 @@ function AddSubjectCard({
 
   function add() {
     if (!name.trim()) return;
-    if (
-      existingNames.some(
-        (n) => n.trim().toLowerCase() === name.trim().toLowerCase(),
-      )
-    ) {
-      setError(
-        `${name.trim()} is already a subject. Each subject can only be listed once.`,
-      );
+    const clash = subjectClashFor(name, existingNames);
+    if (clash) {
+      setError(clash);
       return;
     }
     setError(null);
@@ -1006,7 +1017,11 @@ function AddSubjectCard({
         </div>
         <Button onClick={add}>Add subject</Button>
       </div>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {(error ?? subjectClashFor(name, existingNames)) && (
+        <p className="mt-2 text-sm text-red-600">
+          {error ?? subjectClashFor(name, existingNames)}
+        </p>
+      )}
       {suggestions.length > 0 && (
         <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
           <input

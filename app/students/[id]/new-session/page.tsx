@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { subjectClashFor } from '@/lib/subject-name';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -153,12 +154,12 @@ export default function NewSessionPage({ params }: { params: { id: string } }) {
       return 'Every new subject needs a name.';
     if (newSubjects.length === 0) return 'Add at least one subject.';
     // Each subject is listed once.
-    const seen = new Set<string>();
-    for (const s of newSubjects) {
-      const key = s.name.trim().toLowerCase();
-      if (seen.has(key))
-        return `${s.name.trim()} is added twice. Each subject can only be listed once.`;
-      seen.add(key);
+    for (const [i, s] of newSubjects.entries()) {
+      const clash = subjectClashFor(
+        s.name,
+        newSubjects.filter((_, j) => j < i).map((o) => o.name),
+      );
+      if (clash) return clash;
     }
     // Every subject needs an estimate here, since there are no marks to go on.
     for (const s of newSubjects) {
@@ -469,6 +470,19 @@ export default function NewSessionPage({ params }: { params: { id: string } }) {
                           >
                             Remove
                           </Button>
+                          {(() => {
+                            const clash = subjectClashFor(
+                              s.name,
+                              newSubjects
+                                .filter((_, j) => j !== i)
+                                .map((o) => o.name),
+                            );
+                            return clash ? (
+                              <p className="w-full text-xs text-red-600">
+                                {clash}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
 
                         {s.name.trim() && (

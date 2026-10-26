@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { subjectClashFor } from '@/lib/subject-name';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -266,12 +267,11 @@ export default function NewExamPage({ params }: { params: { id: string } }) {
     }
     for (const s of newSubjects) {
       if (!s.name.trim()) return 'Every new subject needs a name.';
-      const taken = [
+      const clash = subjectClashFor(s.name, [
         ...(detail?.subjects ?? []).map((sub) => sub.name),
         ...newSubjects.filter((o) => o !== s).map((o) => o.name),
-      ].some((n) => n.trim().toLowerCase() === s.name.trim().toLowerCase());
-      if (taken)
-        return `${s.name.trim()} is already a subject. Each subject can only be listed once.`;
+      ]);
+      if (clash) return clash;
       const val = Number(s.obtainedMarks);
       if (
         s.obtainedMarks === '' ||
@@ -654,6 +654,19 @@ export default function NewExamPage({ params }: { params: { id: string } }) {
                           >
                             Remove
                           </Button>
+                          {(() => {
+                            const clash = subjectClashFor(s.name, [
+                              ...detail.subjects.map((sub) => sub.name),
+                              ...newSubjects
+                                .filter((o) => o !== s)
+                                .map((o) => o.name),
+                            ]);
+                            return clash ? (
+                              <p className="w-full text-xs text-red-600">
+                                {clash}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
 
                         {s.name.trim() && (

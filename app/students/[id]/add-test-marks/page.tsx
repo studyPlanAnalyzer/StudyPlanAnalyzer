@@ -9,14 +9,6 @@ import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 
-type EntryRow = {
-  m: TestMarkEntry;
-  topicId: string | null;
-  obtained: string;
-  full: string;
-  label: string;
-};
-
 interface Subject {
   id: string;
   name: string;
@@ -57,6 +49,16 @@ interface TestMarkEntry {
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+// One mark this form will save. Declared so a subject-level mark (no topic)
+// and a topic-level mark have the same type.
+type EntryRow = {
+  m: TestMarkEntry;
+  topicId: string | null;
+  obtained: string;
+  full: string;
+  label: string;
+};
 
 export default function AddTestMarksPage({
   params,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { subjectClashFor } from '@/lib/subject-name';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -209,6 +210,13 @@ export default function OnboardingPage() {
     if (step === 4) {
       if (subjects.length === 0 || subjects.some((s) => !s.name.trim()))
         return 'Add at least one named subject.';
+      for (const [i, s] of subjects.entries()) {
+        const clash = subjectClashFor(
+          s.name,
+          subjects.filter((_, j) => j < i).map((o) => o.name),
+        );
+        if (clash) return clash;
+      }
     }
     if (step === 5) {
       for (const s of subjects) {
@@ -411,7 +419,7 @@ export default function OnboardingPage() {
               </div>
               <Input
                 label="Minutes available on school days"
-                hint={`Minimum ${MIN_SCHOOL_DAY_MINUTES} minutes (45 minutes)`}
+                hint={`Minimum ${MIN_SCHOOL_DAY_MINUTES} minutes (1 hour)`}
                 type="number"
                 min={MIN_SCHOOL_DAY_MINUTES}
                 value={schoolDayMinutes}
@@ -500,6 +508,15 @@ export default function OnboardingPage() {
                   >
                     Remove
                   </Button>
+                  {(() => {
+                    const clash = subjectClashFor(
+                      s.name,
+                      subjects.filter((_, j) => j !== i).map((o) => o.name),
+                    );
+                    return clash ? (
+                      <p className="w-full text-xs text-red-600">{clash}</p>
+                    ) : null;
+                  })()}
                 </div>
               ))}
               <Button
