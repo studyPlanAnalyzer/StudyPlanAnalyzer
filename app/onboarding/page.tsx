@@ -355,7 +355,7 @@ export default function OnboardingPage() {
                 type="number"
                 min={4}
                 max={10}
-                placeholder="e.g. 9"
+                placeholder="e.g 4-10"
                 value={child.grade}
                 onChange={(e) => setChild({ ...child, grade: e.target.value })}
               />

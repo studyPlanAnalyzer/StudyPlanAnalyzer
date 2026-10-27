@@ -216,6 +216,7 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBufferChoice, setShowBufferChoice] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [pendingExam, setPendingExam] = useState<
     StudentDetail['exams'][number] | null
   >(null);
@@ -309,23 +310,99 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
   // No active exam: none set up yet, or the last one is over.
   const canStartSession = !primaryExam || examHasPassed;
 
+  const menuItems = [
+    { href: '/dashboard', label: '← Back to dashboard' },
+    { href: `/students/${params.id}/add-test-marks`, label: 'Log a test' },
+    { href: `/students/${params.id}/subjects`, label: 'Subjects & topics' },
+    { href: `/students/${params.id}/tests`, label: 'Test history' },
+    {
+      href: `/students/${params.id}/new-exam`,
+      label: 'Start new exam cycle',
+    },
+    ...(canStartSession
+      ? [
+          {
+            href: `/students/${params.id}/new-session`,
+            label: 'Start a new academic session with no previous exams',
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="text-base font-semibold text-indigo-700 sm:text-lg"
           >
             StudyPlan Analyzer
           </Link>
+
+          {/* Laptop and up */}
           <Link
             href="/dashboard"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="hidden text-sm text-slate-500 hover:text-slate-800 lg:block"
           >
             ← Back to dashboard
           </Link>
+
+          {/* Phones and tablets: hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+          >
+            {menuOpen ? (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 6l12 12M18 6L6 18"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Phones and tablets: dropdown menu */}
+        {menuOpen && (
+          <nav className="flex flex-col border-t border-slate-200 bg-white px-4 py-2 sm:px-6 lg:hidden">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-10">
@@ -372,25 +449,29 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Link href={`/students/${params.id}/add-test-marks`}>
-                  <Button variant="ghost">Log a test</Button>
-                </Link>
-                <Link href={`/students/${params.id}/subjects`}>
-                  <Button variant="ghost">Subjects &amp; topics</Button>
-                </Link>
-                <Link href={`/students/${params.id}/tests`}>
-                  <Button variant="ghost">Test history</Button>
-                </Link>
-                <Link href={`/students/${params.id}/new-exam`}>
-                  <Button variant="ghost">Start new exam cycle</Button>
-                </Link>
-                {canStartSession && (
-                  <Link href={`/students/${params.id}/new-session`}>
-                    <Button variant="ghost">
-                      Start a new academic session with no previous exams
-                    </Button>
+                {/* Laptop and up only; phones/tablets use the hamburger menu */}
+                <div className="hidden flex-wrap items-center gap-3 lg:flex">
+                  <Link href={`/students/${params.id}/add-test-marks`}>
+                    <Button variant="ghost">Log a test</Button>
                   </Link>
-                )}
+                  <Link href={`/students/${params.id}/subjects`}>
+                    <Button variant="ghost">Subjects &amp; topics</Button>
+                  </Link>
+                  <Link href={`/students/${params.id}/tests`}>
+                    <Button variant="ghost">Test history</Button>
+                  </Link>
+                  <Link href={`/students/${params.id}/new-exam`}>
+                    <Button variant="ghost">Start new exam cycle</Button>
+                  </Link>
+                  {canStartSession && (
+                    <Link href={`/students/${params.id}/new-session`}>
+                      <Button variant="ghost">
+                        Start a new academic session with no previous exams
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+
                 {hasPlan && detail?.latestPlan && (
                   <Link
                     href={`/students/${params.id}/plan?planId=${detail.latestPlan.id}`}

@@ -84,7 +84,7 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
               key={day.date}
               className="rounded-xl border border-slate-200 bg-white p-4"
             >
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-slate-800">
                   {formatDate(day.date)}
                 </h4>
@@ -96,22 +96,20 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                 {day.sessions.map((s) => (
                   <li
                     key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"
+                    className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"
                   >
-                    <div className="flex items-center gap-2">
+                    {/* flex-wrap lets the tags and subject drop to the next
+                        line instead of overflowing the card on small screens */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <Badge tone={sessionTypeTone[s.sessionType]}>
                         {s.sessionType}
                       </Badge>
-                      <span className="font-medium text-slate-800">
+                      <span className="break-words font-medium text-slate-800">
                         {s.topicName ?? s.subjectName ?? 'Session'}
                       </span>
-
-                      <Badge tone={sessionTypeTone[s.sessionType]}>
-                        {s.sessionType}
-                      </Badge>
                       {s.isFiller && <Badge tone="neutral">Optional</Badge>}
                       {s.subjectName && s.topicName && (
-                        <span className="text-xs text-slate-400">
+                        <span className="break-words text-xs text-slate-400">
                           · {s.subjectName}
                         </span>
                       )}

@@ -73,6 +73,7 @@ export default function AddTestMarksPage({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -251,23 +252,88 @@ export default function AddTestMarksPage({
     }
   }
 
+  // Shown in the phone/tablet hamburger menu. Laptops keep "Back to plan".
+  const menuItems = [
+    { href: `/students/${params.id}/plan`, label: 'Back to plan' },
+    { href: `/students/${params.id}/analysis`, label: 'Analysis' },
+    { href: `/students/${params.id}/subjects`, label: 'Subjects & topics' },
+    { href: `/students/${params.id}/tests`, label: 'Test history' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="text-base font-semibold text-indigo-700 sm:text-lg"
           >
             StudyPlan Analyzer
           </Link>
+
+          {/* Laptop and up */}
           <Link
             href={`/students/${params.id}/plan`}
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="hidden text-sm text-slate-500 hover:text-slate-800 lg:block"
           >
             Back to plan
           </Link>
+
+          {/* Phones and tablets: hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+          >
+            {menuOpen ? (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 6l12 12M18 6L6 18"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Phones and tablets: dropdown menu */}
+        {menuOpen && (
+          <nav className="flex flex-col border-t border-slate-200 bg-white px-4 py-2 sm:px-6 lg:hidden">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-10">
@@ -324,8 +390,11 @@ export default function AddTestMarksPage({
                     key={m.subjectId}
                     className="rounded-lg border border-slate-200 p-3"
                   >
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="min-w-[8rem] flex-1 text-sm font-medium text-slate-700">
+                    {/* Phone/tablet: subject name on top, "Marks obtained" and
+                        "Out of" side by side, Confidence full width below.
+                        Laptop (sm and up): everything on one row. */}
+                    <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+                      <div className="col-span-2 text-base font-semibold text-slate-900 sm:min-w-[8rem] sm:flex-1 sm:text-sm sm:font-medium sm:text-slate-700">
                         {m.name}
                       </div>
                       {!m.byTopic && (
@@ -333,7 +402,7 @@ export default function AddTestMarksPage({
                           <Input
                             label="Marks obtained"
                             type="number"
-                            className="w-32"
+                            className="w-full sm:w-32"
                             value={m.obtainedMarks}
                             onChange={(e) =>
                               updateMark(i, { obtainedMarks: e.target.value })
@@ -342,7 +411,7 @@ export default function AddTestMarksPage({
                           <Input
                             label="Out of"
                             type="number"
-                            className="w-24"
+                            className="w-full sm:w-24"
                             value={m.fullMarks}
                             onChange={(e) =>
                               updateMark(i, { fullMarks: e.target.value })
@@ -350,12 +419,12 @@ export default function AddTestMarksPage({
                           />
                         </>
                       )}
-                      <div className="flex flex-col gap-1">
+                      <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
                         <label className="text-sm font-medium text-slate-700">
                           Confidence
                         </label>
                         <select
-                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-auto"
                           value={m.confidenceLevel}
                           onChange={(e) =>
                             updateMark(i, {
@@ -372,9 +441,9 @@ export default function AddTestMarksPage({
                     </div>
 
                     {topicGroups(m.subjectId).length > 0 && (
-                      <div className="mt-2">
+                      <div className="mt-3">
                         {m.byTopic && (
-                          <div className="mb-2 flex flex-col gap-2 rounded-lg bg-slate-50 p-2">
+                          <div className="mb-2 flex flex-col gap-3 rounded-lg bg-slate-50 p-2">
                             <p className="text-xs text-slate-500">
                               Enter a score for each topic this test covered.
                               Leave the rest blank.
@@ -386,13 +455,16 @@ export default function AddTestMarksPage({
                                     {g.heading}
                                   </p>
                                 )}
-                                <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-col gap-2.5 sm:gap-1.5">
                                   {g.leaves.map((t) => (
                                     <div
                                       key={t.id}
                                       className="flex flex-wrap items-center gap-2"
                                     >
-                                      <span className="min-w-[8rem] flex-1 text-sm text-slate-700">
+                                      {/* Topic name gets its own line on
+                                          phones so the two boxes sit neatly
+                                          underneath it. */}
+                                      <span className="w-full text-sm text-slate-700 sm:w-auto sm:min-w-[8rem] sm:flex-1">
                                         {t.name}
                                       </span>
                                       <input
@@ -435,7 +507,7 @@ export default function AddTestMarksPage({
                         )}
                         <button
                           type="button"
-                          className="text-xs text-indigo-600 hover:text-indigo-700"
+                          className="py-1 text-sm text-indigo-600 hover:text-indigo-700 sm:text-xs"
                           onClick={() =>
                             updateMark(i, {
                               byTopic: !m.byTopic,
@@ -463,7 +535,7 @@ export default function AddTestMarksPage({
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
             {saved ? (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={retryPlanUpdate} isLoading={isSubmitting}>
                   Try updating the plan again
                 </Button>

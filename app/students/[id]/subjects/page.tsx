@@ -105,6 +105,7 @@ export default function SubjectsPage({ params }: { params: { id: string } }) {
   const [planSkipped, setPlanSkipped] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [isSaving, setIsSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -287,37 +288,91 @@ export default function SubjectsPage({ params }: { params: { id: string } }) {
     await load();
   }
 
+  const navItems = [
+    { href: `/students/${params.id}/plan`, label: 'Plan' },
+    { href: `/students/${params.id}/tests`, label: 'Test history' },
+    { href: `/students/${params.id}/settings`, label: 'Settings' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="text-base font-semibold text-indigo-700 sm:text-lg"
           >
             StudyPlan Analyzer
           </Link>
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <Link
-              href={`/students/${params.id}/plan`}
-              className="hover:text-slate-800"
-            >
-              Plan
-            </Link>
-            <Link
-              href={`/students/${params.id}/tests`}
-              className="hover:text-slate-800"
-            >
-              Test history
-            </Link>
-            <Link
-              href={`/students/${params.id}/settings`}
-              className="hover:text-slate-800"
-            >
-              Settings
-            </Link>
+
+          {/* Laptop and up */}
+          <div className="hidden items-center gap-4 text-sm text-slate-500 lg:flex">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="hover:text-slate-800"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
+
+          {/* Phones and tablets: hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+          >
+            {menuOpen ? (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 6l12 12M18 6L6 18"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Phones and tablets: dropdown menu */}
+        {menuOpen && (
+          <nav className="flex flex-col border-t border-slate-200 bg-white px-4 py-2 sm:px-6 lg:hidden">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-10">
@@ -377,7 +432,7 @@ export default function SubjectsPage({ params }: { params: { id: string } }) {
                   this page, you will be asked to confirm, and they are
                   discarded.
                 </p>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={save} isLoading={isSaving}>
                     {detail.latestPlan ? 'Save and update plan' : 'Save'}
                   </Button>
@@ -685,7 +740,7 @@ function SubjectCard({
             {topLevel.map((t) => {
               const subs = subTopicsOf(t.id);
               return (
-                <li key={t.id} className="py-1">
+                <li key={t.id} className="min-w-0 py-1">
                   <TopicRow
                     topic={t}
                     edited={editedTopicIds.includes(t.id)}
@@ -693,7 +748,7 @@ function SubjectCard({
                     onEdit={(e) => onEditTopic(t.id, e)}
                     onDelete={() => onDeleteTopic(t.id)}
                   />
-                  <div className="mb-1 ml-4 border-l border-slate-200 pl-3">
+                  <div className="mb-1 ml-4 min-w-0 border-l border-slate-200 pl-3">
                     {subs.length > 0 && (
                       <ul className="mb-1 flex flex-col divide-y divide-slate-100">
                         {subs.map((st) => (
@@ -899,10 +954,12 @@ function AddTopicInput({
   }
 
   return (
-    <div>
-      <div className="flex gap-2">
+    <div className="min-w-0">
+      {/* flex-wrap: on narrow screens the text box takes a full row and the
+          difficulty picker + button sit together on the row below. */}
+      <div className="flex flex-wrap gap-2">
         <input
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500"
+          className="w-full min-w-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 sm:w-auto sm:flex-1"
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
@@ -917,7 +974,7 @@ function AddTopicInput({
           }}
         />
         <select
-          className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs sm:flex-none"
           value={difficulty}
           onChange={(e) => {
             setDifficulty(e.target.value);
@@ -933,7 +990,13 @@ function AddTopicInput({
             </option>
           ))}
         </select>
-        <Button type="button" size="sm" variant="secondary" onClick={add}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="shrink-0 whitespace-nowrap"
+          onClick={add}
+        >
           {buttonLabel}
         </Button>
       </div>

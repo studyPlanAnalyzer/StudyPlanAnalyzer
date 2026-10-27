@@ -39,6 +39,7 @@ export default function PlanPage({ params }: { params: { id: string } }) {
   const [data, setData] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   // Set when there is no plan because the exam is over.
   const [overExam, setOverExam] = useState<{
     name: string;
@@ -103,67 +104,99 @@ export default function PlanPage({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
+  const navItems = [
+    { href: `/students/${params.id}/analysis`, label: 'Analysis' },
+    { href: `/students/${params.id}/today`, label: 'Today' },
+    {
+      href: `/students/${params.id}/daily-challenge`,
+      label: 'Daily Challenge',
+    },
+    { href: `/students/${params.id}/subjects`, label: 'Subjects' },
+    { href: `/students/${params.id}/tests`, label: 'Test history' },
+    { href: `/students/${params.id}/settings`, label: 'Settings' },
+    { href: `/students/${params.id}/add-test-marks`, label: 'Log a test' },
+    { href: `/students/${params.id}/new-exam`, label: 'New exam' },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="text-base font-semibold text-indigo-700 sm:text-lg"
           >
             StudyPlan Analyzer
           </Link>
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <Link
-              href={`/students/${params.id}/analysis`}
-              className="hover:text-slate-800"
-            >
-              Analysis
-            </Link>
-            <Link
-              href={`/students/${params.id}/today`}
-              className="hover:text-slate-800"
-            >
-              Today
-            </Link>
-            <Link
-              href={`/students/${params.id}/daily-challenge`}
-              className="hover:text-slate-800"
-            >
-              Daily Challenge
-            </Link>
-            <Link
-              href={`/students/${params.id}/subjects`}
-              className="hover:text-slate-800"
-            >
-              Subjects
-            </Link>
-            <Link
-              href={`/students/${params.id}/tests`}
-              className="hover:text-slate-800"
-            >
-              Test history
-            </Link>
-            <Link
-              href={`/students/${params.id}/settings`}
-              className="hover:text-slate-800"
-            >
-              Settings
-            </Link>
-            <Link
-              href={`/students/${params.id}/add-test-marks`}
-              className="hover:text-slate-800"
-            >
-              Log a test
-            </Link>
-            <Link
-              href={`/students/${params.id}/new-exam`}
-              className="hover:text-slate-800"
-            >
-              New exam
-            </Link>
+
+          {/* Laptop and up */}
+          <div className="hidden items-center gap-4 text-sm text-slate-500 lg:flex">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="hover:text-slate-800"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
+
+          {/* Phones and tablets: hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+          >
+            {menuOpen ? (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 6l12 12M18 6L6 18"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Phones and tablets: dropdown menu */}
+        {menuOpen && (
+          <nav className="flex flex-col border-t border-slate-200 bg-white px-4 py-2 sm:px-6 lg:hidden">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-10">
