@@ -12,10 +12,11 @@ import {
 } from '@/lib/utils/topic-mastery';
 import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedAssessment(assessmentId: string, parentId: string) {
   const [row] = await db
-    .select({ assessment: schema.assessments })
+    .select({ assessment: schema.assessments, student: schema.students })
     .from(schema.assessments)
     .innerJoin(
       schema.students,
@@ -28,7 +29,7 @@ async function loadOwnedAssessment(assessmentId: string, parentId: string) {
       ),
     )
     .limit(1);
-  return row?.assessment ?? null;
+  return row ?? null;
 }
 
 // Each mark of the test with the topics it is linked to.
@@ -64,9 +65,12 @@ export const PUT = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
-    const existing = await loadOwnedAssessment(params.id, user.id);
-    if (!existing)
+    const owned = await loadOwnedAssessment(params.id, user.id);
+    if (!owned)
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
+    const existing = owned.assessment;
 
     const body = await req.json();
     const parsed = updateAssessmentSchema.safeParse(body);
@@ -121,9 +125,12 @@ export const DELETE = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
-    const existing = await loadOwnedAssessment(params.id, user.id);
-    if (!existing)
+    const owned = await loadOwnedAssessment(params.id, user.id);
+    if (!owned)
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
+    const existing = owned.assessment;
 
     await db.transaction(async (tx) => {
       const marks = await marksWithTopics(tx, params.id);

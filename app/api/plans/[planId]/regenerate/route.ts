@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { todayUTC } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -49,6 +50,8 @@ export async function POST(
   if (!found)
     return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
   const { plan, student } = found;
+  const denied = paymentRequiredResponse(student);
+  if (denied) return denied;
 
   const result = await rebuildPlan({
     plan,

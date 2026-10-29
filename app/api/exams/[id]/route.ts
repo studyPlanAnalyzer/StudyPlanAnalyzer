@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { toDateString, todayUTC } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const updateExamSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -26,7 +27,7 @@ export const PUT = withErrorHandling(
     // Nothing is returned or changed unless the exam belongs to this parent.
     const [owned, primaries] = await Promise.all([
       db
-        .select({ exam: schema.exams })
+        .select({ exam: schema.exams, student: schema.students })
         .from(schema.exams)
         .innerJoin(
           schema.students,
@@ -60,6 +61,8 @@ export const PUT = withErrorHandling(
     const existing = owned[0]?.exam;
     if (!existing)
       return NextResponse.json({ error: 'Exam not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned[0].student);
+    if (denied) return denied;
 
     if (!parsed.success) {
       return NextResponse.json(

@@ -11,6 +11,7 @@ import { loadActiveEstimates } from '@/lib/estimated-confidence';
 import { ESTIMATED_CONFIDENCE_PERCENT } from '@/lib/utils/scoring';
 import { leafTopics } from '@/lib/topic-leaves';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 type StrengthLevel = 'weak' | 'medium' | 'strong';
 
@@ -91,6 +92,10 @@ export const GET = withErrorHandling(
           ),
       ]);
     const student = students[0];
+    if (student) {
+      const denied = paymentRequiredResponse(student);
+      if (denied) return denied;
+    }
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
 

@@ -5,6 +5,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { fromDateString, weekNumberFromStart } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { isExamOver } from '@/lib/plan-expiry';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const GET = withErrorHandling(
   async (req: NextRequest, { params }: { params: { planId: string } }) => {
@@ -64,6 +65,8 @@ export const GET = withErrorHandling(
     if (!found)
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     const { plan, student, exam } = found;
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     // The exam is over: the plan is cleared, and reported as gone.
     if (exam && isExamOver(exam.examDate)) {

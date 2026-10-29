@@ -88,6 +88,19 @@ async function attempt<T>(url: string, options: RequestOptions): Promise<T> {
     }
 
     if (!res.ok) {
+      // A child whose payment is due or not verified: tell the page shell
+      // (the child layout), which then shows the payment steps.
+      if (
+        res.status === 402 &&
+        data?.code === 'PAYMENT_REQUIRED' &&
+        typeof window !== 'undefined'
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('payment-required', {
+            detail: { studentId: data.studentId },
+          }),
+        );
+      }
       const serverMessage = typeof data?.error === 'string' ? data.error : null;
       throw new ApiError(
         serverMessage || fallbackMessage(res.status),

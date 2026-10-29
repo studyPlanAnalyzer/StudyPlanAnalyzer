@@ -10,6 +10,7 @@ import {
   MIN_SCHOOL_DAY_MINUTES,
   MIN_HOLIDAY_DAY_MINUTES,
 } from '@/lib/utils/study-limits';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedStudent(studentId: string, parentId: string) {
   const [student] = await db
@@ -80,6 +81,8 @@ export const GET = withErrorHandling(
     const student = students[0];
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const subjects = includeArchived
       ? allSubjects
@@ -178,6 +181,8 @@ export const PUT = withErrorHandling(
     const existing = await loadOwnedStudent(params.id, userId);
     if (!existing)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(existing);
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = updateStudentSchema.safeParse(body);

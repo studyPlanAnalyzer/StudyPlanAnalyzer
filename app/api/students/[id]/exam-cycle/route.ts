@@ -6,8 +6,14 @@ import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import {
+  subjectNameSchema,
+  findNameClash,
+  clashMessage,
+} from '@/lib/subject-name';
 import { saveMarks, type NewMark } from '@/lib/save-mark';
 import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const level = z.enum(['low', 'medium', 'high']);
 const name = z.string().trim().min(1).max(200);
@@ -31,7 +37,7 @@ const bodySchema = z.object({
   newSubjects: z
     .array(
       z.object({
-        name,
+        name: subjectNameSchema,
         fullMarks: z.number().int().positive().default(100),
         examWeight: level,
         obtainedMarks: z.number().int().min(0),
@@ -77,7 +83,11 @@ export const POST = withErrorHandling(
     // ownership check below passes.
     const [students, exams, subjects, topics] = await Promise.all([
       db
-        .select({ id: schema.students.id })
+        .select({
+          id: schema.students.id,
+          paidUntil: schema.students.paidUntil,
+          paymentStatus: schema.students.paymentStatus,
+        })
         .from(schema.students)
         .where(
           and(
@@ -117,6 +127,8 @@ export const POST = withErrorHandling(
     const student = students[0];
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const today = toDateString(todayUTC());
     if (examDate <= today)
@@ -174,17 +186,14 @@ export const POST = withErrorHandling(
           { status: 400 },
         );
     }
-    const names = new Set(subjects.map((s) => s.name.trim().toLowerCase()));
+    // Existing subjects first, so a clash names the one already there.
+    const clash = findNameClash(
+      subjects.map((s) => s.name),
+      newSubjects.map((s) => s.name),
+    );
+    if (clash)
+      return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
     for (const s of newSubjects) {
-      const key = s.name.toLowerCase();
-      if (names.has(key))
-        return NextResponse.json(
-          {
-            error: `${s.name} is already a subject. Each subject can only be listed once.`,
-          },
-          { status: 400 },
-        );
-      names.add(key);
       if (s.obtainedMarks > s.fullMarks)
         return NextResponse.json(
           { error: `Marks for ${s.name} cannot exceed ${s.fullMarks}` },

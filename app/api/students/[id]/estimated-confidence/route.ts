@@ -12,6 +12,7 @@ import {
   loadActiveEstimates,
   subjectIdsWithMarks,
 } from '@/lib/estimated-confidence';
+import { requireChildAccess } from '@/lib/billing/guard';
 
 // The ONLY place an estimated confidence is read or written. A null level
 // clears the estimate.
@@ -53,6 +54,8 @@ export const GET = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
+    const denied = await requireChildAccess(params.id, user.id);
+    if (denied) return denied;
     const subjectIds = await loadOwnedSubjectIds(params.id, user.id);
     if (!subjectIds)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
@@ -82,6 +85,8 @@ export const PUT = withErrorHandling(
       );
     }
 
+    const denied = await requireChildAccess(params.id, user.id);
+    if (denied) return denied;
     const ownedIds = await loadOwnedSubjectIds(params.id, user.id);
     if (!ownedIds)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });

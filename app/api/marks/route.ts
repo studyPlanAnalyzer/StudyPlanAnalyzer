@@ -5,6 +5,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { saveMark } from '@/lib/save-mark';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const createMarkSchema = z.object({
   assessmentId: z.string().uuid(),
@@ -40,7 +41,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // and the topic check run together, in one round instead of three in a row.
   const [owned, topicRows] = await Promise.all([
     db
-      .select({ id: schema.assessments.id })
+      .select({
+        id: schema.students.id,
+        paidUntil: schema.students.paidUntil,
+        paymentStatus: schema.students.paymentStatus,
+      })
       .from(schema.assessments)
       .innerJoin(
         schema.students,
@@ -65,6 +70,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       { error: 'Assessment not found' },
       { status: 404 },
     );
+  const denied = paymentRequiredResponse(owned[0]);
+  if (denied) return denied;
 
   if (data.topicIds.length > 0) {
     if (topicRows.length !== new Set(data.topicIds).size) {

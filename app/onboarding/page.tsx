@@ -316,7 +316,8 @@ export default function OnboardingPage() {
           })),
         },
       );
-      router.push(`/students/${studentId}/analysis`);
+      // The last step of setting up a new child is the payment.
+      router.push(`/students/${studentId}/pay`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -355,7 +356,7 @@ export default function OnboardingPage() {
                 type="number"
                 min={4}
                 max={10}
-                placeholder="e.g 4-10"
+                placeholder="e.g. 9"
                 value={child.grade}
                 onChange={(e) => setChild({ ...child, grade: e.target.value })}
               />

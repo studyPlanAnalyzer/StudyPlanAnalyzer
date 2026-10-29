@@ -8,6 +8,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
+import { billingInfoFor } from '@/lib/billing/pricing';
 import {
   MIN_SCHOOL_DAY_MINUTES,
   MIN_HOLIDAY_DAY_MINUTES,
@@ -125,6 +126,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     const exams = examsByStudent.get(student.id) ?? [];
     return {
       ...student,
+      // Paid-up state, dates and prices for this child (see lib/billing).
+      billing: billingInfoFor(studentRows, student.id),
       subjectsCount: subjectsByStudent.get(student.id) ?? 0,
       examsCount: exams.length,
       // The primary exam if there is one (they sort first).

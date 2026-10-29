@@ -208,7 +208,8 @@ export default function NewSessionPage({ params }: { params: { id: string } }) {
           },
         );
         sessionStorage.removeItem('newSessionDraft');
-        router.push(`/students/${studentId}/analysis`);
+        // A new child: the last step is the payment.
+        router.push(`/students/${studentId}/pay`);
         return;
       }
 

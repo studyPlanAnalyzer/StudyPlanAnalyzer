@@ -56,11 +56,81 @@ export const students = pgTable(
       .default(sql`ARRAY['Mon','Tue','Wed','Thu','Fri','Sun']::text[]`),
     schoolDayMinutes: integer('school_day_minutes').default(45).notNull(),
     holidayDayMinutes: integer('holiday_day_minutes').default(90).notNull(),
+    // Billing: the end of the period this child can be used until. null =
+    // never paid (a new child). See lib/billing/state.ts.
+    paidUntil: timestamp('paid_until'),
+    // none | pending (paid, waiting for an admin to check) | verified |
+    // rejected (the last payment couldn't be verified) | school
+    paymentStatus: text('payment_status').default('none').notNull(),
+    // Set when the child is covered by a school's bulk payment.
+    schoolId: uuid('school_id').references(() => schools.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (t) => ({
     parentIdIdx: index('students_parent_id_idx').on(t.parentId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// schools (a school that collects the fee from its parents in bulk)
+// ---------------------------------------------------------------------------
+export const schools = pgTable('schools', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  // The code the school gives its parents. Created by us, random.
+  referenceCode: text('reference_code').notNull().unique(),
+  // Every child linked to the school can use the app until this date. Set by
+  // an admin when the school pays us.
+  paidUntil: timestamp('paid_until'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// payments (a parent paying us directly by QR; an admin checks each one)
+// ---------------------------------------------------------------------------
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Kept (as null) if the child is deleted, so the record survives.
+    studentId: uuid('student_id').references(() => students.id, {
+      onDelete: 'set null',
+    }),
+    plan: text('plan').notNull(), // 'monthly' | 'term'
+    months: integer('months').notNull(), // 1 or 3
+    amountRs: integer('amount_rs').notNull(),
+    // The code the parent puts in the payment remark, so we can find it in
+    // our statement. Random, and includes the child's name.
+    remarkCode: text('remark_code').notNull().unique(),
+    // Filled in when the parent says they have paid.
+    transactionId: text('transaction_id').unique(),
+    parentName: text('parent_name'),
+    childName: text('child_name'),
+    schoolName: text('school_name'),
+    // awaiting (shown the QR, not submitted) | pending (submitted, to be
+    // checked) | verified | rejected | superseded (replaced by a newer one)
+    status: text('status').default('awaiting').notNull(),
+    // What the child's paidUntil was before the temporary access given on
+    // submission, put back if the payment is rejected.
+    previousPaidUntil: timestamp('previous_paid_until'),
+    adminNote: text('admin_note'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    submittedAt: timestamp('submitted_at'),
+    reviewedAt: timestamp('reviewed_at'),
+  },
+  (t) => ({
+    userIdIdx: index('payments_user_id_idx').on(t.userId),
+    studentIdIdx: index('payments_student_id_idx').on(t.studentId),
+    statusIdx: index('payments_status_idx').on(t.status),
   }),
 );
 

@@ -12,6 +12,7 @@ import { expandManyToLeaves } from '@/lib/topic-leaves';
 import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { todayUTC } from '@/lib/utils/date-utils';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -86,6 +87,8 @@ export const POST = withErrorHandling(
       .limit(1);
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const parsed = bodySchema.safeParse(await req.json());
     if (!parsed.success) {

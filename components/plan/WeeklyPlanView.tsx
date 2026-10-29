@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Badge } from '@/components/ui/Badge';
 
@@ -43,6 +45,11 @@ const statusLabel: Record<PlanSession['status'], string> = {
   skipped: 'Skipped',
 };
 
+// Same day key the Today page uses, so "today" means the same on both.
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-US', {
     weekday: 'short',
@@ -55,6 +62,8 @@ function formatDate(dateStr: string) {
 export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
   const [activeWeek, setActiveWeek] = useState(weeks[0]?.weekNumber ?? 1);
   const current = weeks.find((w) => w.weekNumber === activeWeek) ?? weeks[0];
+  const studentId = useParams<{ id: string }>()?.id;
+  const today = todayKey();
 
   if (!weeks.length) return null;
 
@@ -115,6 +124,18 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500">
+                      {/* Today's sessions that aren't done yet: one tap to
+                          the Today page, where they are rated. */}
+                      {day.date === today &&
+                        s.status === 'planned' &&
+                        studentId && (
+                          <Link
+                            href={`/students/${studentId}/today`}
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                          >
+                            Rate today&apos;s session
+                          </Link>
+                        )}
                       <span>{s.durationMinutes} min</span>
                       <span
                         className={clsx(

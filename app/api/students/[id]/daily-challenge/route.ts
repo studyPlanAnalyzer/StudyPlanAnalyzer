@@ -13,6 +13,7 @@ import {
   QuizAttemptAnswer,
 } from '@/lib/types/daily-challenge';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedStudent(studentId: string, parentId: string) {
   const [student] = await db
@@ -36,6 +37,8 @@ export const GET = withErrorHandling(
     const student = await loadOwnedStudent(params.id, user.id);
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const gradeGroup = gradeGroupFromGradeText(student.grade);
     if (!gradeGroup) {
@@ -141,6 +144,8 @@ export const POST = withErrorHandling(
     const student = await loadOwnedStudent(params.id, user.id);
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = submitSchema.safeParse(body);

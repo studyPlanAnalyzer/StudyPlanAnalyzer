@@ -6,7 +6,13 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { randomUUID } from 'crypto';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import {
+  subjectNameSchema,
+  findNameClash,
+  clashMessage,
+} from '@/lib/subject-name';
 import { fromDateString, toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const level = z.enum(['low', 'medium', 'high']);
 
@@ -20,7 +26,7 @@ const bodySchema = z.object({
   subjects: z
     .array(
       z.object({
-        name: z.string().trim().min(1).max(200),
+        name: subjectNameSchema,
         examWeight: level,
         estimatedConfidence: level,
         topics: z
@@ -49,7 +55,11 @@ export const POST = withErrorHandling(
     if (!userId) return unauthorizedResponse();
 
     const [student] = await db
-      .select({ id: schema.students.id })
+      .select({
+        id: schema.students.id,
+        paidUntil: schema.students.paidUntil,
+        paymentStatus: schema.students.paymentStatus,
+      })
       .from(schema.students)
       .where(
         and(
@@ -60,6 +70,8 @@ export const POST = withErrorHandling(
       .limit(1);
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const parsed = bodySchema.safeParse(await req.json());
     if (!parsed.success) {
@@ -78,18 +90,12 @@ export const POST = withErrorHandling(
     }
 
     // Each subject can only be listed once.
-    const seen = new Set<string>();
-    for (const s of newSubjects) {
-      const key = s.name.toLowerCase();
-      if (seen.has(key))
-        return NextResponse.json(
-          {
-            error: `${s.name} is added twice. Each subject can only be listed once.`,
-          },
-          { status: 400 },
-        );
-      seen.add(key);
-    }
+    const clash = findNameClash(
+      [],
+      newSubjects.map((s) => s.name),
+    );
+    if (clash)
+      return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
 
     const exam = await db.transaction(async (tx) => {
       // Only one exam is active at a time: a new session starts after the last

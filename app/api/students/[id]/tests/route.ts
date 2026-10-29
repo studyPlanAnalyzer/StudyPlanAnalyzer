@@ -5,6 +5,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { saveMarks } from '@/lib/save-mark';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const bodySchema = z.object({
   examId: z.string().uuid().optional(),
@@ -51,7 +52,11 @@ export const POST = withErrorHandling(
     const subjectIds = Array.from(new Set(marks.map((m) => m.subjectId)));
     const [students, exams, subjectRows, topicRows] = await Promise.all([
       db
-        .select({ id: schema.students.id })
+        .select({
+          id: schema.students.id,
+          paidUntil: schema.students.paidUntil,
+          paymentStatus: schema.students.paymentStatus,
+        })
         .from(schema.students)
         .where(
           and(
@@ -89,6 +94,8 @@ export const POST = withErrorHandling(
     const student = students[0];
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
     if (examId && exams.length === 0)
       return NextResponse.json({ error: 'Exam not found' }, { status: 404 });
     if (subjectRows.length !== subjectIds.length)

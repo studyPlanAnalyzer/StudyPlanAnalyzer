@@ -10,10 +10,11 @@ import {
 import { expandToLeaves } from '@/lib/topic-leaves';
 import { applyTestTrend, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedMark(markId: string, parentId: string) {
   const [row] = await db
-    .select({ mark: schema.marks })
+    .select({ mark: schema.marks, student: schema.students })
     .from(schema.marks)
     .innerJoin(
       schema.assessments,
@@ -27,7 +28,7 @@ async function loadOwnedMark(markId: string, parentId: string) {
       and(eq(schema.marks.id, markId), eq(schema.students.parentId, parentId)),
     )
     .limit(1);
-  return row?.mark ?? null;
+  return row ?? null;
 }
 
 async function linkedTopicIds(ex: Executor, markId: string): Promise<string[]> {
@@ -67,7 +68,7 @@ export const PUT = withErrorHandling(
 
     // The mark (with its owner check) and the topics to be linked are read
     // together: one round instead of two in a row.
-    const [existing, topicRows] = await Promise.all([
+    const [owned, topicRows] = await Promise.all([
       loadOwnedMark(params.id, userId),
       topicIds && topicIds.length > 0
         ? db
@@ -76,8 +77,11 @@ export const PUT = withErrorHandling(
             .where(inArray(schema.topics.id, topicIds))
         : Promise.resolve([]),
     ]);
-    if (!existing)
+    if (!owned)
       return NextResponse.json({ error: 'Mark not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
+    const existing = owned.mark;
 
     const obtained = markFields.obtainedMarks ?? existing.obtainedMarks;
     const full = markFields.fullMarks ?? existing.fullMarks;
@@ -170,9 +174,11 @@ export const DELETE = withErrorHandling(
     const userId = getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
-    const existing = await loadOwnedMark(params.id, userId);
-    if (!existing)
+    const owned = await loadOwnedMark(params.id, userId);
+    if (!owned)
       return NextResponse.json({ error: 'Mark not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
 
     await db.transaction(async (tx) => {
       const topicIds = await linkedTopicIds(tx, params.id);

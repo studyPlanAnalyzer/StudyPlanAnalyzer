@@ -18,6 +18,7 @@ import {
 } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 // The session, its plan and its student (checked to be this parent's) in ONE
 // query; it used to be three in a row.
@@ -61,6 +62,8 @@ export const PUT = withErrorHandling(
     if (!owned)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     const { session: existing, plan, student } = owned;
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     const body = await req.json();
     const parsed = updateSessionSchema.safeParse(body);

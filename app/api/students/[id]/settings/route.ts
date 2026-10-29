@@ -14,6 +14,7 @@ import { rebuildPlan } from '@/lib/plan-rebuild';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { addDays, fromDateString, todayUTC } from '@/lib/utils/date-utils';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -94,6 +95,8 @@ export const PUT = withErrorHandling(
     const student = students[0];
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
 
     // Choose the exam first, then the newest plan that belongs to THAT exam.
     // A new exam with no plan falls through to "build the first plan" instead

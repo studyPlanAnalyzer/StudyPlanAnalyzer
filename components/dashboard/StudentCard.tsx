@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import type { TodoStats } from '@/lib/types/todo';
+import type { BillingInfo } from '@/lib/billing/pricing';
 
 export interface StudentSummary {
   id: string;
@@ -10,6 +11,7 @@ export interface StudentSummary {
   subjectsCount: number;
   examsCount: number;
   nextExam: { name: string; examDate: string } | null;
+  billing?: BillingInfo;
 }
 
 interface StudentCardProps {
@@ -45,6 +47,10 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
     ? new Date(`${s.nextExam.examDate}T00:00:00.000Z`).getTime() <= Date.now()
     : false;
 
+  const billing = s.billing;
+  const locked =
+    !!billing && (billing.state === 'locked' || billing.state === 'unpaid');
+
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       {/* Student header */}
@@ -77,6 +83,42 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
           </div>
         )}
       </div>
+
+      {billing &&
+        (locked ||
+          billing.state === 'grace' ||
+          billing.state === 'pending') && (
+          <div
+            className={`flex flex-col gap-2 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 ${
+              locked
+                ? 'bg-red-50 text-red-800'
+                : billing.state === 'grace'
+                  ? 'bg-amber-50 text-amber-900'
+                  : 'bg-indigo-50 text-indigo-900'
+            }`}
+          >
+            <span>
+              {billing.state === 'pending'
+                ? 'Payment will be verified within 24 hours.'
+                : billing.state === 'grace'
+                  ? `Payment due. The app locks on ${
+                      billing.graceEndsAt
+                        ? new Date(billing.graceEndsAt).toLocaleDateString()
+                        : 'soon'
+                    }.`
+                  : billing.paymentStatus === 'rejected'
+                    ? 'Payment not verified. Please pay again to unlock.'
+                    : 'Payment needed. Pay to unlock this child.'}
+            </span>
+            {billing.due && (
+              <Link href={`/students/${s.id}/pay`}>
+                <Button size="sm">
+                  {locked ? 'Pay to unlock' : 'Pay now'}
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
 
       {/* Main dashboard area */}
       <div className="p-5 sm:p-6">

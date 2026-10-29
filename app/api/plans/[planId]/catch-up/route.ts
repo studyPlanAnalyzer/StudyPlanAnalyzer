@@ -5,6 +5,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { toDateString, todayUTC } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -54,6 +55,8 @@ export const POST = withErrorHandling(
     if (!found)
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     const { plan, student } = found;
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
     const missed = missedRows[0];
     if (!missed) return NextResponse.json({ updated: false });
 

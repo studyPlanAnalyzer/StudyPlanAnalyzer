@@ -8,6 +8,12 @@ import { insertTopicRows } from '@/lib/topic-leaves';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { todayUTC } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
+import {
+  subjectNameSchema,
+  findNameClash,
+  clashMessage,
+} from '@/lib/subject-name';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -23,7 +29,7 @@ const curriculumSchema = z.object({
   subjects: z
     .array(
       z.object({
-        name,
+        name: subjectNameSchema,
         fullMarks: z.number().int().positive().default(100),
         examWeight: z.enum(['low', 'medium', 'high']),
         topics: z.array(name).default([]),
@@ -36,7 +42,7 @@ const curriculumSchema = z.object({
     .array(
       z.object({
         id: z.string().uuid(),
-        name: name.optional(),
+        name: subjectNameSchema.optional(),
         fullMarks: z.number().int().positive().optional(),
         examWeight: weight.optional(),
         isActive: z.boolean().optional(),
@@ -145,6 +151,8 @@ export const POST = withErrorHandling(
     const student = students[0];
     if (!student)
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(student);
+    if (denied) return denied;
     const subjectIds = new Set(existingSubjects.map((s) => s.id));
     const topicRows = topicJoin.map((r) => r.topic);
     const topicById = new Map(topicRows.map((t) => [t.id, t]));
@@ -158,21 +166,21 @@ export const POST = withErrorHandling(
       );
     if (unknown)
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
-    // After this save, no two subjects (active or archived) may share a name.
-    const finalNames = [
-      ...existingSubjects
-        .filter((s) => !deletedSubjectIds.includes(s.id))
-        .map((s) => subjectEdits.find((e) => e.id === s.id)?.name ?? s.name),
-      ...newSubjects.map((s) => s.name),
-    ].map((n) => n.trim().toLowerCase());
-    const dup = finalNames.find((n, i) => finalNames.indexOf(n) !== i);
-    if (dup)
-      return NextResponse.json(
-        {
-          error: `A subject named "${dup}" already exists. Each subject can only be listed once.`,
-        },
-        { status: 400 },
-      );
+    // After this save, no renamed or new subject may be the same subject as
+    // another one (active or archived). Subjects whose name isn't changing are
+    // taken as they are.
+    const kept: string[] = [];
+    const incoming: string[] = [];
+    for (const s of existingSubjects) {
+      if (deletedSubjectIds.includes(s.id)) continue;
+      const edited = subjectEdits.find((e) => e.id === s.id)?.name;
+      if (edited !== undefined && edited !== s.name) incoming.push(edited);
+      else kept.push(s.name);
+    }
+    incoming.push(...newSubjects.map((s) => s.name));
+    const clash = findNameClash(kept, incoming);
+    if (clash)
+      return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
 
     // Deleting a topic takes its sub-topics with it.
     const removedTopicIds = new Set(deletedTopicIds);

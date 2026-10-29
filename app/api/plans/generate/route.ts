@@ -6,6 +6,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
   const student = students[0];
   if (!student)
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(student);
+  if (denied) return denied;
   const exam = exams[0];
   if (!exam)
     return NextResponse.json({ error: 'Exam not found' }, { status: 404 });

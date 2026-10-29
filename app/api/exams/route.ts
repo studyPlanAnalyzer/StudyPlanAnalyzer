@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { toDateString, todayUTC } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 const createExamSchema = z.object({
   studentId: z.string().uuid(),
@@ -32,7 +33,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // belongs to this parent.
   const [owned, primaries] = await Promise.all([
     db
-      .select({ id: schema.students.id })
+      .select({
+        id: schema.students.id,
+        paidUntil: schema.students.paidUntil,
+        paymentStatus: schema.students.paymentStatus,
+      })
       .from(schema.students)
       .where(
         and(
@@ -56,6 +61,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   ]);
   if (!owned[0])
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owned[0]);
+  if (denied) return denied;
 
   // Only one exam can be "primary" (the one plans generate against) at a
   // time, so starting a new exam cycle automatically retires the old one -
@@ -107,7 +114,11 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // the student is read alongside).
   const [owned, rows] = await Promise.all([
     db
-      .select({ id: schema.students.id })
+      .select({
+        id: schema.students.id,
+        paidUntil: schema.students.paidUntil,
+        paymentStatus: schema.students.paymentStatus,
+      })
       .from(schema.students)
       .where(
         and(
@@ -132,5 +143,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   ]);
   if (!owned[0])
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owned[0]);
+  if (denied) return denied;
   return NextResponse.json({ exams: rows.map((r) => r.exam) });
 });

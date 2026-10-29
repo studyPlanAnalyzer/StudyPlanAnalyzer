@@ -7,6 +7,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedTopic(topicId: string, parentId: string) {
   const [topic] = await db
@@ -22,7 +23,11 @@ async function loadOwnedTopic(topicId: string, parentId: string) {
     .limit(1);
   if (!subject) return null;
   const [student] = await db
-    .select({ id: schema.students.id })
+    .select({
+      id: schema.students.id,
+      paidUntil: schema.students.paidUntil,
+      paymentStatus: schema.students.paymentStatus,
+    })
     .from(schema.students)
     .where(
       and(
@@ -31,7 +36,7 @@ async function loadOwnedTopic(topicId: string, parentId: string) {
       ),
     )
     .limit(1);
-  return student ? topic : null;
+  return student ? { topic, student } : null;
 }
 
 const updateTopicSchema = z.object({
@@ -45,9 +50,12 @@ export const PUT = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
-    const existing = await loadOwnedTopic(params.id, user.id);
-    if (!existing)
+    const owned = await loadOwnedTopic(params.id, user.id);
+    if (!owned)
       return NextResponse.json({ error: 'Topic not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
+    const existing = owned.topic;
 
     const body = await req.json();
     const parsed = updateTopicSchema.safeParse(body);
@@ -79,9 +87,12 @@ export const DELETE = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
-    const existing = await loadOwnedTopic(params.id, user.id);
-    if (!existing)
+    const owned = await loadOwnedTopic(params.id, user.id);
+    if (!owned)
       return NextResponse.json({ error: 'Topic not found' }, { status: 404 });
+    const denied = paymentRequiredResponse(owned.student);
+    if (denied) return denied;
+    const existing = owned.topic;
 
     // Sub-topics go with their topic, so clear their open sessions too.
     const children = await db

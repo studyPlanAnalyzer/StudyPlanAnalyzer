@@ -7,6 +7,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function assertOwnsSubject(subjectId: string, parentId: string) {
   const [row] = await db
@@ -14,9 +15,13 @@ async function assertOwnsSubject(subjectId: string, parentId: string) {
     .from(schema.subjects)
     .where(eq(schema.subjects.id, subjectId))
     .limit(1);
-  if (!row) return false;
+  if (!row) return null;
   const [student] = await db
-    .select({ id: schema.students.id })
+    .select({
+      id: schema.students.id,
+      paidUntil: schema.students.paidUntil,
+      paymentStatus: schema.students.paymentStatus,
+    })
     .from(schema.students)
     .where(
       and(
@@ -25,7 +30,7 @@ async function assertOwnsSubject(subjectId: string, parentId: string) {
       ),
     )
     .limit(1);
-  return !!student;
+  return student ?? null;
 }
 
 const createTopicsSchema = z.object({
@@ -59,6 +64,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const owns = await assertOwnsSubject(parsed.data.subjectId, user.id);
   if (!owns)
     return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owns);
+  if (denied) return denied;
 
   const { parentTopicId } = parsed.data;
   if (parentTopicId) {
@@ -129,6 +136,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const owns = await assertOwnsSubject(subjectId, user.id);
   if (!owns)
     return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owns);
+  if (denied) return denied;
 
   const topicRows = await db
     .select()
