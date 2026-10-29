@@ -3,6 +3,7 @@ import { db, schema } from '@/lib/db';
 import { SubjectInput, TopicSpacedStatus } from '@/lib/utils/plan-generator';
 import { loadActiveEstimates } from '@/lib/estimated-confidence';
 import { leafTopics } from '@/lib/topic-leaves';
+import { loadLeafConfidence } from '@/lib/leaf-confidence';
 import type { Executor } from '@/lib/utils/topic-mastery';
 
 /**
@@ -33,7 +34,7 @@ export async function loadSubjectInputs(
   //    mastery, not the subject score), with their test dates, in one join
   //  - every topic with its SM-2 state, in one join
   //  - the subjects' estimates
-  const [markRows, topicRows, estimates] = await Promise.all([
+  const [markRows, topicRows, estimates, leafConfidence] = await Promise.all([
     ex
       .select({
         mark: schema.marks,
@@ -71,6 +72,7 @@ export async function loadSubjectInputs(
       )
       .where(inArray(schema.topics.subjectId, subjectIds)),
     loadActiveEstimates(subjectIds, ex),
+    loadLeafConfidence(studentId, ex),
   ]);
 
   const marks = markRows.map((r) => r.mark);
@@ -114,6 +116,7 @@ export async function loadSubjectInputs(
             subjectId: t.subjectId,
             difficultyRating: t.difficultyRating,
             estimatedMastery: t.estimatedMastery,
+            latestConfidence: leafConfidence.get(t.id) ?? null,
             spacedState: state
               ? {
                   status: state.status as TopicSpacedStatus,

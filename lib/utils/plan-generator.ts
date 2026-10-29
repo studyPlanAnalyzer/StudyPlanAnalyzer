@@ -28,6 +28,8 @@ export interface TopicInput {
   subjectId: string;
   difficultyRating: number;
   estimatedMastery: number | null;
+  /** The confidence given with this topic's latest test, if it had one. */
+  latestConfidence?: 'low' | 'medium' | 'high' | null;
   spacedState?: TopicSpacedStateInput | null;
 }
 
@@ -115,17 +117,22 @@ function subjectBaselinePercent(subject: SubjectInput): number {
   return blendedPercent(records);
 }
 
+// "Low confidence" means weaker than the marks alone suggest.
+function withLowConfidenceBoost(weakness: number): number {
+  return Math.min(
+    100,
+    Math.max(
+      weakness + LOW_CONFIDENCE_WEAKNESS_BOOST,
+      LOW_CONFIDENCE_MIN_WEAKNESS,
+    ),
+  );
+}
+
 function effectiveWeaknessPercent(subject: SubjectInput): number {
   const percent = subjectBaselinePercent(subject);
   let weakness = Math.max(0, 100 - percent);
   if (subject.marksHistory.latestConfidence === 'low') {
-    weakness = Math.min(
-      100,
-      Math.max(
-        weakness + LOW_CONFIDENCE_WEAKNESS_BOOST,
-        LOW_CONFIDENCE_MIN_WEAKNESS,
-      ),
-    );
+    weakness = withLowConfidenceBoost(weakness);
   }
   return weakness;
 }
@@ -174,7 +181,11 @@ export function leafPriority(
   topic: TopicInput,
 ): { priority: number; weaknessPercent: number } {
   if (topic.estimatedMastery != null) {
-    const weaknessPercent = Math.max(0, 100 - topic.estimatedMastery);
+    // The topic's own confidence counts the same way a subject's does: a
+    // topic that scored well but felt shaky is still treated as weaker.
+    let weaknessPercent = Math.max(0, 100 - topic.estimatedMastery);
+    if (topic.latestConfidence === 'low')
+      weaknessPercent = withLowConfidenceBoost(weaknessPercent);
     return {
       priority:
         weaknessPercent * EXAM_WEIGHT_MULTIPLIER[subject.examWeight] +

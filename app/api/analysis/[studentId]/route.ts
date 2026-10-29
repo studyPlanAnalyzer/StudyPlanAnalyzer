@@ -12,6 +12,7 @@ import { ESTIMATED_CONFIDENCE_PERCENT } from '@/lib/utils/scoring';
 import { leafTopics } from '@/lib/topic-leaves';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { loadLeafConfidence } from '@/lib/leaf-confidence';
 
 type StrengthLevel = 'weak' | 'medium' | 'strong';
 
@@ -107,7 +108,10 @@ export const GET = withErrorHandling(
     const topicNameById = new Map(allTopics.map((t) => [t.id, t.name]));
 
     // A parent's gut-sense estimate, only for subjects with no marks at all.
-    const estimates = await loadActiveEstimates(subjectIdList);
+    const [estimates, leafConfidence] = await Promise.all([
+      loadActiveEstimates(subjectIdList),
+      loadLeafConfidence(params.studentId),
+    ]);
 
     // Build percent history per subject, ordered oldest -> newest by assessment date.
     const assessmentDateById = new Map(
@@ -178,11 +182,13 @@ export const GET = withErrorHandling(
             : null,
           difficultyRating: t.difficultyRating,
           estimatedMastery: t.estimatedMastery,
+          latestConfidence: leafConfidence.get(t.id) ?? null,
           priority: leafPriority(subjectInput, {
             id: t.id,
             subjectId: t.subjectId,
             difficultyRating: t.difficultyRating,
             estimatedMastery: t.estimatedMastery,
+            latestConfidence: leafConfidence.get(t.id) ?? null,
           }).priority,
         }))
         .sort((a, b) => b.priority - a.priority);
