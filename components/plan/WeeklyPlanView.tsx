@@ -45,17 +45,19 @@ const statusLabel: Record<PlanSession['status'], string> = {
   skipped: 'Skipped',
 };
 
-// Same day key the Today page uses, so "today" means the same on both.
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'short',
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC',
   });
 }
 
@@ -68,17 +70,18 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
   if (!weeks.length) return null;
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+    <div className="w-full">
+      {/* Week navigation */}
+      <div className="mb-7 flex flex-wrap items-center gap-2">
         {weeks.map((w) => (
           <button
             key={w.weekNumber}
             onClick={() => setActiveWeek(w.weekNumber)}
             className={clsx(
-              'rounded-t-lg px-4 py-2 text-sm font-medium transition-colors',
+              'rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200',
               w.weekNumber === activeWeek
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'bg-black text-white'
+                : 'bg-[#efeeec] text-black hover:bg-[#e4e2df]',
             )}
           >
             Week {w.weekNumber}
@@ -86,63 +89,78 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
         ))}
       </div>
 
+      {/* Weekly sessions */}
       {current && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {current.days.map((day) => (
             <div
               key={day.date}
-              className="rounded-xl border border-slate-200 bg-white p-4"
+              className="min-w-0 rounded-[24px] bg-[#f8f7f5] p-4 sm:p-5"
             >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold text-slate-800">
+              {/* Day heading */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-base font-bold text-black sm:text-lg">
                   {formatDate(day.date)}
                 </h4>
-                <span className="text-xs text-slate-500">
+
+                <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#666]">
                   {day.totalMinutes} min planned
                 </span>
               </div>
-              <ul className="flex flex-col gap-2">
+
+              {/* Sessions */}
+              <ul className="flex min-w-0 flex-col gap-3">
                 {day.sessions.map((s) => (
                   <li
                     key={s.id}
-                    className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"
+                    className="flex min-w-0 flex-col gap-3 rounded-2xl bg-white p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-4"
                   >
-                    {/* flex-wrap lets the tags and subject drop to the next
-                        line instead of overflowing the card on small screens */}
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    {/* Session information */}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2 [&_*]:!text-sm">
                       <Badge tone={sessionTypeTone[s.sessionType]}>
                         {s.sessionType}
                       </Badge>
-                      <span className="break-words font-medium text-slate-800">
+
+                      <span className="min-w-0 break-words text-base font-semibold text-black">
                         {s.topicName ?? s.subjectName ?? 'Session'}
                       </span>
+
                       {s.isFiller && <Badge tone="neutral">Optional</Badge>}
+
                       {s.subjectName && s.topicName && (
-                        <span className="break-words text-xs text-slate-400">
+                        <span className="min-w-0 break-words text-sm text-[#888]">
                           · {s.subjectName}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
-                      {/* Today's sessions that aren't done yet: one tap to
-                          the Today page, where they are rated. */}
+
+                    {/* Session actions and status */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-[#555]">
                       {day.date === today &&
                         s.status === 'planned' &&
                         studentId && (
                           <Link
                             href={`/students/${studentId}/today`}
-                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                            className="rounded-full bg-[#f9cf48] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#efc13a]"
                           >
-                            Rate today&apos;s session
+                            Rate today's session
                           </Link>
                         )}
-                      <span>{s.durationMinutes} min</span>
+
+                      <span className="whitespace-nowrap rounded-full bg-[#f5f4f2] px-3 py-2 text-sm">
+                        {s.durationMinutes} min
+                      </span>
+
                       <span
                         className={clsx(
-                          'font-medium',
-                          s.status === 'completed' && 'text-green-600',
-                          s.status === 'partly_completed' && 'text-amber-600',
-                          s.status === 'skipped' && 'text-red-500',
+                          'whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold',
+                          s.status === 'completed' &&
+                            'bg-[#a4e5c7] text-[#145c3d]',
+                          s.status === 'partly_completed' &&
+                            'bg-[#fce8b0] text-[#8a5b00]',
+                          s.status === 'skipped' &&
+                            'bg-[#fee2e2] text-[#b42318]',
+                          s.status === 'planned' && 'bg-[#efeeec] text-[#666]',
                         )}
                       >
                         {statusLabel[s.status]}

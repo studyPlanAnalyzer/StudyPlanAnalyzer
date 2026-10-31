@@ -8,19 +8,26 @@ export default function PayPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+      <header className="relative z-30 bg-[#FAF9F6]">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-5 py-5 sm:gap-6 sm:px-7 lg:px-0">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="flex min-w-0 items-center gap-3 sm:gap-4"
           >
-            StudyPlan Analyzer
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
+              S
+            </div>
+            <span className="truncate text-lg font-bold tracking-tight sm:text-2xl">
+              StudyPlan Analyzer
+            </span>
           </Link>
+
           <Link
             href="/dashboard"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="flex h-12 shrink-0 items-center justify-center rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
           >
-            Back to dashboard
+            <span className="sm:hidden">Dashboard</span>
+            <span className="hidden sm:inline">← Back to dashboard</span>
           </Link>
         </div>
       </header>

@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { api, ApiError } from '@/lib/api-client';
@@ -46,23 +44,21 @@ interface AnalysisResponse {
 
 interface StudentDetail {
   student: { id: string; name: string };
-  exams: { id: string; name: string; examDate: string; isPrimary: boolean }[];
+  exams: {
+    id: string;
+    name: string;
+    examDate: string;
+    isPrimary: boolean;
+  }[];
   currentExamId: string | null;
   latestPlan: { id: string } | null;
 }
-
-const strengthTone: Record<string, 'weak' | 'medium' | 'strong' | 'neutral'> = {
-  weak: 'weak',
-  medium: 'medium',
-  strong: 'strong',
-  unknown: 'neutral',
-};
 
 const trendLabel: Record<string, string> = {
   improving: '↗ Improving',
   declining: '↘ Declining',
   stable: '→ Stable',
-  unknown: 'No trend yet',
+  unknown: '— No trend yet',
 };
 
 const confidenceLabel: Record<string, string> = {
@@ -70,6 +66,17 @@ const confidenceLabel: Record<string, string> = {
   medium: 'Medium confidence',
   high: 'High confidence',
 };
+
+const subjectColors = [
+  'bg-[#F7CC46]',
+  'bg-[#a4e5c7]',
+  'bg-[#a8acf0]',
+  'bg-[#EDB1AA]',
+];
+
+// --------------------------------------------------
+// SUBJECT DETAIL MODAL
+// --------------------------------------------------
 
 function SubjectDetailModal({
   subject,
@@ -79,100 +86,142 @@ function SubjectDetailModal({
   onClose: () => void;
 }) {
   const maxScore = Math.max(...subject.percentHistory, 100);
+
   const sortedTopics = [...subject.topics].sort(
     (a, b) => b.priority - a.priority,
   );
 
+  const strengthStyles: Record<string, string> = {
+    weak: 'border-[#F1B5AE] bg-[#F1B5AE]/20 text-[#A4473D]',
+    medium: 'border-[#F7CC46] bg-[#F7CC46]/20 text-[#8A6900]',
+    strong: 'border-[#9DE1C5] bg-[#9DE1C5]/20 text-[#16865B]',
+    unknown: 'border-[#D5D5D5] bg-[#EEEEEE] text-[#555555]',
+  };
+
+  const topicColors = [
+    'bg-[#F7CC46]',
+    'bg-[#a4e5c7]',
+    'bg-[#a8acf0]',
+    'bg-[#F1B5AE]',
+  ];
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 py-10"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:py-10"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subject-analysis-title"
+        className="relative w-full max-w-2xl rounded-[26px] bg-white p-6 shadow-2xl sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        {/* Header */}
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">
+            <h2
+              id="subject-analysis-title"
+              className="text-2xl font-extrabold tracking-tight text-black sm:text-3xl"
+            >
               {subject.name}
             </h2>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
+
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#65615D]">
               {subject.examWeight} exam weight
             </p>
           </div>
+
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F0EFED] text-lg text-black transition hover:bg-[#E7E5E2] active:scale-95"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        <div className="mb-6 flex flex-wrap items-center gap-4">
+        {/* Performance overview */}
+        <div className="mb-6 flex flex-wrap items-center gap-6">
           <div>
-            <p className="text-sm text-slate-500">Latest score</p>
-            <p className="text-2xl font-semibold text-slate-900">
+            <p className="text-sm text-[#65615D]">Latest score</p>
+
+            <p className="text-2xl font-extrabold text-black">
               {subject.latestPercent !== null
                 ? `${subject.latestPercent}%`
                 : '—'}
-              {subject.isEstimated && (
-                <span className="ml-2 text-xs font-normal text-slate-400">
-                  Estimated
-                </span>
-              )}
             </p>
+
+            {subject.isEstimated && (
+              <span className="text-xs text-[#65615D]">Estimated</span>
+            )}
           </div>
+
           <div>
-            <p className="text-sm text-slate-500">Trend</p>
-            <p className="text-base font-medium text-slate-800">
+            <p className="text-sm text-[#65615D]">Trend</p>
+
+            <p className="text-base font-semibold text-black">
               {trendLabel[subject.trend]}
             </p>
           </div>
+
           {subject.latestConfidence && (
             <div>
-              <p className="text-sm text-slate-500">Confidence</p>
-              <p className="text-base font-medium text-slate-800">
+              <p className="text-sm text-[#65615D]">Confidence</p>
+
+              <p className="text-base font-semibold text-black">
                 {confidenceLabel[subject.latestConfidence]}
               </p>
             </div>
           )}
+
           <div>
-            <p className="text-sm text-slate-500">Strength</p>
-            <Badge tone={strengthTone[subject.strength]}>
+            <p className="text-sm text-[#65615D]">Strength</p>
+
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${
+                strengthStyles[subject.strength] ?? strengthStyles.unknown
+              }`}
+            >
               {subject.strength}
-            </Badge>
+            </span>
           </div>
         </div>
 
+        {/* Low confidence notice */}
         {subject.latestConfidence === 'low' && (
-          <p className="mb-6 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-            ⚠ Marked low confidence — treated as a priority topic even though
-            the score looks strong
+          <p className="mb-6 rounded-2xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#805500]">
+            ⚠ Low confidence — treated as a priority topic even though the score
+            looks strong.
           </p>
         )}
 
+        {/* Test history */}
         <div className="mb-6">
-          <p className="mb-2 text-sm font-medium text-slate-700">
+          <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
             Test history ({subject.percentHistory.length} recorded)
           </p>
+
           {subject.percentHistory.length === 0 ? (
-            <p className="text-sm text-slate-400">No marks logged yet.</p>
+            <p className="text-sm text-[#65615D]">No marks logged yet.</p>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-3">
               {subject.percentHistory.map((score, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 text-xs text-slate-400">
+                  <span className="w-16 shrink-0 text-xs text-[#65615D]">
                     Test {i + 1}
                   </span>
-                  <div className="h-2 flex-1 rounded-full bg-slate-100">
+
+                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#F0EFED]">
                     <div
-                      className="h-2 rounded-full bg-indigo-500"
-                      style={{ width: `${(score / maxScore) * 100}%` }}
+                      className="h-full rounded-full bg-black transition-all"
+                      style={{
+                        width: `${Math.min((score / maxScore) * 100, 100)}%`,
+                      }}
                     />
                   </div>
-                  <span className="w-10 shrink-0 text-right text-xs font-medium text-slate-600">
+
+                  <span className="w-10 shrink-0 text-right text-xs font-bold text-black">
                     {score}%
                   </span>
                 </div>
@@ -181,23 +230,47 @@ function SubjectDetailModal({
           )}
         </div>
 
+        {/* All topics */}
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">
+          <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
             All topics ({sortedTopics.length})
           </p>
+
           {sortedTopics.length === 0 ? (
-            <p className="text-sm text-slate-400">No topics recorded yet.</p>
+            <p className="text-sm text-[#65615D]">No topics recorded yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {sortedTopics.map((t) => (
+              {sortedTopics.map((t, i) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#F0EFED] px-4 py-3"
                 >
-                  <span className="text-sm text-slate-800">{t.name}</span>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
-                    <span>Priority {t.priority}</span>
-                    <span>Difficulty {t.difficultyRating}/5</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                        topicColors[i % topicColors.length]
+                      }`}
+                    />
+
+                    <span className="text-sm font-semibold text-black">
+                      {t.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-[#65615D]">
+                    <span>
+                      Priority{' '}
+                      <strong className="font-semibold text-black">
+                        {t.priority}
+                      </strong>
+                    </span>
+
+                    <span>
+                      Difficulty{' '}
+                      <strong className="font-semibold text-black">
+                        {t.difficultyRating}/5
+                      </strong>
+                    </span>
                   </div>
                 </div>
               ))}
@@ -209,19 +282,31 @@ function SubjectDetailModal({
   );
 }
 
+// --------------------------------------------------
+// MAIN ANALYSIS PAGE
+// --------------------------------------------------
+
 export default function AnalysisPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBufferChoice, setShowBufferChoice] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [pendingExam, setPendingExam] = useState<
     StudentDetail['exams'][number] | null
   >(null);
+
   const [selectedSubject, setSelectedSubject] =
     useState<SubjectAnalysis | null>(null);
+
+  // --------------------------------------------------
+  // FETCH DATA
+  // --------------------------------------------------
 
   useEffect(() => {
     Promise.all([
@@ -237,25 +322,34 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
           router.push('/login');
           return;
         }
+
         setError("Couldn't load the analysis. Please try refreshing.");
       });
   }, [params.id, router]);
 
+  // --------------------------------------------------
+  // GENERATE / REGENERATE STUDY PLAN
+  // --------------------------------------------------
+
   async function handleGeneratePlan() {
     if (!detail) return;
+
     const primaryExam = detail.exams.find((e) => e.id === detail.currentExamId);
+
     if (!primaryExam) {
       setError('Add an exam before generating a plan.');
       return;
     }
 
-    // Regenerating an existing plan reuses its stored end-date choice and
-    // needs no popup; only a brand-new plan asks the buffer-week question.
+    // Existing plan: regenerate using its stored settings.
+
     if (detail.latestPlan) {
       setIsGenerating(true);
       setError(null);
+
       try {
         await api.post(`/api/plans/${detail.latestPlan.id}/regenerate`);
+
         router.push(
           `/students/${params.id}/plan?planId=${detail.latestPlan.id}`,
         );
@@ -268,18 +362,27 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
       } finally {
         setIsGenerating(false);
       }
+
       return;
     }
+
+    // New plan: ask about buffer week.
 
     setPendingExam(primaryExam);
     setShowBufferChoice(true);
   }
 
+  // --------------------------------------------------
+  // BUFFER WEEK CHOICE
+  // --------------------------------------------------
+
   async function handleBufferChoice(useBufferWeek: boolean) {
     if (!pendingExam) return;
+
     setShowBufferChoice(false);
     setIsGenerating(true);
     setError(null);
+
     try {
       const { plan } = await api.post<{ plan: { id: string } }>(
         '/api/plans/generate',
@@ -289,6 +392,7 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
           useBufferWeek,
         },
       );
+
       router.push(`/students/${params.id}/plan?planId=${plan.id}`);
     } catch (err) {
       setError(
@@ -301,20 +405,38 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
     }
   }
 
+  // --------------------------------------------------
+  // EXAM STATUS
+  // --------------------------------------------------
+
   const hasPlan = !!detail?.latestPlan;
+
   const primaryExam =
-    detail?.exams.find((e) => e.id === detail?.currentExamId) ?? null;
+    detail?.exams.find((e) => e.id === detail.currentExamId) ?? null;
+
   const examHasPassed = primaryExam
     ? new Date(primaryExam.examDate).getTime() < Date.now()
     : false;
-  // No active exam: none set up yet, or the last one is over.
+
   const canStartSession = !primaryExam || examHasPassed;
 
+  // --------------------------------------------------
+  // NAVIGATION ITEMS
+  // --------------------------------------------------
+
   const menuItems = [
-    { href: '/dashboard', label: '← Back to dashboard' },
-    { href: `/students/${params.id}/add-test-marks`, label: 'Log a test' },
-    { href: `/students/${params.id}/subjects`, label: 'Subjects & topics' },
-    { href: `/students/${params.id}/tests`, label: 'Test history' },
+    {
+      href: `/students/${params.id}/add-test-marks`,
+      label: 'Log a test',
+    },
+    {
+      href: `/students/${params.id}/subjects`,
+      label: 'Subjects & topics',
+    },
+    {
+      href: `/students/${params.id}/tests`,
+      label: 'Test history',
+    },
     {
       href: `/students/${params.id}/new-exam`,
       label: 'Start new exam cycle',
@@ -329,36 +451,46 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
       : []),
   ];
 
+  // --------------------------------------------------
+  // PAGE UI
+  // --------------------------------------------------
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-          <Link
-            href="/dashboard"
-            className="text-base font-semibold text-indigo-700 sm:text-lg"
-          >
-            StudyPlan Analyzer
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
+      {/* HEADER */}
+      <header className="relative z-30 bg-[#FAF9F6]">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
+          {/* BRAND */}
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
+              S
+            </div>
+
+            <span className="text-xl font-bold tracking-tight sm:text-2xl">
+              StudyPlan Analyzer
+            </span>
           </Link>
 
-          {/* Laptop and up */}
+          {/* Desktop back button */}
           <Link
             href="/dashboard"
-            className="hidden text-sm text-slate-500 hover:text-slate-800 lg:block"
+            className="hidden h-14 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-6 text-base font-semibold transition hover:bg-[#E7E5E2] active:scale-95 lg:flex"
           >
-            ← Back to dashboard
+            <span>←</span>
+            Back to dashboard
           </Link>
 
-          {/* Phones and tablets: hamburger */}
+          {/* Hamburger - mobile and tablet */}
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0EFED] text-black transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:w-14 lg:hidden"
           >
             {menuOpen ? (
               <svg
-                className="h-6 w-6"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -372,7 +504,7 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
               </svg>
             ) : (
               <svg
-                className="h-6 w-6"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -388,15 +520,23 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
           </button>
         </div>
 
-        {/* Phones and tablets: dropdown menu */}
+        {/* Hamburger dropdown */}
         {menuOpen && (
-          <nav className="flex flex-col border-t border-slate-200 bg-white px-4 py-2 sm:px-6 lg:hidden">
+          <nav className="absolute left-0 right-0 top-full mx-5 flex flex-col gap-1 rounded-[26px] bg-white p-3 shadow-2xl sm:mx-7 lg:hidden">
+            <Link
+              href="/dashboard"
+              onClick={() => setMenuOpen(false)}
+              className="rounded-2xl px-4 py-3 text-sm font-semibold transition hover:bg-black/5 sm:text-base"
+            >
+              ← Back to dashboard
+            </Link>
+
             {menuItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className="rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                className="rounded-2xl px-4 py-3 text-sm font-semibold transition hover:bg-black/5 sm:text-base"
               >
                 {item.label}
               </Link>
@@ -405,202 +545,429 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
         )}
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        {!analysis && (
-          <div className="grid gap-4 sm:grid-cols-2">
+      {/* MAIN CONTENT */}
+      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+        {/* ERROR MESSAGE */}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* LOADING STATE */}
+        {!analysis && !error && (
+          <div className="space-y-7">
             <SkeletonCard />
             <SkeletonCard />
           </div>
         )}
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
         {analysis && (
           <>
-            {examHasPassed && primaryExam && (
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-                <p className="text-sm text-amber-800">
-                  <span className="font-medium">{primaryExam.name}</span> was on{' '}
-                  {new Date(primaryExam.examDate).toLocaleDateString()} —
-                  that&apos;s already passed, so its study plan has been
-                  cleared. Start the next exam cycle, or a new academic session,
-                  to get a new plan.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Link href={`/students/${params.id}/new-exam`}>
-                    <Button size="sm">Start new exam cycle</Button>
-                  </Link>
-                  <Link href={`/students/${params.id}/new-session`}>
-                    <Button size="sm" variant="secondary">
-                      Start a new academic session with no previous exams
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  {analysis.student.name}&apos;s performance
+            {/* HERO SECTION */}
+            <section className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0 flex-1">
+                {/* ANIMATED HEADLINE */}
+                <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                  {analysis.student.name}&apos;s performance.
                 </h1>
-                <p className="text-sm text-slate-500">
+
+                <p className="mt-4 max-w-xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                   Grade {analysis.student.grade}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Laptop and up only; phones/tablets use the hamburger menu */}
-                <div className="hidden flex-wrap items-center gap-3 lg:flex">
-                  <Link href={`/students/${params.id}/add-test-marks`}>
-                    <Button variant="ghost">Log a test</Button>
-                  </Link>
-                  <Link href={`/students/${params.id}/subjects`}>
-                    <Button variant="ghost">Subjects &amp; topics</Button>
-                  </Link>
-                  <Link href={`/students/${params.id}/tests`}>
-                    <Button variant="ghost">Test history</Button>
-                  </Link>
-                  <Link href={`/students/${params.id}/new-exam`}>
-                    <Button variant="ghost">Start new exam cycle</Button>
-                  </Link>
-                  {canStartSession && (
-                    <Link href={`/students/${params.id}/new-session`}>
-                      <Button variant="ghost">
-                        Start a new academic session with no previous exams
-                      </Button>
-                    </Link>
-                  )}
-                </div>
 
+              {/* ACTION BUTTONS */}
+              <div className="flex flex-wrap items-center gap-3">
                 {hasPlan && detail?.latestPlan && (
                   <Link
                     href={`/students/${params.id}/plan?planId=${detail.latestPlan.id}`}
+                    className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-6 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-[#E7E5E2] active:scale-95 sm:px-7 sm:py-4 sm:text-base"
                   >
-                    <Button variant="secondary">View current plan</Button>
+                    View current plan
                   </Link>
                 )}
+
                 {!examHasPassed && (
-                  <Button onClick={handleGeneratePlan} isLoading={isGenerating}>
-                    {hasPlan ? 'Regenerate plan' : 'Generate plan'}
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePlan}
+                    disabled={isGenerating}
+                    className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base"
+                  >
+                    {isGenerating
+                      ? 'Generating...'
+                      : hasPlan
+                        ? 'Regenerate plan'
+                        : 'Generate plan'}
+                  </button>
                 )}
               </div>
-            </div>
+            </section>
 
-            <Card className="mb-6">
-              <div className="flex flex-wrap items-center gap-6">
-                <div>
-                  <p className="text-sm text-slate-500">Overall average</p>
-                  <p className="text-3xl font-semibold text-slate-900">
-                    {analysis.overallAveragePercent !== null
-                      ? `${analysis.overallAveragePercent}%`
-                      : '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Assessments recorded</p>
-                  <p className="text-3xl font-semibold text-slate-900">
-                    {analysis.assessmentsCount}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <DailyChallengeStatsCard studentId={params.id} />
-
-            {analysis.subjects.length === 0 ? (
-              <EmptyState
-                title="No subjects yet"
-                description="Add subjects and marks to see a performance breakdown."
-              />
-            ) : (
-              <div className="mb-8 grid gap-4 sm:grid-cols-2">
-                {analysis.subjects.map((s) => (
-                  <Card
-                    key={s.subjectId}
-                    className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md"
-                    onClick={() => setSelectedSubject(s)}
+            {/* EXAM PASSED NOTIFICATION */}
+            {examHasPassed && primaryExam && (
+              <div className="mb-8 rounded-[26px] bg-[#F0EFED] px-5 py-6 sm:mb-10 sm:px-8 sm:py-7">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <svg
+                    className="mt-1 h-7 w-7 shrink-0 text-black"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    aria-hidden="true"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-base font-semibold text-slate-900">
-                          {s.name}
-                        </h3>
-                        <p className="text-xs uppercase tracking-wide text-slate-400">
-                          {s.examWeight} exam weight
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {s.isEstimated && (
-                          <span className="text-xs text-slate-400">
-                            Estimated
-                          </span>
-                        )}
-                        <Badge tone={strengthTone[s.strength]}>
-                          {s.latestPercent !== null
-                            ? `${s.latestPercent}%`
-                            : 'No marks'}
-                        </Badge>
-                      </div>
+                    <rect x="3" y="5" width="18" height="16" rx="2" />
+                    <path strokeLinecap="round" d="M16 3v4M8 3v4M3 10h18" />
+                    <path strokeLinecap="round" d="M9 14l2 2 4-4" />
+                  </svg>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-6 text-black sm:text-base">
+                      <strong className="font-bold">{primaryExam.name}</strong>{' '}
+                      was on{' '}
+                      {new Date(primaryExam.examDate).toLocaleDateString(
+                        'en-GB',
+                      )}{' '}
+                      — that&apos;s already passed, so its study plan has been
+                      cleared. Start the next exam cycle, or a new academic
+                      session, to get a new plan.
+                    </p>
+
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Link
+                        href={`/students/${params.id}/new-exam`}
+                        className="inline-flex items-center justify-center rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-black/80"
+                      >
+                        Start new exam cycle
+                      </Link>
+
+                      <Link
+                        href={`/students/${params.id}/new-session`}
+                        className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-black/5"
+                      >
+                        Start a new academic session with no previous exams
+                      </Link>
                     </div>
-                    <p className="mt-2 text-sm text-slate-500">
-                      {trendLabel[s.trend]}
-                    </p>
-                    {s.latestConfidence === 'low' && (
-                      <p className="mt-1 text-xs font-medium text-amber-600">
-                        ⚠ Marked low confidence — treated as a priority topic
-                        even though the score looks strong
-                      </p>
-                    )}
-                    {s.topics.length > 0 && (
-                      <div className="mt-3">
-                        <p className="mb-1 text-xs font-medium text-slate-500">
-                          Priority topics
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {s.topics.slice(0, 4).map((t) => (
-                            <span
-                              key={t.id}
-                              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-                            >
-                              {t.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <p className="mt-3 text-xs font-medium text-indigo-600">
-                      View full analysis →
-                    </p>
-                  </Card>
-                ))}
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* DESKTOP QUICK NAVIGATION */}
+            <nav className="mb-8 hidden w-full items-stretch gap-2 rounded-full bg-[#F0EFED] p-2 sm:mb-10 lg:flex">
+              {menuItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex min-h-[56px] min-w-0 flex-1 items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold text-black transition hover:bg-white xl:text-base"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* PERFORMANCE SNAPSHOT + DAILY CHALLENGE */}
+            <section className="mb-8 grid items-stretch gap-6 sm:mb-10 lg:grid-cols-[2fr_0.95fr]">
+              {/* PERFORMANCE SNAPSHOT */}
+              <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10">
+                <div className="mb-7 inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                  Performance snapshot
+                </div>
+
+                {/* Overall average */}
+                <div className="flex items-center gap-5 sm:gap-6">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[28px] bg-[#F7CC46] text-2xl font-extrabold sm:h-24 sm:w-24 sm:text-3xl">
+                    {analysis.overallAveragePercent !== null
+                      ? `${analysis.overallAveragePercent}%`
+                      : '—'}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-extrabold tracking-tight sm:text-2xl">
+                      Overall average
+                    </h3>
+
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#F0EFED]">
+                      <div
+                        className="h-full rounded-full bg-black transition-all"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(100, analysis.overallAveragePercent ?? 0),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="my-7 border-t border-black/10" />
+
+                {/* Assessments */}
+                <div className="flex items-center gap-5 sm:gap-6">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[28px] bg-[#a4e5c7] text-4xl font-extrabold sm:h-24 sm:w-24">
+                    {analysis.assessmentsCount}
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-extrabold tracking-tight sm:text-2xl">
+                      Assessments
+                    </h3>
+
+                    <p className="mt-1 text-sm font-semibold text-black/65 sm:text-base">
+                      recorded so far
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* DAILY BRAIN CHALLENGE */}
+              <DailyChallengeStatsCard studentId={params.id} />
+            </section>
+
+            {/* SUBJECTS */}
+            <section className="mb-8 sm:mb-10">
+              <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+                    Subjects
+                  </h2>
+
+                  <p className="mt-1 text-sm text-[#65615D] sm:text-base">
+                    Your performance, progress and priority topics
+                  </p>
+                </div>
+
+                <Link
+                  href={`/students/${params.id}/subjects`}
+                  className="rounded-full bg-[#F0EFED] px-5 py-3 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95"
+                >
+                  Manage subjects →
+                </Link>
+              </div>
+
+              {analysis.subjects.length === 0 ? (
+                <EmptyState
+                  title="No subjects yet"
+                  description="Add subjects and marks to see a performance breakdown."
+                />
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {analysis.subjects.map((s, index) => {
+                    const cardColor =
+                      subjectColors[index % subjectColors.length];
+
+                    const score = s.latestPercent ?? 0;
+
+                    return (
+                      <div
+                        key={s.subjectId}
+                        onClick={() => setSelectedSubject(s)}
+                        className={`group relative flex min-h-[360px] cursor-pointer flex-col rounded-[32px] ${cardColor} p-6 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(0,0,0,0.10)] sm:p-8`}
+                      >
+                        {/* Exam weight and score */}
+                        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+                          <span className="rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                            {s.examWeight} exam weight
+                          </span>
+
+                          <div className="text-xl font-extrabold">
+                            {s.latestPercent !== null
+                              ? `${s.latestPercent}%`
+                              : '—'}
+                          </div>
+                        </div>
+
+                        {/* Subject name */}
+                        <h3 className="mb-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                          {s.name}
+                        </h3>
+
+                        {/* Trend */}
+                        <p className="text-sm font-semibold text-black/70 sm:text-base">
+                          {trendLabel[s.trend]}
+                        </p>
+
+                        {s.isEstimated && (
+                          <p className="mt-1 text-xs font-semibold text-black/60">
+                            Estimated score
+                          </p>
+                        )}
+
+                        {s.latestConfidence === 'low' && (
+                          <p className="mt-2 text-xs font-bold text-black">
+                            ⚠ Low confidence
+                          </p>
+                        )}
+
+                        {/* Progress bar */}
+                        <div className="mb-6 mt-5 h-2.5 overflow-hidden rounded-full bg-white/50">
+                          <div
+                            className="h-full rounded-full bg-black/75 transition-all"
+                            style={{
+                              width: `${Math.max(0, Math.min(100, score))}%`,
+                            }}
+                          />
+                        </div>
+
+                        {/* Priority topics */}
+                        <div className="flex-1">
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide">
+                            Priority topics
+                          </p>
+
+                          {s.topics.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {s.topics.slice(0, 4).map((t) => (
+                                <span
+                                  key={t.id}
+                                  className="rounded-full bg-white/75 px-4 py-2 text-xs font-semibold text-black"
+                                >
+                                  {t.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm font-semibold text-black/50">
+                              No priority topics yet
+                            </p>
+                          )}
+                        </div>
+
+                        {/* View analysis button */}
+                        <button
+                          type="button"
+                          className="mt-7 flex w-fit items-center gap-2 rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition group-hover:bg-black/80"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSubject(s);
+                          }}
+                        >
+                          View full analysis
+                          <span>→</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* TOP 3 TOPICS TO FOCUS ON */}
             {analysis.topPriorityTopics.length > 0 && (
-              <Card>
-                <h3 className="mb-3 text-base font-semibold text-slate-900">
-                  Top 3 topics to focus on
-                </h3>
-                <ol className="flex flex-col gap-2">
-                  {analysis.topPriorityTopics.map((t, i) => (
-                    <li key={t.id} className="flex items-center gap-3 text-sm">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
-                        {i + 1}
-                      </span>
-                      <span className="font-medium text-slate-800">
-                        {t.name}
-                      </span>
-                      <span className="text-slate-400">· {t.subjectName}</span>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
+              <section className="mb-8 rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:mb-10 sm:p-8 lg:p-10">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                      Focus list
+                    </span>
+
+                    <h3 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                      Top 3 topics to focus on
+                    </h3>
+                  </div>
+
+                  <svg
+                    className="mt-1 h-8 w-8 shrink-0 text-black/65"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <circle cx="12" cy="12" r="5" />
+                    <circle cx="12" cy="12" r="1" />
+                  </svg>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {analysis.topPriorityTopics.map((t, i) => {
+                    const numberColors = [
+                      'bg-[#F7CC46]',
+                      'bg-[#a4e5c7]',
+                      'bg-[#a8acf0]',
+                    ];
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex min-h-[66px] items-center gap-4 rounded-full bg-[#F0EFED] px-3 py-2 sm:px-5"
+                      >
+                        <div
+                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
+                            numberColors[i % numberColors.length]
+                          } text-lg font-extrabold text-black`}
+                        >
+                          {i + 1}
+                        </div>
+
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="text-sm font-semibold text-black sm:text-base">
+                            {t.name}
+                          </span>
+
+                          <span className="text-sm text-[#65615D] sm:text-base">
+                            · {t.subjectName}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
           </>
         )}
       </main>
 
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          <Link
+            href="/dashboard"
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">▦</span>
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/plan`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">＋</span>
+            <span className="text-[10px] font-medium">Plan</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/today`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">ϟ</span>
+            <span className="text-[10px] font-medium">Today</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/daily-challenge`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">◧</span>
+            <span className="text-[10px] font-medium">Quiz</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/settings`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">●</span>
+            <span className="text-[10px] font-medium">You</span>
+          </Link>
+        </div>
+      </nav>
+
+      {/* SUBJECT DETAIL MODAL */}
       {selectedSubject && (
         <SubjectDetailModal
           subject={selectedSubject}
@@ -608,6 +975,7 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
         />
       )}
 
+      {/* BUFFER WEEK MODAL */}
       {showBufferChoice && pendingExam && (
         <BufferWeekChoiceModal
           examDateLabel={new Date(pendingExam.examDate).toLocaleDateString()}
@@ -621,6 +989,60 @@ export default function AnalysisPage({ params }: { params: { id: string } }) {
           onCancel={() => setShowBufferChoice(false)}
         />
       )}
+
+      {/* HEADLINE ANIMATION */}
+      <style jsx global>{`
+        @keyframes headline-enter {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes underline-draw {
+          from {
+            transform: scaleX(0);
+          }
+          to {
+            transform: scaleX(1);
+          }
+        }
+
+        .dashboard-headline {
+          animation: headline-enter 700ms ease-out both;
+        }
+
+        .dashboard-headline::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          bottom: -5px;
+          width: 100%;
+          height: 3px;
+          border-radius: 999px;
+          background: #f7cc46;
+          transform: scaleX(0);
+          transform-origin: left;
+          animation: underline-draw 900ms 400ms ease-out forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .dashboard-headline,
+          .dashboard-headline::after {
+            animation: none;
+            opacity: 1;
+            transform: none;
+          }
+
+          .dashboard-headline::after {
+            transform: scaleX(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }

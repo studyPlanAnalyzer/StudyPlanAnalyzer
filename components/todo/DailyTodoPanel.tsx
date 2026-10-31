@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { api, ApiError } from '@/lib/api-client';
 import type { Todo, TodoStats } from '@/lib/types/todo';
 
@@ -123,28 +121,33 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
   const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <Card className="mb-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">
+    <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8">
+      {/* HEADER */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-extrabold tracking-tight sm:text-2xl">
           Today&apos;s to-dos
         </h2>
+
         {stats && (
-          <span className="flex items-center gap-1 text-sm font-medium text-orange-600">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#F7CC46] px-4 py-2 text-sm font-bold text-black">
             🔥 {stats.currentStreak}-day streak
           </span>
         )}
       </div>
 
+      {/* STREAK STATS */}
       {stats && (
-        <div className="mb-4 rounded-lg bg-slate-50 p-3">
-          <p className="text-xs text-slate-500">
+        <div className="mb-6 rounded-[26px] bg-[#F0EFED] p-5">
+          <p className="text-sm font-semibold leading-6 text-black">
             {streakMessage(stats.currentStreak)}
           </p>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-black/65">
             <span>Longest streak: {stats.longestStreak} days</span>
             <span>Today: {stats.todayCompletionRate}% complete</span>
           </div>
-          <div className="mt-2 flex gap-1">
+
+          <div className="mt-4 flex gap-1.5">
             {stats.last7Days.map((d) => {
               const pct = d.total > 0 ? d.completed / d.total : 0;
               const label = new Date(`${d.date}T00:00:00Z`).toLocaleDateString(
@@ -157,21 +160,23 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
               return (
                 <div
                   key={d.date}
-                  className="flex flex-1 flex-col items-center gap-1"
+                  className="flex flex-1 flex-col items-center gap-1.5"
                 >
                   <div
-                    className={`h-6 w-full rounded ${
+                    className={`h-8 w-full rounded-xl ${
                       d.total === 0
-                        ? 'bg-slate-200'
+                        ? 'bg-white'
                         : pct === 1
-                          ? 'bg-emerald-500'
+                          ? 'bg-[#a4e5c7]'
                           : pct > 0
-                            ? 'bg-amber-400'
-                            : 'bg-red-300'
+                            ? 'bg-[#F7CC46]'
+                            : 'bg-[#EDB1AA]'
                     }`}
                     title={`${d.date}: ${d.completed}/${d.total}`}
                   />
-                  <span className="text-[10px] text-slate-400">{label}</span>
+                  <span className="text-[10px] font-bold text-black/50">
+                    {label}
+                  </span>
                 </div>
               );
             })}
@@ -179,27 +184,36 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
         </div>
       )}
 
+      {/* PROGRESS */}
       {totalCount > 0 && (
-        <div className="mb-4">
-          <p className="mb-1 text-xs text-slate-500">
+        <div className="mb-6">
+          <p className="mb-2 text-sm font-semibold text-black/65">
             {completedCount} of {totalCount} done today
           </p>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#F0EFED]">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all"
+              className="h-full rounded-full bg-black transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>
         </div>
       )}
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {/* ERROR */}
+      {error && (
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-      <div className="mb-4 flex gap-2">
+      {/* ADD TASK */}
+      <div className="mb-5 flex gap-2">
         {isAdding ? (
-          <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
-            Adding &ldquo;{newTodo.trim()}&rdquo;...
+          <div className="flex flex-1 items-center gap-3 rounded-full bg-[#F0EFED] px-5 py-3 text-sm font-semibold text-black/55">
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-black/20 border-t-black" />
+            <span className="min-w-0 truncate">
+              Adding &ldquo;{newTodo.trim()}&rdquo;...
+            </span>
           </div>
         ) : (
           <>
@@ -209,23 +223,26 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="Add a task for today..."
               disabled={isAdding}
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+              className="min-w-0 flex-1 rounded-full border border-black/15 bg-white px-5 py-3 text-sm outline-none transition placeholder:text-black/35 focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-[#F0EFED] disabled:text-black/40"
             />
-            <Button
-              size="sm"
+
+            <button
+              type="button"
               onClick={handleAdd}
               disabled={isAdding || !newTodo.trim()}
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-black/80 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add
-            </Button>
+            </button>
           </>
         )}
       </div>
 
+      {/* TODO LIST */}
       {todos === null ? (
-        <p className="text-sm text-slate-400">Loading...</p>
+        <p className="text-sm font-semibold text-[#65615D]">Loading...</p>
       ) : todos.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm leading-6 text-[#65615D]">
           No tasks yet — add your first one above.
         </p>
       ) : (
@@ -235,34 +252,37 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
             return (
               <li
                 key={todo.id}
-                className={`flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 transition-opacity ${
+                className={`flex items-center gap-3 rounded-2xl bg-[#F0EFED] px-4 py-3 transition-opacity ${
                   isPending ? 'opacity-50' : ''
                 }`}
               >
                 {isPending ? (
-                  <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
+                  <span className="h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-black/20 border-t-black" />
                 ) : (
                   <input
                     type="checkbox"
                     checked={todo.isCompleted}
                     onChange={() => handleToggle(todo)}
                     disabled={isPending}
-                    className="h-4 w-4"
+                    className="h-5 w-5 shrink-0 cursor-pointer accent-black"
                   />
                 )}
+
                 <span
-                  className={`flex-1 text-sm ${
+                  className={`min-w-0 flex-1 break-words text-sm font-semibold sm:text-base ${
                     todo.isCompleted
-                      ? 'text-slate-400 line-through'
-                      : 'text-slate-700'
+                      ? 'text-black/40 line-through'
+                      : 'text-black'
                   }`}
                 >
                   {todo.content}
                 </span>
+
                 <button
+                  type="button"
                   onClick={() => handleDelete(todo.id)}
                   disabled={isPending}
-                  className="text-sm text-slate-400 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm text-black/45 transition hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Delete task"
                 >
                   ✕
@@ -272,6 +292,6 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
           })}
         </ul>
       )}
-    </Card>
+    </div>
   );
 }

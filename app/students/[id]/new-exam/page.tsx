@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { subjectClashFor } from '@/lib/subject-name';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { suggestTopicsFor } from '@/lib/common-topics';
@@ -114,6 +111,113 @@ interface NewSubjectEntry {
 
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+const cardClass =
+  'rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8';
+
+const selectClass =
+  'rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-[#F0EFED] disabled:opacity-60';
+
+const pillBase =
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
+const pillBlack = `${pillBase} bg-black text-white hover:bg-black/80`;
+const pillGrey = `${pillBase} bg-[#F0EFED] text-black hover:bg-[#E7E5E2]`;
+const pillWhiteDanger = `${pillBase} bg-white text-red-600 hover:bg-red-50`;
+
+const primaryBtn =
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base';
+
+function ArrowLeftIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function CardTitle({
+  emoji,
+  tone,
+  title,
+  description,
+  action,
+}: {
+  emoji: string;
+  tone: string;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="flex min-w-0 items-start gap-4">
+        <div
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] text-2xl ${tone}`}
+        >
+          {emoji}
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+            {title}
+          </h2>
+
+          {description && (
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#65615D] sm:text-base">
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {action}
+    </div>
+  );
+}
+
+function NoticeCard({
+  emoji,
+  title,
+  children,
+  actions,
+}: {
+  emoji: string;
+  title: string;
+  children: React.ReactNode;
+  actions: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-[#F7CC46] text-3xl">
+          {emoji}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {title}
+          </h2>
+
+          <div className="mt-3 flex max-w-3xl flex-col gap-3 text-sm leading-7 text-[#65615D] sm:text-base">
+            {children}
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">{actions}</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function NewExamPage({ params }: { params: { id: string } }) {
@@ -340,34 +444,71 @@ export default function NewExamPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const errorBox = error && (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <span>{error}</span>
+
+      {detail && canRetry && (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 active:scale-95 disabled:opacity-50"
+        >
+          {isSubmitting ? 'Retrying…' : 'Try again'}
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-10 text-black">
+      {/* HEADER */}
+      <header className="relative z-30 bg-[#FAF9F6]">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-5 py-5 sm:gap-6 sm:px-7 lg:px-0">
+          {/* BRAND */}
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
+            className="flex min-w-0 items-center gap-3 sm:gap-4"
           >
-            StudyPlan Analyzer
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
+              S
+            </div>
+
+            <span className="truncate text-lg font-bold tracking-tight sm:text-2xl">
+              StudyPlan Analyzer
+            </span>
           </Link>
+
+          {/* BACK */}
           <Link
             href={`/students/${params.id}/analysis`}
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
           >
-            Back to analysis
+            <ArrowLeftIcon />
+            <span>
+              Back<span className="hidden sm:inline"> to analysis</span>
+            </span>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      {/* MAIN CONTENT */}
+      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+        {/* LOADING STATE */}
         {!detail && !error && (
-          <div className="flex flex-col gap-3">
+          <div className="space-y-7">
             <SkeletonCard />
             <SkeletonCard />
           </div>
         )}
 
-        {!detail && error && <ErrorMessage message={error} />}
+        {/* LOAD ERROR */}
+        {!detail && error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {detail &&
           (() => {
@@ -379,369 +520,472 @@ export default function NewExamPage({ params }: { params: { id: string } }) {
 
               if (!hasPlan) {
                 return (
-                  <Card className="border-amber-200 bg-amber-50">
-                    <h2 className="text-base font-semibold text-amber-900">
-                      You don&apos;t have a study plan yet
-                    </h2>
-                    <p className="mt-2 text-sm text-amber-800">
-                      Go back and create a plan from the analysis page first.
-                      Your current exam, &ldquo;{activeExam.name}&rdquo;, runs
-                      until {new Date(activeExam.examDate).toLocaleDateString()}
-                      , and a new exam cycle can only start once it&apos;s over.
-                    </p>
-                    <div className="mt-4 flex gap-2">
-                      <Link href={`/students/${params.id}/analysis`}>
-                        <Button size="sm">Go to analysis</Button>
+                  <NoticeCard
+                    emoji="📋"
+                    title="You don't have a study plan yet."
+                    actions={
+                      <Link
+                        href={`/students/${params.id}/analysis`}
+                        className={primaryBtn}
+                      >
+                        Go to analysis
                       </Link>
-                    </div>
-                  </Card>
+                    }
+                  >
+                    <p>
+                      Go back and create a plan from the analysis page first.
+                      Your current exam, &ldquo;
+                      <span className="font-bold text-black">
+                        {activeExam.name}
+                      </span>
+                      &rdquo;, runs until{' '}
+                      {new Date(activeExam.examDate).toLocaleDateString()}, and
+                      a new exam cycle can only start once it&apos;s over.
+                    </p>
+                  </NoticeCard>
                 );
               }
 
               return (
-                <Card className="border-amber-200 bg-amber-50">
-                  <h2 className="text-base font-semibold text-amber-900">
-                    &ldquo;{activeExam.name}&rdquo; is still active
-                  </h2>
-                  <p className="mt-2 text-sm text-amber-800">
+                <NoticeCard
+                  emoji="⏳"
+                  title={`“${activeExam.name}” is still active.`}
+                  actions={
+                    <>
+                      <Link
+                        href={`/students/${params.id}/settings`}
+                        className={primaryBtn}
+                      >
+                        Go to Settings
+                      </Link>
+                      <Link
+                        href={`/students/${params.id}/plan`}
+                        className={`${pillGrey} px-6 py-3.5 sm:px-7 sm:py-4 sm:text-base`}
+                      >
+                        Back to plan
+                      </Link>
+                    </>
+                  }
+                >
+                  <p>
                     It doesn&apos;t end until{' '}
                     {new Date(activeExam.examDate).toLocaleDateString()}. A new
                     exam cycle can only start once the current one is over —
                     otherwise the study plan has no clear exam to build toward.
                   </p>
-                  <p className="mt-2 text-sm text-amber-800">
+                  <p>
                     Need this exam to end sooner instead? Edit its date directly
                     in Settings rather than starting a new cycle.
                   </p>
-                  <div className="mt-4 flex gap-2">
-                    <Link href={`/students/${params.id}/settings`}>
-                      <Button size="sm">Go to Settings</Button>
-                    </Link>
-                    <Link href={`/students/${params.id}/plan`}>
-                      <Button size="sm" variant="secondary">
-                        Back to plan
-                      </Button>
-                    </Link>
-                  </div>
-                </Card>
+                </NoticeCard>
               );
             }
             return (
               <>
-                <h1 className="mb-1 text-2xl font-semibold text-slate-900">
-                  Start a new exam cycle
-                </h1>
-                <p className="mb-6 text-sm text-slate-500">
-                  For {detail.student.name}. This retires the current exam,
-                  records fresh marks, and lets you generate a new plan aimed at
-                  the next test date.
-                </p>
+                {/* HERO SECTION */}
+                <section className="mb-8 sm:mb-10">
+                  <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                    Start a new exam cycle.
+                  </h1>
 
-                <Card className="mb-6">
-                  <h2 className="mb-4 text-base font-semibold text-slate-900">
-                    Next exam
-                  </h2>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Input
-                      label="Exam name"
-                      placeholder="e.g. Final Term 2026"
-                      value={examName}
-                      onChange={(e) => setExamName(e.target.value)}
-                    />
-                    <Input
-                      label="Exam date"
-                      type="date"
-                      value={examDate}
-                      onChange={(e) => setExamDate(e.target.value)}
-                    />
-                  </div>
-                </Card>
-
-                <Card className="mb-6">
-                  <h2 className="mb-4 text-base font-semibold text-slate-900">
-                    Latest marks
-                  </h2>
-                  <p className="mb-3 text-xs text-slate-500">
-                    Enter the latest result for every topic and sub-topic. If
-                    something won&apos;t be in this exam, set its &ldquo;Out
-                    of&rdquo; to 0 and nothing is recorded for it.
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
+                    For {detail.student.name}. This retires the current exam,
+                    records fresh marks, and lets you generate a new plan aimed
+                    at the next test date.
                   </p>
-                  <div className="flex flex-col gap-4">
-                    {detail.subjects.map((subject) => {
-                      const rows = marks.filter(
-                        (m) => m.subjectId === subject.id,
-                      );
-                      let lastGroup: string | null = null;
-                      return (
-                        <div
-                          key={subject.id}
-                          className="rounded-lg border border-slate-200 p-3"
-                        >
-                          <p className="mb-2 text-sm font-semibold text-slate-800">
-                            {subject.name}
-                          </p>
-                          <div className="flex flex-col gap-3">
-                            {rows.map((m) => {
-                              const showGroup =
-                                m.groupName !== null &&
-                                m.groupName !== lastGroup;
-                              lastGroup = m.groupName;
-                              const notInExam = m.fullMarks.trim() === '0';
-                              return (
-                                <div key={m.key}>
-                                  {showGroup && (
-                                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
-                                      {m.groupName}
-                                    </p>
-                                  )}
-                                  <div className="flex flex-wrap items-end gap-3">
-                                    <div className="min-w-[8rem] flex-1 text-sm text-slate-700">
-                                      {m.topicId ? m.label : 'Whole subject'}
-                                      {!m.topicId && (
-                                        <span className="block text-xs text-slate-400">
-                                          No topics yet. Add some on the
-                                          Subjects page for a finer plan.
-                                        </span>
+                </section>
+
+                {errorBox}
+
+                <div className="flex flex-col gap-6">
+                  {/* NEXT EXAM */}
+                  <section className={cardClass}>
+                    <CardTitle
+                      emoji="🎯"
+                      tone="bg-[#a8acf0]"
+                      title="Next exam"
+                      description="What's it called, and when is it?"
+                    />
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Input
+                        label="Exam name"
+                        placeholder="e.g. Final Term 2026"
+                        value={examName}
+                        onChange={(e) => setExamName(e.target.value)}
+                      />
+                      <Input
+                        label="Exam date"
+                        type="date"
+                        value={examDate}
+                        onChange={(e) => setExamDate(e.target.value)}
+                      />
+                    </div>
+                  </section>
+
+                  {/* LATEST MARKS */}
+                  <section className={cardClass}>
+                    <CardTitle
+                      emoji="📝"
+                      tone="bg-[#F7CC46]"
+                      title="Latest marks"
+                      description="Enter the latest result for every topic and sub-topic. If something won't be in this exam, set its “Out of” to 0 and nothing is recorded for it."
+                    />
+
+                    <div className="flex flex-col gap-4">
+                      {detail.subjects.map((subject) => {
+                        const rows = marks.filter(
+                          (m) => m.subjectId === subject.id,
+                        );
+                        let lastGroup: string | null = null;
+                        return (
+                          <div
+                            key={subject.id}
+                            className="rounded-[26px] bg-[#F0EFED] p-5"
+                          >
+                            <p className="mb-4 text-base font-extrabold tracking-tight sm:text-lg">
+                              {subject.name}
+                            </p>
+
+                            <div className="flex flex-col gap-3">
+                              {rows.map((m) => {
+                                const showGroup =
+                                  m.groupName !== null &&
+                                  m.groupName !== lastGroup;
+                                lastGroup = m.groupName;
+                                const notInExam = m.fullMarks.trim() === '0';
+                                return (
+                                  <div key={m.key}>
+                                    {showGroup && (
+                                      <p className="mb-2 mt-1 text-xs font-bold uppercase tracking-wide text-black/50">
+                                        {m.groupName}
+                                      </p>
+                                    )}
+
+                                    <div className="rounded-2xl bg-white p-4">
+                                      <div className="flex flex-wrap items-end gap-3">
+                                        <div className="min-w-[8rem] flex-1 self-center text-sm font-semibold sm:text-base">
+                                          {m.topicId
+                                            ? m.label
+                                            : 'Whole subject'}
+                                          {!m.topicId && (
+                                            <span className="mt-0.5 block text-xs font-normal text-[#65615D]">
+                                              No topics yet. Add some on the
+                                              Subjects page for a finer plan.
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <Input
+                                          label="Out of"
+                                          type="number"
+                                          min={0}
+                                          className="w-24"
+                                          value={m.fullMarks}
+                                          onChange={(e) =>
+                                            updateMark(m.key, {
+                                              fullMarks: e.target.value,
+                                            })
+                                          }
+                                        />
+                                        <Input
+                                          label="Obtained"
+                                          type="number"
+                                          min={0}
+                                          className="w-24"
+                                          disabled={notInExam}
+                                          value={
+                                            notInExam ? '' : m.obtainedMarks
+                                          }
+                                          onChange={(e) =>
+                                            updateMark(m.key, {
+                                              obtainedMarks: e.target.value,
+                                            })
+                                          }
+                                        />
+                                        <div className="flex flex-col gap-1">
+                                          <label className="text-sm font-medium text-black">
+                                            Confidence
+                                          </label>
+                                          <select
+                                            className={selectClass}
+                                            disabled={notInExam}
+                                            value={m.confidenceLevel}
+                                            onChange={(e) =>
+                                              updateMark(m.key, {
+                                                confidenceLevel: e.target
+                                                  .value as MarkEntry['confidenceLevel'],
+                                              })
+                                            }
+                                          >
+                                            <option value="low">Low</option>
+                                            <option value="medium">
+                                              Medium
+                                            </option>
+                                            <option value="high">High</option>
+                                          </select>
+                                        </div>
+                                      </div>
+
+                                      {notInExam && (
+                                        <p className="mt-3 text-xs font-semibold text-[#65615D]">
+                                          Not in this exam. Nothing will be
+                                          recorded for it.
+                                        </p>
                                       )}
                                     </div>
-                                    <Input
-                                      label="Out of"
-                                      type="number"
-                                      min={0}
-                                      className="w-24"
-                                      value={m.fullMarks}
-                                      onChange={(e) =>
-                                        updateMark(m.key, {
-                                          fullMarks: e.target.value,
-                                        })
-                                      }
-                                    />
-                                    <Input
-                                      label="Obtained"
-                                      type="number"
-                                      min={0}
-                                      className="w-24"
-                                      disabled={notInExam}
-                                      value={notInExam ? '' : m.obtainedMarks}
-                                      onChange={(e) =>
-                                        updateMark(m.key, {
-                                          obtainedMarks: e.target.value,
-                                        })
-                                      }
-                                    />
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-sm font-medium text-slate-700">
-                                        Confidence
-                                      </label>
-                                      <select
-                                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-                                        disabled={notInExam}
-                                        value={m.confidenceLevel}
-                                        onChange={(e) =>
-                                          updateMark(m.key, {
-                                            confidenceLevel: e.target
-                                              .value as MarkEntry['confidenceLevel'],
-                                          })
-                                        }
-                                      >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                      </select>
-                                    </div>
                                   </div>
-                                  {notInExam && (
-                                    <p className="mt-1 text-xs text-slate-400">
-                                      Not in this exam. Nothing will be recorded
-                                      for it.
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                    {detail.subjects.length === 0 && (
-                      <p className="text-sm text-slate-400">
-                        No subjects yet — add one below.
-                      </p>
-                    )}
-                  </div>
-                </Card>
+                        );
+                      })}
 
-                <Card className="mb-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-slate-900">
-                      New subjects (optional)
-                    </h2>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={addNewSubject}
-                    >
-                      + Add subject
-                    </Button>
-                  </div>
-                  {newSubjects.length === 0 && (
-                    <p className="text-sm text-slate-400">
-                      Only needed if a subject is being tested for the first
-                      time.
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-3">
-                    {newSubjects.map((s, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-slate-200 p-3"
-                      >
-                        <div className="flex flex-wrap items-end gap-3">
-                          <Input
-                            label="Subject"
-                            className="min-w-[8rem] flex-1"
-                            value={s.name}
-                            onChange={(e) =>
-                              updateNewSubject(i, { name: e.target.value })
-                            }
-                            onBlur={() => refreshTopicSuggestions(i)}
-                          />
-                          <Input
-                            label="Full marks"
-                            type="number"
-                            className="w-28"
-                            value={s.fullMarks}
-                            onChange={(e) =>
-                              updateNewSubject(i, {
-                                fullMarks: Number(e.target.value),
-                              })
-                            }
-                          />
-                          <Input
-                            label="Obtained"
-                            type="number"
-                            className="w-28"
-                            value={s.obtainedMarks}
-                            onChange={(e) =>
-                              updateNewSubject(i, {
-                                obtainedMarks: e.target.value,
-                              })
-                            }
-                          />
-                          <div className="flex flex-col gap-1">
-                            <label className="text-sm font-medium text-slate-700">
-                              Exam weight
-                            </label>
-                            <select
-                              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                              value={s.examWeight}
+                      {detail.subjects.length === 0 && (
+                        <p className="text-sm text-[#65615D]">
+                          No subjects yet — add one below.
+                        </p>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* NEW SUBJECTS */}
+                  <section className={cardClass}>
+                    <CardTitle
+                      emoji="📚"
+                      tone="bg-[#a4e5c7]"
+                      title="New subjects (optional)"
+                      description="Only needed if a subject is being tested for the first time."
+                      action={
+                        <button
+                          type="button"
+                          onClick={addNewSubject}
+                          className={pillGrey}
+                        >
+                          + Add subject
+                        </button>
+                      }
+                    />
+
+                    <div className="flex flex-col gap-4">
+                      {newSubjects.map((s, i) => (
+                        <div
+                          key={i}
+                          className="rounded-[26px] bg-[#F0EFED] p-5"
+                        >
+                          <div className="flex flex-wrap items-end gap-3">
+                            <Input
+                              label="Subject"
+                              className="min-w-[8rem] flex-1"
+                              value={s.name}
+                              onChange={(e) =>
+                                updateNewSubject(i, { name: e.target.value })
+                              }
+                              onBlur={() => refreshTopicSuggestions(i)}
+                            />
+                            <Input
+                              label="Full marks"
+                              type="number"
+                              className="w-28"
+                              value={s.fullMarks}
                               onChange={(e) =>
                                 updateNewSubject(i, {
-                                  examWeight: e.target
-                                    .value as NewSubjectEntry['examWeight'],
+                                  fullMarks: Number(e.target.value),
                                 })
                               }
-                            >
-                              <option value="low">Low</option>
-                              <option value="medium">Medium</option>
-                              <option value="high">High</option>
-                            </select>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeNewSubject(i)}
-                          >
-                            Remove
-                          </Button>
-                          {(() => {
-                            const clash = subjectClashFor(s.name, [
-                              ...detail.subjects.map((sub) => sub.name),
-                              ...newSubjects
-                                .filter((o) => o !== s)
-                                .map((o) => o.name),
-                            ]);
-                            return clash ? (
-                              <p className="w-full text-xs text-red-600">
-                                {clash}
-                              </p>
-                            ) : null;
-                          })()}
-                        </div>
-
-                        {s.name.trim() && (
-                          <div className="mt-3 border-t border-slate-100 pt-3">
-                            <p className="mb-2 text-xs font-medium text-slate-500">
-                              Topics for {s.name} (needed so the plan can
-                              schedule sessions for this subject)
-                            </p>
-                            <div className="flex flex-col gap-2">
-                              {s.topics.map((t, j) => (
-                                <div
-                                  key={j}
-                                  className="flex items-center gap-3"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={t.selected}
-                                    onChange={() => toggleNewSubjectTopic(i, j)}
-                                    className="h-4 w-4 rounded border-slate-300"
-                                  />
-                                  <span className="flex-1 text-sm text-slate-700">
-                                    {t.name}
-                                  </span>
-                                  <select
-                                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
-                                    value={t.difficultyRating}
-                                    onChange={(e) =>
-                                      setNewSubjectTopicDifficulty(
-                                        i,
-                                        j,
-                                        Number(e.target.value),
-                                      )
-                                    }
-                                    disabled={!t.selected}
-                                  >
-                                    {[1, 2, 3, 4, 5].map((d) => (
-                                      <option key={d} value={d}>
-                                        Difficulty {d}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              ))}
-                              {s.topics.length === 0 && (
-                                <p className="text-xs text-amber-600">
-                                  No topics yet — this subject won&apos;t get
-                                  any study sessions until you add at least one.
-                                </p>
-                              )}
-                            </div>
-                            <NewSubjectTopicInput
-                              onAdd={(name) =>
-                                addCustomNewSubjectTopic(i, name)
+                            />
+                            <Input
+                              label="Obtained"
+                              type="number"
+                              className="w-28"
+                              value={s.obtainedMarks}
+                              onChange={(e) =>
+                                updateNewSubject(i, {
+                                  obtainedMarks: e.target.value,
+                                })
                               }
                             />
+                            <div className="flex flex-col gap-1">
+                              <label className="text-sm font-medium text-black">
+                                Exam weight
+                              </label>
+                              <select
+                                className={selectClass}
+                                value={s.examWeight}
+                                onChange={(e) =>
+                                  updateNewSubject(i, {
+                                    examWeight: e.target
+                                      .value as NewSubjectEntry['examWeight'],
+                                  })
+                                }
+                              >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </div>
+                            <button
+                              type="button"
+                              className={pillWhiteDanger}
+                              onClick={() => removeNewSubject(i)}
+                            >
+                              Remove
+                            </button>
+                            {(() => {
+                              const clash = subjectClashFor(s.name, [
+                                ...detail.subjects.map((sub) => sub.name),
+                                ...newSubjects
+                                  .filter((o) => o !== s)
+                                  .map((o) => o.name),
+                              ]);
+                              return clash ? (
+                                <p className="w-full text-sm font-medium text-red-700">
+                                  {clash}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </Card>
 
-                <ErrorMessage
-                  message={error}
-                  onRetry={canRetry ? handleSubmit : undefined}
-                  retrying={isSubmitting}
-                />
+                          {s.name.trim() && (
+                            <div className="mt-5 border-t border-black/10 pt-5">
+                              <p className="mb-3 text-xs font-bold uppercase tracking-wide">
+                                Topics for {s.name}
+                              </p>
+                              <p className="mb-3 text-sm text-[#65615D]">
+                                Needed so the plan can schedule sessions for
+                                this subject.
+                              </p>
 
-                <Button onClick={handleSubmit} isLoading={isSubmitting}>
-                  Save and go to analysis
-                </Button>
+                              <div className="flex flex-col gap-2">
+                                {s.topics.map((t, j) => (
+                                  <div
+                                    key={j}
+                                    className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={t.selected}
+                                      onChange={() =>
+                                        toggleNewSubjectTopic(i, j)
+                                      }
+                                      className="h-5 w-5 shrink-0 cursor-pointer accent-black"
+                                    />
+                                    <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">
+                                      {t.name}
+                                    </span>
+                                    <select
+                                      className={`${selectClass} !py-1.5 text-xs`}
+                                      value={t.difficultyRating}
+                                      onChange={(e) =>
+                                        setNewSubjectTopicDifficulty(
+                                          i,
+                                          j,
+                                          Number(e.target.value),
+                                        )
+                                      }
+                                      disabled={!t.selected}
+                                    >
+                                      {[1, 2, 3, 4, 5].map((d) => (
+                                        <option key={d} value={d}>
+                                          Difficulty {d}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ))}
+
+                                {s.topics.length === 0 && (
+                                  <p className="rounded-2xl bg-[#fff5dc] px-4 py-3 text-sm font-medium text-[#805500]">
+                                    No topics yet — this subject won&apos;t get
+                                    any study sessions until you add at least
+                                    one.
+                                  </p>
+                                )}
+                              </div>
+
+                              <NewSubjectTopicInput
+                                onAdd={(name) =>
+                                  addCustomNewSubjectTopic(i, name)
+                                }
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+
+                {/* SAVE BAR */}
+                <div className="mt-8 flex justify-end sm:mt-10">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className={primaryBtn}
+                  >
+                    {isSubmitting ? 'Saving…' : 'Save and go to analysis'}
+                  </button>
+                </div>
               </>
             );
           })()}
       </main>
+
+      {/* HEADLINE ANIMATION */}
+      <style jsx global>{`
+        @keyframes headline-enter {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes underline-draw {
+          from {
+            transform: scaleX(0);
+          }
+          to {
+            transform: scaleX(1);
+          }
+        }
+
+        .dashboard-headline {
+          animation: headline-enter 700ms ease-out both;
+        }
+
+        .dashboard-headline::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          bottom: -5px;
+          width: 100%;
+          height: 3px;
+          border-radius: 999px;
+          background: #f7cc46;
+          transform: scaleX(0);
+          transform-origin: left;
+          animation: underline-draw 900ms 400ms ease-out forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .dashboard-headline,
+          .dashboard-headline::after {
+            animation: none;
+            opacity: 1;
+            transform: none;
+          }
+
+          .dashboard-headline::after {
+            transform: scaleX(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -749,9 +993,9 @@ export default function NewExamPage({ params }: { params: { id: string } }) {
 function NewSubjectTopicInput({ onAdd }: { onAdd: (name: string) => void }) {
   const [value, setValue] = useState('');
   return (
-    <div className="mt-3 flex gap-2">
+    <div className="mt-4 flex gap-2">
       <input
-        className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500"
+        className="min-w-0 flex-1 rounded-full border border-black/15 bg-white px-5 py-3 text-sm outline-none transition placeholder:text-black/35 focus:border-black focus:ring-2 focus:ring-black/10"
         placeholder="Add a custom topic"
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -763,17 +1007,16 @@ function NewSubjectTopicInput({ onAdd }: { onAdd: (name: string) => void }) {
           }
         }}
       />
-      <Button
+      <button
         type="button"
-        size="sm"
-        variant="secondary"
+        className={pillBlack}
         onClick={() => {
           onAdd(value);
           setValue('');
         }}
       >
         Add
-      </Button>
+      </button>
     </div>
   );
 }

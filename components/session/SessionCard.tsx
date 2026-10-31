@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 
 export interface SessionItem {
   id: string;
@@ -47,6 +45,14 @@ const sessionInstructions: Record<SessionItem['sessionType'], string> = {
   mock: 'Simulate exam conditions — timed, no notes, then check answers.',
 };
 
+// Card colour by session type (planned sessions only).
+const typeColors: Record<SessionItem['sessionType'], string> = {
+  learn: 'bg-[#a8acf0]',
+  practice: 'bg-[#F7CC46]',
+  review: 'bg-[#EDB1AA]',
+  mock: 'bg-[#8fd3f4]',
+};
+
 export function SessionCard({
   session,
   onComplete,
@@ -75,93 +81,112 @@ export function SessionCard({
   return (
     <div
       className={clsx(
-        'rounded-xl border p-4',
+        'rounded-[32px] p-6 sm:p-8',
         isDone
-          ? 'border-green-200 bg-green-50'
+          ? 'bg-[#a4e5c7]'
           : isSkipped
-            ? 'border-slate-200 bg-slate-50 opacity-70'
-            : 'border-slate-200 bg-white',
+            ? 'bg-[#F0EFED] opacity-70'
+            : typeColors[session.sessionType],
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="mb-1 flex items-center gap-2">
-            <Badge tone="brand">{session.sessionType}</Badge>
-            <h3 className="text-sm font-semibold text-slate-900">
-              {session.topicName ?? session.subjectName ?? 'Study session'}
-            </h3>
-          </div>
+      {/* TOP ROW: type, free choice, duration */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+            {session.sessionType}
+          </span>
 
-          <Badge tone="brand">{session.sessionType}</Badge>
-          {session.isFiller && <Badge tone="neutral">Free Choice</Badge>}
-
-          {session.isFiller && !isDone && !isSkipped && (
-            <p className="mt-1 text-xs text-slate-500">
-              Flexible session: study this topic or any other topic you like,
-              then log what you studied.
-            </p>
-          )}
-
-          {session.subjectName && session.topicName && (
-            <p className="text-xs text-slate-400">{session.subjectName}</p>
+          {session.isFiller && (
+            <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-bold uppercase tracking-wide text-black">
+              Free Choice
+            </span>
           )}
         </div>
-        <span className="whitespace-nowrap text-xs text-slate-500">
+
+        <span className="whitespace-nowrap rounded-full bg-white/60 px-4 py-2 text-xs font-bold text-black">
           {session.durationMinutes} min
         </span>
       </div>
 
-      <p className="mt-2 text-sm text-slate-600">
+      {/* TITLE */}
+      <h3 className="mt-5 text-2xl font-extrabold tracking-tight sm:text-3xl">
+        {session.topicName ?? session.subjectName ?? 'Study session'}
+      </h3>
+
+      {session.subjectName && session.topicName && (
+        <p className="mt-1 text-sm font-semibold text-black/60 sm:text-base">
+          {session.subjectName}
+        </p>
+      )}
+
+      {session.isFiller && !isDone && !isSkipped && (
+        <p className="mt-3 text-sm leading-6 text-black/70">
+          Flexible session: study this topic or any other topic you like, then
+          log what you studied.
+        </p>
+      )}
+
+      <p className="mt-3 text-sm leading-6 text-black/80 sm:text-base">
         {sessionInstructions[session.sessionType]}
       </p>
 
+      {/* STATUS */}
       {isDone && (
-        <p className="mt-3 text-sm font-medium text-green-700">
-          {session.status === 'completed' ? 'Completed' : 'Partly completed'}
+        <p className="mt-5 inline-flex rounded-full bg-white/70 px-5 py-2.5 text-sm font-bold text-black">
+          ✓ {session.status === 'completed' ? 'Completed' : 'Partly completed'}
           {session.rating
             ? ` · rated ${RATINGS.find((r) => r.value === session.rating)?.label}`
             : ''}
         </p>
       )}
       {isSkipped && (
-        <p className="mt-3 text-sm font-medium text-slate-500">Skipped</p>
+        <p className="mt-5 inline-flex rounded-full bg-white/70 px-5 py-2.5 text-sm font-bold text-black/70">
+          Skipped
+        </p>
       )}
 
+      {/* RATING + ACTIONS */}
       {!isDone && !isSkipped && (
-        <div className="mt-4 flex flex-col gap-3">
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-slate-500">
-              How did it go?
-            </p>
-            <div className="flex gap-2">
-              {RATINGS.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setRating(r.value)}
-                  className={clsx(
-                    'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                    r.tone,
-                    rating === r.value && 'ring-2 ring-offset-1 ring-slate-400',
-                  )}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
+        <div className="mt-6 rounded-[26px] bg-white/60 p-5 sm:p-6">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-black">
+            How did it go?
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            {RATINGS.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setRating(r.value)}
+                aria-pressed={rating === r.value}
+                className={clsx(
+                  'rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95',
+                  r.tone,
+                  rating === r.value && 'ring-2 ring-black ring-offset-2',
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
               onClick={handleComplete}
-              disabled={rating === null}
-              isLoading={isSaving}
+              disabled={rating === null || isSaving}
+              className="inline-flex items-center justify-center rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-black/80 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Mark completed
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onSkip()}>
+              {isSaving ? 'Saving…' : 'Mark completed'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSkip()}
+              className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-black/5 active:scale-95"
+            >
               Skip
-            </Button>
+            </button>
           </div>
         </div>
       )}

@@ -3,11 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { TopicScopeSelector } from '@/components/session/TopicScopeSelector';
 import { api, ApiError } from '@/lib/api-client';
 
@@ -65,13 +62,81 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = {
   high: 'High confidence',
 };
 
-const linkBtn =
-  'text-sm font-medium text-slate-500 hover:text-slate-800 disabled:opacity-50';
-const dangerBtn =
-  'text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50';
+const cardColors = [
+  'bg-[#F7CC46]',
+  'bg-[#a4e5c7]',
+  'bg-[#a8acf0]',
+  'bg-[#EDB1AA]',
+];
+
+const pillBase =
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
+const pillBlack = `${pillBase} bg-black text-white hover:bg-black/80`;
+const pillWhite = `${pillBase} bg-white text-black hover:bg-black/5`;
+const pillDanger = `${pillBase} bg-white text-red-600 hover:bg-red-50`;
+const pillGrey = `${pillBase} bg-[#F0EFED] text-black hover:bg-[#E7E5E2]`;
+
+const iconBtn =
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50';
 
 const sameIds = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
+
+function PencilIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
 
 export default function TestHistoryPage({
   params,
@@ -215,172 +280,310 @@ export default function TestHistoryPage({
     student?.subjects.find((s) => s.id === id)?.name ?? 'Deleted subject';
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-lg font-semibold text-indigo-700"
-          >
-            StudyPlan Analyzer
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
+      {/* HEADER */}
+      <header className="relative z-30 bg-[#FAF9F6]">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
+          {/* BRAND */}
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
+              S
+            </div>
+
+            <span className="text-xl font-bold tracking-tight sm:text-2xl">
+              StudyPlan Analyzer
+            </span>
           </Link>
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <Link
-              href={`/students/${params.id}/plan`}
-              className="hover:text-slate-800"
-            >
-              Plan
-            </Link>
-            <Link
-              href={`/students/${params.id}/subjects`}
-              className="hover:text-slate-800"
-            >
-              Subjects
-            </Link>
-            <Link
-              href={`/students/${params.id}/add-test-marks`}
-              className="hover:text-slate-800"
-            >
-              Log a test
-            </Link>
-          </div>
+
+          {/* BACK BUTTON */}
+          <Link
+            href={`/students/${params.id}/plan`}
+            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
+          >
+            <ArrowLeftIcon />
+            <span>
+              Back<span className="hidden sm:inline"> to plan</span>
+            </span>
+          </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      {/* MAIN CONTENT */}
+      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+        {/* LOADING STATE */}
         {!tests && !error && (
-          <div className="flex flex-col gap-3">
+          <div className="space-y-7">
             <SkeletonCard />
             <SkeletonCard />
+          </div>
+        )}
+
+        {/* LOAD ERROR (nothing else to show) */}
+        {!tests && error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
           </div>
         )}
 
         {tests && student && (
           <>
-            <h1 className="mb-1 text-2xl font-semibold text-slate-900">
-              Test history
-            </h1>
-            <p className="mb-6 text-sm text-slate-500">
-              {student.student.name}. Fix a wrong mark, change a confidence
-              level, or remove a test entered by mistake. Nothing changes until
-              you save everything at once, and then the plan is updated.
-            </p>
+            {/* HERO SECTION */}
+            <section className="mb-8 sm:mb-10">
+              <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                Test history.
+              </h1>
 
-            {hasDraft && (
-              <Card className="mb-6 border-indigo-200 bg-indigo-50">
-                <p className="text-sm font-medium text-indigo-900">
-                  {changeCount} change{changeCount === 1 ? '' : 's'} waiting
-                </p>
-                <p className="mt-1 text-sm text-indigo-800">
-                  They are not saved yet. Save them all together
-                  {student.latestPlan ? ' and the plan is updated' : ''}, or
-                  discard them.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={saveAll} isLoading={isSaving}>
-                    {isSaving
-                      ? 'Saving…'
-                      : student.latestPlan
-                        ? 'Save changes and update plan'
-                        : 'Save changes'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={discardAll}
-                    disabled={isSaving}
-                  >
-                    Discard all
-                  </Button>
-                </div>
-              </Card>
-            )}
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
+                {student.student.name}. Fix a wrong mark, change a confidence
+                level, or remove a test entered by mistake. Nothing changes
+                until you save everything at once, and then the plan is updated.
+              </p>
+            </section>
 
+            {/* NOTICE */}
             {notice && !hasDraft && (
-              <p className="mb-4 text-sm text-green-700">
+              <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
                 {notice}{' '}
                 {student.latestPlan && (
                   <Link
                     href={`/students/${params.id}/plan`}
-                    className="underline"
+                    className="font-semibold underline underline-offset-4"
                   >
                     View plan
                   </Link>
                 )}
-              </p>
+              </div>
             )}
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {/* ERROR MESSAGE */}
+            {error && (
+              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
             {tests.length === 0 ? (
-              <EmptyState
-                title="No tests logged yet"
-                description="Marks you enter will show up here so you can correct them later."
-                action={
-                  <Link href={`/students/${params.id}/add-test-marks`}>
-                    <Button>Log a test</Button>
-                  </Link>
-                }
-              />
+              <div className="rounded-[32px] bg-white px-6 py-16 text-center shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:py-20">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-[#F7CC46] text-4xl">
+                  📝
+                </div>
+
+                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  No tests logged yet
+                </h2>
+
+                <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#65615D] sm:text-base">
+                  Marks you enter will show up here so you can correct them
+                  later.
+                </p>
+
+                <Link
+                  href={`/students/${params.id}/add-test-marks`}
+                  className="mt-7 inline-flex rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-black/80 active:scale-95"
+                >
+                  + Log a test
+                </Link>
+              </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {tests.map((t) => (
-                  <TestCard
-                    key={t.id}
-                    test={t}
-                    subjectName={subjectName}
-                    topics={student.topics}
-                    testDraft={testEdits[t.id]}
-                    markEdits={markEdits}
-                    deletedMarks={deletedMarks}
-                    isDeleted={deletedTests.includes(t.id)}
-                    disabled={isSaving}
-                    onStageTest={(draft) =>
-                      setTestEdits((prev) => {
-                        const next = { ...prev };
-                        if (draft) next[t.id] = draft;
-                        else delete next[t.id];
-                        return next;
-                      })
-                    }
-                    onDeleteTest={() =>
-                      setDeletedTests((prev) => [...prev, t.id])
-                    }
-                    onUndoTest={() => {
-                      setDeletedTests((prev) => prev.filter((x) => x !== t.id));
-                      setDeletedMarks((prev) =>
-                        prev.filter((x) => !t.marks.some((m) => m.id === x)),
-                      );
-                    }}
-                    onStageMark={(markId, draft) =>
-                      setMarkEdits((prev) => {
-                        const next = { ...prev };
-                        if (draft) next[markId] = draft;
-                        else delete next[markId];
-                        return next;
-                      })
-                    }
-                    onDeleteMark={(markId) =>
-                      setDeletedMarks((prev) => [...prev, markId])
-                    }
-                    onUndoMark={(markId) =>
-                      setDeletedMarks((prev) =>
-                        prev.filter((x) => x !== markId),
-                      )
-                    }
-                  />
-                ))}
+              <div className="rounded-[32px] bg-white p-4 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-7 lg:p-10">
+                {/* TEST CARDS */}
+                <div className="flex flex-col gap-6">
+                  {tests.map((t, index) => (
+                    <TestCard
+                      key={t.id}
+                      test={t}
+                      colorClass={cardColors[index % cardColors.length]}
+                      subjectName={subjectName}
+                      topics={student.topics}
+                      testDraft={testEdits[t.id]}
+                      markEdits={markEdits}
+                      deletedMarks={deletedMarks}
+                      isDeleted={deletedTests.includes(t.id)}
+                      disabled={isSaving}
+                      onStageTest={(draft) =>
+                        setTestEdits((prev) => {
+                          const next = { ...prev };
+                          if (draft) next[t.id] = draft;
+                          else delete next[t.id];
+                          return next;
+                        })
+                      }
+                      onDeleteTest={() =>
+                        setDeletedTests((prev) => [...prev, t.id])
+                      }
+                      onUndoTest={() => {
+                        setDeletedTests((prev) =>
+                          prev.filter((x) => x !== t.id),
+                        );
+                        setDeletedMarks((prev) =>
+                          prev.filter((x) => !t.marks.some((m) => m.id === x)),
+                        );
+                      }}
+                      onStageMark={(markId, draft) =>
+                        setMarkEdits((prev) => {
+                          const next = { ...prev };
+                          if (draft) next[markId] = draft;
+                          else delete next[markId];
+                          return next;
+                        })
+                      }
+                      onDeleteMark={(markId) =>
+                        setDeletedMarks((prev) => [...prev, markId])
+                      }
+                      onUndoMark={(markId) =>
+                        setDeletedMarks((prev) =>
+                          prev.filter((x) => x !== markId),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+
+                {/* SAVE BAR */}
+                <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-black/65 sm:text-base">
+                    {hasDraft
+                      ? `${changeCount} change${
+                          changeCount === 1 ? '' : 's'
+                        } waiting — not saved yet${
+                          student.latestPlan ? ', plan updates on save' : ''
+                        }.`
+                      : ''}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                    {hasDraft && (
+                      <button
+                        type="button"
+                        onClick={discardAll}
+                        disabled={isSaving}
+                        className={`${pillGrey} px-7 py-3.5 sm:py-4 sm:text-base`}
+                      >
+                        Discard all
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={saveAll}
+                      disabled={!hasDraft || isSaving}
+                      className={`${pillBlack} px-7 py-3.5 sm:py-4 sm:text-base`}
+                    >
+                      {isSaving ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          <Link
+            href="/dashboard"
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">▦</span>
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/plan`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">＋</span>
+            <span className="text-[10px] font-medium">Plan</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/today`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">ϟ</span>
+            <span className="text-[10px] font-medium">Today</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/daily-challenge`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">◧</span>
+            <span className="text-[10px] font-medium">Quiz</span>
+          </Link>
+
+          <Link
+            href={`/students/${params.id}/settings`}
+            className="flex flex-col items-center gap-1 py-3 text-black/35"
+          >
+            <span className="text-xl">●</span>
+            <span className="text-[10px] font-medium">You</span>
+          </Link>
+        </div>
+      </nav>
+
+      {/* HEADLINE ANIMATION */}
+      <style jsx global>{`
+        @keyframes headline-enter {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes underline-draw {
+          from {
+            transform: scaleX(0);
+          }
+          to {
+            transform: scaleX(1);
+          }
+        }
+
+        .dashboard-headline {
+          animation: headline-enter 700ms ease-out both;
+        }
+
+        .dashboard-headline::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          bottom: -5px;
+          width: 100%;
+          height: 3px;
+          border-radius: 999px;
+          background: #f7cc46;
+          transform: scaleX(0);
+          transform-origin: left;
+          animation: underline-draw 900ms 400ms ease-out forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .dashboard-headline,
+          .dashboard-headline::after {
+            animation: none;
+            opacity: 1;
+            transform: none;
+          }
+
+          .dashboard-headline::after {
+            transform: scaleX(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
 
 function TestCard({
   test,
+  colorClass,
   subjectName,
   topics,
   testDraft,
@@ -396,6 +599,7 @@ function TestCard({
   onUndoMark,
 }: {
   test: AssessmentRow;
+  colorClass: string;
   subjectName: (id: string) => string;
   topics: Topic[];
   testDraft: TestDraft | undefined;
@@ -441,80 +645,84 @@ function TestCard({
 
   if (wholeTestGone) {
     return (
-      <Card className="border-red-200 bg-red-50">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-[32px] border border-red-200 bg-red-50 p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-500 line-through">
+            <h2 className="text-2xl font-extrabold tracking-tight text-black/45 line-through sm:text-3xl">
               {test.assessmentName}
             </h2>
-            <p className="text-xs text-red-700">
+            <p className="mt-1 text-sm font-semibold text-red-700">
               This test will be deleted when you save.
             </p>
           </div>
+
           <button
             type="button"
-            className={linkBtn}
+            className={pillWhite}
             disabled={disabled}
             onClick={onUndoTest}
           >
             Undo
           </button>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className={testDraft ? 'border-indigo-200' : undefined}>
+    <div className={`rounded-[32px] ${colorClass} p-6 sm:p-8`}>
       {isEditing ? (
-        <div className="flex flex-wrap items-end gap-3">
-          <Input
-            label="Test name"
-            className="min-w-[8rem] flex-1"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Input
-            label="Test date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <Button size="sm" onClick={stage}>
-            Save
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              setName(current.assessmentName);
-              setDate(current.assessmentDate);
-              setIsEditing(false);
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">
-              {current.assessmentName}
-              {testDraft && (
-                <span className="ml-2 text-xs font-normal text-indigo-600">
-                  · edited
-                </span>
-              )}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {new Date(current.assessmentDate).toLocaleDateString()} ·{' '}
-              {keptMarks.length} subject{keptMarks.length === 1 ? '' : 's'}
-            </p>
+        <div className="rounded-[26px] bg-white/60 p-5 sm:p-6">
+          <div className="flex flex-wrap items-end gap-3">
+            <Input
+              label="Test name"
+              className="min-w-[8rem] flex-1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Input
+              label="Test date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" className={pillBlack} onClick={stage}>
+              Save
+            </button>
             <button
               type="button"
-              className={linkBtn}
+              className={pillWhite}
+              onClick={() => {
+                setName(current.assessmentName);
+                setDate(current.assessmentDate);
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+              {new Date(current.assessmentDate).toLocaleDateString()} ·{' '}
+              {keptMarks.length} subject{keptMarks.length === 1 ? '' : 's'}
+              {testDraft && ' · edited'}
+            </span>
+
+            <h2 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl">
+              {current.assessmentName}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className={pillBlack}
               disabled={disabled}
               onClick={() => {
                 setName(current.assessmentName);
@@ -522,21 +730,24 @@ function TestCard({
                 setIsEditing(true);
               }}
             >
+              <PencilIcon className="h-4 w-4" />
               Edit
             </button>
+
             <button
               type="button"
-              className={dangerBtn}
+              className={pillDanger}
               disabled={disabled}
               onClick={onDeleteTest}
             >
+              <TrashIcon className="h-4 w-4" />
               Delete test
             </button>
           </div>
         </div>
       )}
 
-      <ul className="mt-4 flex flex-col divide-y divide-slate-100 border-t border-slate-100">
+      <ul className="mt-6 flex flex-col divide-y divide-black/10 rounded-[26px] bg-white/60 px-5 py-2 sm:px-7">
         {sortedMarks.map((m) => (
           <MarkItem
             key={m.id}
@@ -553,12 +764,12 @@ function TestCard({
           />
         ))}
         {sortedMarks.length === 0 && (
-          <li className="py-3 text-sm text-slate-400">
+          <li className="py-4 text-sm font-semibold text-black/50">
             No marks are recorded for this test.
           </li>
         )}
       </ul>
-    </Card>
+    </div>
   );
 }
 
@@ -652,13 +863,19 @@ function MarkItem({
 
   if (isDeleted) {
     return (
-      <li className="flex flex-wrap items-center justify-between gap-3 py-3">
-        <p className="text-sm text-slate-400 line-through">{subjectName}</p>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-red-600">Will be deleted</span>
+      <li className="flex flex-wrap items-center justify-between gap-3 py-4">
+        <p className="text-base font-bold text-black/40 line-through">
+          {subjectName}
+        </p>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-red-600">
+            Will be deleted
+          </span>
+
           <button
             type="button"
-            className={linkBtn}
+            className={`${pillGrey} px-5 py-2`}
             disabled={disabled}
             onClick={onUndo}
           >
@@ -671,8 +888,9 @@ function MarkItem({
 
   if (isEditing) {
     return (
-      <li className="py-3">
-        <p className="mb-2 text-sm font-medium text-slate-700">{subjectName}</p>
+      <li className="py-4">
+        <p className="mb-3 text-base font-bold">{subjectName}</p>
+
         <div className="flex flex-wrap items-end gap-3">
           <Input
             label="Marks obtained"
@@ -691,11 +909,9 @@ function MarkItem({
             onChange={(e) => setFull(e.target.value)}
           />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">
-              Confidence
-            </label>
+            <label className="text-sm font-medium text-black">Confidence</label>
             <select
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm"
               value={confidence}
               onChange={(e) => setConfidence(e.target.value as Confidence)}
             >
@@ -705,74 +921,91 @@ function MarkItem({
             </select>
           </div>
         </div>
+
         <TopicScopeSelector
           topics={subjectTopics}
           selectedTopicIds={topicIds}
           onChange={setTopicIds}
         />
-        {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
-        <div className="mt-3 flex gap-2">
-          <Button size="sm" onClick={stage}>
+
+        {formError && (
+          <p className="mt-3 text-sm font-medium text-red-700">{formError}</p>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button type="button" className={pillBlack} onClick={stage}>
             Save
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
+          </button>
+          <button
+            type="button"
+            className={pillWhite}
             onClick={() => setIsEditing(false)}
           >
             Cancel
-          </Button>
+          </button>
         </div>
       </li>
     );
   }
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-3 py-3">
-      <div>
-        <p className="text-sm font-medium text-slate-800">
-          {subjectName}
-          {draft && (
-            <span className="ml-2 text-xs font-normal text-indigo-600">
-              · edited
-            </span>
+    <li className="py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-base font-bold sm:text-lg">
+            {subjectName}
+            {draft && (
+              <span className="ml-2 text-xs font-semibold text-black/55">
+                · edited
+              </span>
+            )}
+          </p>
+
+          <p className="mt-1 text-sm font-semibold sm:text-base">
+            {current.obtainedMarks} / {current.fullMarks} ({percent}%) ·{' '}
+            {CONFIDENCE_LABEL[current.confidenceLevel]}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            aria-label={`Edit ${subjectName}`}
+            className={`${iconBtn} text-black/70`}
+            disabled={disabled}
+            onClick={openEditor}
+          >
+            <PencilIcon />
+          </button>
+
+          <button
+            type="button"
+            aria-label={`Delete ${subjectName}`}
+            className={`${iconBtn} text-red-600`}
+            disabled={disabled}
+            onClick={onDelete}
+          >
+            <TrashIcon />
+          </button>
+        </div>
+      </div>
+
+      {(scopedNames.length > 0 || isOnlyMark) && (
+        <p className="mt-3 border-t border-black/10 pt-3 text-sm leading-6 text-black/55">
+          {scopedNames.length > 0 && (
+            <>
+              Topic-only test: {scopedNames.join(', ')}. It updates those
+              topics, not the subject&apos;s overall score.{' '}
+            </>
+          )}
+          {isOnlyMark && (
+            <>
+              This is the only subject in the test, so deleting it deletes the
+              whole test.
+            </>
           )}
         </p>
-        <p className="text-xs text-slate-500">
-          {current.obtainedMarks} / {current.fullMarks} ({percent}%) ·{' '}
-          {CONFIDENCE_LABEL[current.confidenceLevel]}
-        </p>
-        {scopedNames.length > 0 && (
-          <p className="mt-1 text-xs text-slate-400">
-            Topic-only test: {scopedNames.join(', ')}. It updates those topics,
-            not the subject&apos;s overall score.
-          </p>
-        )}
-        {isOnlyMark && (
-          <p className="mt-1 text-xs text-slate-400">
-            This is the only subject in the test, so deleting it deletes the
-            whole test.
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          className={linkBtn}
-          disabled={disabled}
-          onClick={openEditor}
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          className={dangerBtn}
-          disabled={disabled}
-          onClick={onDelete}
-        >
-          Delete
-        </button>
-      </div>
+      )}
     </li>
   );
 }
