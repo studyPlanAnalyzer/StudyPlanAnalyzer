@@ -286,7 +286,9 @@ function SubjectDetailModal({
 // MAIN ANALYSIS PAGE
 // --------------------------------------------------
 
-export default function AnalysisPage(props: { params: Promise<{ id: string }> }) {
+export default function AnalysisPage(props: {
+  params: Promise<{ id: string }>;
+}) {
   const params = use(props.params);
   const router = useRouter();
 
