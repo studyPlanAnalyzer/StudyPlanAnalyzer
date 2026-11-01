@@ -2,12 +2,20 @@
 
 import { subjectClashFor } from '@/lib/subject-name';
 import { useCallback, useEffect, useState, use } from 'react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { suggestTopicsFor } from '@/lib/common-topics';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { cardClass } from '@/components/ui/Card';
+import { Tag } from '@/components/ui/Tag';
+import { Field, Select, fieldClass, fieldOnColourClass, fieldOnColourShapeClass } from '@/components/ui/Field';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, headerLinkClass } from '@/components/ui/AppHeader';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { Notice } from '@/components/ui/Notice';
 
 type ExamWeight = 'low' | 'medium' | 'high';
 
@@ -102,130 +110,11 @@ const CARD_COLORS = [
   'bg-[#9ED0F2]', // sky
 ];
 
-// Page-level CSS: the headline animation (same as the dashboard), and a
-// custom dropdown arrow so every <select> looks like the text inputs.
-const PAGE_CSS = `
-.sp-root { color-scheme: light; }
-
-@keyframes sp-headline-enter {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes sp-underline-draw {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-.sp-headline { animation: sp-headline-enter 700ms ease-out both; }
-.sp-headline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -5px;
-  width: 100%;
-  height: 3px;
-  border-radius: 999px;
-  background: #f7cc46;
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: sp-underline-draw 900ms 400ms ease-out forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sp-headline, .sp-headline::after { animation: none; opacity: 1; transform: none; }
-  .sp-headline::after { transform: scaleX(1); }
-}
-
-.sp-select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 12px;
-}
-`;
-
-// Every form control is 38px tall, 14px text, pill-shaped.
-// Inputs/selects on the white panel (Add a subject):
-const fieldCls =
-  'h-[38px] w-full min-w-0 rounded-full border-[1.5px] border-[#dcdad3] bg-white px-4 text-sm font-semibold text-black outline-none placeholder:font-semibold placeholder:text-[#8f8f8f] focus:border-black';
-const panelSelectCls =
-  'sp-select h-[38px] w-full rounded-full border-[1.5px] border-[#dcdad3] bg-white pl-4 pr-9 text-sm font-semibold text-black outline-none focus:border-black';
-// Inputs/selects sitting on a coloured card (topics, sub-topics):
-const topicFieldCls =
-  'h-[38px] w-full min-w-0 rounded-full border-[1.5px] border-black/10 bg-white px-4 text-sm font-medium text-black outline-none placeholder:font-normal placeholder:text-[#8f8f8f] focus:border-black/40';
-const topicSelectCls =
-  'sp-select h-[38px] rounded-full border-[1.5px] border-black/10 bg-white pl-4 pr-9 text-sm font-medium text-black outline-none focus:border-black/40';
 
 /* ------------------------------------------------------------------ */
 /* Small building blocks                                               */
 /* ------------------------------------------------------------------ */
 
-type Tone = 'black' | 'white' | 'outline' | 'yellow' | 'danger';
-type Size = 'sm' | 'md';
-
-const TONE: Record<Tone, string> = {
-  black: 'bg-black text-white hover:bg-black/80',
-  white: 'bg-white text-black hover:bg-white/80',
-  outline:
-    'border-[1.5px] border-[#dcdad3] bg-white text-black hover:bg-[#f4f3ee]',
-  yellow:
-    'bg-[#F7CC46] text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)]',
-  danger: 'border-[1.5px] border-red-200 bg-white text-red-600 hover:bg-red-50',
-};
-// md is the standard button: 38px tall, 16px side padding, 14px semibold.
-const SIZE: Record<Size, string> = {
-  sm: 'h-8 px-3.5 text-[13px]',
-  md: 'h-[38px] px-4 text-sm',
-};
-
-function PillButton({
-  tone = 'black',
-  size = 'md',
-  loading = false,
-  className = '',
-  disabled,
-  children,
-  ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  tone?: Tone;
-  size?: Size;
-  loading?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled || loading}
-      className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${TONE[tone]} ${SIZE[size]} ${className}`}
-      {...rest}
-    >
-      {loading && (
-        <svg
-          className="h-4 w-4 animate-spin"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <circle
-            cx="12"
-            cy="12"
-            r="9"
-            stroke="currentColor"
-            strokeOpacity="0.3"
-            strokeWidth="3"
-          />
-          <path
-            d="M21 12a9 9 0 0 0-9-9"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </svg>
-      )}
-      {children}
-    </button>
-  );
-}
 
 function IconBtn({
   label,
@@ -244,7 +133,7 @@ function IconBtn({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`rounded-full p-0.5 transition-opacity hover:opacity-60 ${
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/5 ${
         danger ? 'text-red-600' : 'text-black/70'
       }`}
     >
@@ -253,34 +142,9 @@ function IconBtn({
   );
 }
 
-function Badge({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-block rounded-full bg-black px-3 py-1 text-[11px] font-bold uppercase leading-4 tracking-[0.15em] text-white">
-      {children}
-    </span>
-  );
-}
-
-function Field({
-  label,
-  className = '',
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-sm font-semibold text-black">{label}</span>
-      {children}
-    </label>
-  );
-}
-
 function Unsaved() {
   return (
-    <span className="ml-1 inline-block rounded-full bg-white px-2 py-0.5 align-middle text-[10px] font-bold uppercase leading-3 tracking-wider text-black">
+    <span className="ml-1 inline-block rounded-full bg-white px-2.5 py-0.5 align-middle text-sm font-bold uppercase tracking-wide text-black">
       unsaved
     </span>
   );
@@ -355,7 +219,6 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
   const [planSkipped, setPlanSkipped] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [isSaving, setIsSaving] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -545,97 +408,17 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
   ];
 
   return (
-    <div className="sp-root min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-16 text-black sm:pb-8">
-      <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
+    <PageShell className="pb-16 sm:pb-8">
 
-      {/* HEADER (same as the dashboard) */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
-
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
+      <AppHeader menu={{ items: navItems, breakpoint: 'lg' }}>
+        {navItems.map((item) => (
+          <Link key={item.href} href={item.href} className={headerLinkClass}>
+            {item.label}
           </Link>
+        ))}
+      </AppHeader>
 
-          {/* Laptop and up */}
-          <div className="hidden items-center gap-2.5 lg:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-full px-4 py-3 text-sm font-semibold transition hover:bg-black/5"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Phones and tablets: hamburger */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0EFED] text-black transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:w-14 lg:hidden"
-          >
-            {menuOpen ? (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 6l12 12M18 6L6 18"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Phones and tablets: dropdown menu */}
-        {menuOpen && (
-          <nav className="mx-auto flex max-w-[1400px] flex-col px-5 pb-3 sm:px-7 lg:hidden lg:px-0">
-            <div className="flex flex-col rounded-[26px] bg-white p-2 shadow-[0_12px_30px_rgba(0,0,0,0.07)]">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-full px-4 py-3 text-sm font-semibold hover:bg-black/5"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        )}
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {!detail && !error && (
           <div className="flex flex-col gap-3">
             <SkeletonCard />
@@ -647,9 +430,9 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
           <>
             {/* HERO SECTION */}
             <section className="mb-8 sm:mb-10">
-              <h1 className="sp-headline relative inline-block whitespace-nowrap text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+              <PageTitle>
                 Subjects &amp; topics.
-              </h1>
+              </PageTitle>
 
               <p className="mt-4 max-w-xl text-sm leading-7 text-black sm:text-base lg:text-lg">
                 {detail.student.name} · Grade {detail.student.grade}. Add a
@@ -658,7 +441,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
               </p>
             </section>
 
-            <div className="rounded-[32px] bg-white p-3 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-[35px]">
+            <div className={`${cardClass} p-4 sm:p-8`}>
               {!detail.latestPlan && (
                 <div className="mb-5 rounded-[28px] bg-[#e4e1fa] p-5">
                   <p className="text-base font-bold text-black">
@@ -668,9 +451,9 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     Saved changes are used when you generate one.
                   </p>
                   <div className="mt-3">
-                    <Link href={`/students/${params.id}/settings`}>
-                      <PillButton>Generate a plan in Settings</PillButton>
-                    </Link>
+                    <ButtonLink href={`/students/${params.id}/settings`}>
+                      Generate a plan in Settings
+                    </ButtonLink>
                   </div>
                 </div>
               )}
@@ -696,24 +479,24 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     discarded.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <PillButton onClick={save} loading={isSaving}>
+                    <Button onClick={save} isLoading={isSaving}>
                       {detail.latestPlan ? 'Save and update plan' : 'Save'}
-                    </PillButton>
-                    <PillButton
-                      tone="outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       disabled={isSaving}
                       onClick={() => setDraft(EMPTY_DRAFT)}
                     >
                       Discard all
-                    </PillButton>
+                    </Button>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <Notice className="mb-5">
                   {error}
-                </div>
+                </Notice>
               )}
 
               <AddSubjectCard
@@ -777,9 +560,9 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <Badge>
+                        <Tag>
                           {WEIGHT_LABEL[s.examWeight]} · out of {s.fullMarks}
-                        </Badge>
+                        </Tag>
                         <h2 className="mt-3.5 text-2xl font-bold tracking-tight text-black sm:text-3xl">
                           {s.name} <Unsaved />
                         </h2>
@@ -789,8 +572,8 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                           </p>
                         )}
                       </div>
-                      <PillButton
-                        tone="danger"
+                      <Button
+                        variant="whiteDanger"
                         onClick={() =>
                           update({
                             subjects: draft.subjects.filter((_, j) => j !== i),
@@ -798,7 +581,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                         }
                       >
                         Remove
-                      </PillButton>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -833,14 +616,14 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <PillButton
-                              tone="white"
+                            <Button
+                              variant="white"
                               onClick={() => setSubjectActive(s.id, true)}
                             >
                               Restore
-                            </PillButton>
-                            <PillButton
-                              tone="danger"
+                            </Button>
+                            <Button
+                              variant="whiteDanger"
                               onClick={() => {
                                 if (
                                   window.confirm(
@@ -856,7 +639,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                               }}
                             >
                               Delete permanently
-                            </PillButton>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -867,8 +650,8 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
             </div>
           </>
         )}
-      </main>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }
 
@@ -940,7 +723,7 @@ function SubjectCard({
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Subject" className="min-w-[10rem] flex-1">
             <input
-              className={`${fieldCls} border-black/10`}
+              className={fieldOnColourClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -948,27 +731,27 @@ function SubjectCard({
           <Field label="Full marks" className="w-28">
             <input
               type="number"
-              className={`${fieldCls} border-black/10`}
+              className={fieldOnColourClass}
               min={1}
               value={fullMarks}
               onChange={(e) => setFullMarks(Number(e.target.value))}
             />
           </Field>
           <Field label="Exam weight">
-            <select
-              className={`${topicSelectCls} font-semibold`}
+            <Select
+              onColour
               value={examWeight}
               onChange={(e) => setExamWeight(e.target.value as ExamWeight)}
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
-            </select>
+            </Select>
           </Field>
-          <PillButton onClick={done}>Done</PillButton>
-          <PillButton tone="white" onClick={cancel}>
+          <Button onClick={done}>Done</Button>
+          <Button variant="white" onClick={cancel}>
             Cancel
-          </PillButton>
+          </Button>
           {renameClash && (
             <p className="w-full text-sm font-semibold text-red-700">
               {renameClash}
@@ -978,9 +761,9 @@ function SubjectCard({
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
           <div className="min-w-0">
-            <Badge>
+            <Tag>
               {WEIGHT_LABEL[subject.examWeight]} · out of {subject.fullMarks}
-            </Badge>
+            </Tag>
             <h2 className="mt-3.5 break-words text-2xl font-bold tracking-tight text-black sm:text-3xl">
               {subject.name} {edited && <Unsaved />}
             </h2>
@@ -990,12 +773,12 @@ function SubjectCard({
           </div>
           <div className="flex items-center gap-2">
             <BookIcon className="h-[22px] w-[22px] text-black" />
-            <PillButton onClick={() => setIsEditing(true)}>
+            <Button onClick={() => setIsEditing(true)}>
               <PencilIcon />
               Edit
-            </PillButton>
-            <PillButton
-              tone="white"
+            </Button>
+            <Button
+              variant="white"
               onClick={() => {
                 if (
                   window.confirm(
@@ -1007,7 +790,7 @@ function SubjectCard({
             >
               <ArchiveIcon />
               Archive
-            </PillButton>
+            </Button>
           </div>
         </div>
       )}
@@ -1112,7 +895,7 @@ function TopicRow({
     return (
       <div className="flex flex-wrap items-center gap-2">
         <input
-          className={`${topicFieldCls} min-w-[8rem] flex-1`}
+          className={`${fieldOnColourShapeClass} min-w-[8rem] flex-1`}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -1120,8 +903,9 @@ function TopicRow({
           }}
         />
         {!hasSubTopics && (
-          <select
-            className={topicSelectCls}
+          <Select
+            onColour
+            className="w-[150px]"
             value={difficulty}
             onChange={(e) => setDifficulty(Number(e.target.value))}
           >
@@ -1130,11 +914,11 @@ function TopicRow({
                 Difficulty {d}
               </option>
             ))}
-          </select>
+          </Select>
         )}
-        <PillButton onClick={done}>Done</PillButton>
-        <PillButton
-          tone="white"
+        <Button onClick={done}>Done</Button>
+        <Button
+          variant="white"
           onClick={() => {
             setName(topic.name);
             setDifficulty(topic.difficultyRating);
@@ -1142,15 +926,15 @@ function TopicRow({
           }}
         >
           Cancel
-        </PillButton>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-6 items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-x-3">
       <span
-        className={`flex min-w-0 items-center gap-2 break-words text-black ${
+        className={`flex min-w-[8rem] flex-1 items-center gap-2 break-words text-black ${
           isSub ? 'text-sm font-normal' : 'text-base font-bold'
         }`}
       >
@@ -1159,14 +943,14 @@ function TopicRow({
           {topic.name} {edited && <Unsaved />}
         </span>
       </span>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center">
         {!hasSubTopics &&
           (isSub ? (
-            <span className="mr-1.5 text-[11px] font-bold text-black">
+            <span className="mr-1.5 text-sm font-bold text-black">
               Difficulty {topic.difficultyRating}
             </span>
           ) : (
-            <span className="mr-1.5 inline-flex h-[21px] items-center rounded-full bg-white px-2.5 text-[11px] font-bold text-black">
+            <span className="mr-1.5 inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-sm font-bold text-black">
               Difficulty {topic.difficultyRating}
             </span>
           ))}
@@ -1209,13 +993,13 @@ function DraftChips({
       {items.map((d) => (
         <li
           key={d.i}
-          className="flex items-center gap-2 rounded-full border-[1.5px] border-dashed border-black/30 bg-white/70 px-3 py-1 text-xs font-semibold text-black"
+          className="flex items-center gap-1 rounded-full border-[1.5px] border-dashed border-black/30 bg-white/70 pl-4 text-sm font-semibold text-black"
         >
           {d.name} · difficulty {d.difficultyRating} · added
           <button
             type="button"
             aria-label={`Remove ${d.name}`}
-            className="text-base leading-none text-black hover:text-red-600"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-base leading-none text-black hover:text-red-600"
             onClick={() => onRemove(d.i)}
           >
             ×
@@ -1263,7 +1047,7 @@ function AddTopicInput({
           difficulty picker + button sit together on the row below. */}
       <div className="flex flex-wrap gap-2">
         <input
-          className={`${topicFieldCls} sm:w-auto sm:flex-1`}
+          className={`${fieldOnColourShapeClass} w-full min-w-0 sm:w-auto sm:flex-1`}
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
@@ -1277,8 +1061,9 @@ function AddTopicInput({
             }
           }}
         />
-        <select
-          className={`${topicSelectCls} min-w-0 flex-1 sm:w-[126px] sm:flex-none`}
+        <Select
+          onColour
+          className="min-w-[150px] flex-1 sm:w-[150px] sm:flex-none"
           value={difficulty}
           onChange={(e) => {
             setDifficulty(e.target.value);
@@ -1293,19 +1078,14 @@ function AddTopicInput({
               Difficulty {d}
             </option>
           ))}
-        </select>
-        <PillButton
-          tone="white"
-          aria-label={ariaLabel}
-          className="border-[1.5px] border-black/10"
-          onClick={add}
-        >
+        </Select>
+        <Button variant="outline" aria-label={ariaLabel} onClick={add}>
           <PlusIcon />
           {buttonLabel}
-        </PillButton>
+        </Button>
       </div>
       {error && (
-        <p className="mt-1.5 text-xs font-semibold text-red-700">{error}</p>
+        <p className="mt-1.5 text-sm font-semibold text-red-700">{error}</p>
       )}
     </div>
   );
@@ -1352,14 +1132,14 @@ function AddSubjectCard({
 
   return (
     <div className="rounded-[28px] border-2 border-dashed border-[#d6d4cd] bg-white p-4 sm:p-5">
-      <Badge>New subject</Badge>
+      <Tag>New subject</Tag>
       <h2 className="mb-4 mt-3.5 text-2xl font-bold tracking-tight text-black sm:text-3xl">
         Add a subject
       </h2>
       <div className="flex flex-wrap items-end gap-3.5">
         <Field label="Subject" className="min-w-[12rem] flex-1">
           <input
-            className={fieldCls}
+            className={fieldClass}
             placeholder="e.g. Science"
             value={name}
             onChange={(e) => {
@@ -1371,27 +1151,27 @@ function AddSubjectCard({
         <Field label="Full marks" className="w-full sm:w-[190px]">
           <input
             type="number"
-            className={fieldCls}
+            className={fieldClass}
             min={1}
             value={fullMarks}
             onChange={(e) => setFullMarks(Number(e.target.value))}
           />
         </Field>
         <Field label="Exam weight" className="w-full sm:w-[163px]">
-          <select
-            className={panelSelectCls}
+          <Select
+            className="w-full"
             value={examWeight}
             onChange={(e) => setExamWeight(e.target.value as ExamWeight)}
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
-          </select>
+          </Select>
         </Field>
-        <PillButton tone="yellow" onClick={add}>
+        <Button variant="yellow" onClick={add}>
           <PlusIcon />
           Add subject
-        </PillButton>
+        </Button>
       </div>
       {(error ?? subjectClashFor(name, existingNames)) && (
         <p className="mt-2.5 text-sm font-semibold text-red-600">
@@ -1399,10 +1179,10 @@ function AddSubjectCard({
         </p>
       )}
       {suggestions.length > 0 && (
-        <label className="mt-4 flex items-start gap-2.5 text-sm leading-6 text-black">
+        <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 py-1 text-sm leading-6 text-black">
           <input
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded border-slate-300 accent-black"
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-black"
             checked={useSuggestions}
             onChange={(e) => setUseSuggestions(e.target.checked)}
           />

@@ -1,35 +1,34 @@
 import { InputHTMLAttributes, forwardRef } from "react";
 import clsx from "clsx";
 
+import { fieldShapeClass } from "./Field";
+
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  /** Layout classes for the label + field box (className styles the field). */
+  containerClassName?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, className, id, ...rest }, ref) => {
+  ({ label, error, hint, className, containerClassName, id, ...rest }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
     return (
-      <div className="flex flex-col gap-1">
+      <div className={clsx("grid gap-1.5", containerClassName)}>
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={inputId} className="text-sm font-semibold text-black">
             {label}
           </label>
         )}
         <input
           ref={ref}
           id={inputId}
-          className={clsx(
-            "rounded-lg border px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition-colors",
-            "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100",
-            error ? "border-red-400" : "border-slate-300",
-            className
-          )}
+          className={clsx(fieldShapeClass, error && "!border-red-400", className)}
           {...rest}
         />
-        {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {hint && !error && <p className="text-sm text-[#65615D]">{hint}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     );
   }

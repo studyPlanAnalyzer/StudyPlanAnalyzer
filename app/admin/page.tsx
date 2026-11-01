@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { api, getErrorMessage } from "@/lib/api-client";
+import { Notice } from '@/components/ui/Notice';
 
 interface Metrics {
   signups: { total: number; newThisWeek: number; newThisMonth: number };
@@ -16,9 +17,9 @@ interface Metrics {
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
   return (
     <Card>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-      {sublabel && <p className="mt-1 text-xs text-slate-500">{sublabel}</p>}
+      <p className="text-xs font-medium uppercase tracking-wide text-[#8A8580]">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-black">{value}</p>
+      {sublabel && <p className="mt-1 text-xs text-[#65615D]">{sublabel}</p>}
     </Card>
   );
 }
@@ -36,16 +37,16 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Admin dashboard</h1>
-      <p className="mb-8 text-sm text-slate-500">Business metrics across all parent accounts and students.</p>
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-black">Admin dashboard</h1>
+      <p className="mb-8 text-sm text-[#65615D]">Business metrics across all parent accounts and students.</p>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-      {!metrics && !error && <p className="text-sm text-slate-400">Loading…</p>}
+      {!metrics && !error && <p className="text-sm text-[#8A8580]">Loading…</p>}
 
       {metrics && (
         <div className="flex flex-col gap-8">
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Signups</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Signups</h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard label="Total parent accounts" value={metrics.signups.total} />
               <MetricCard label="New this week" value={metrics.signups.newThisWeek} />
@@ -54,7 +55,7 @@ export default function AdminDashboardPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Activity</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Activity</h2>
             <div className="grid gap-4 sm:grid-cols-4">
               <MetricCard label="DAU" value={metrics.activity.dau} sublabel="Logged in today" />
               <MetricCard label="WAU" value={metrics.activity.wau} sublabel="Logged in, last 7 days" />
@@ -64,7 +65,7 @@ export default function AdminDashboardPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Study plan engagement (last 7 days)</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Study plan engagement (last 7 days)</h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard label="Sessions scheduled" value={metrics.studyPlanEngagement.sessionsScheduledLast7Days} />
               <MetricCard label="Sessions completed" value={metrics.studyPlanEngagement.sessionsCompletedLast7Days} />
@@ -73,7 +74,7 @@ export default function AdminDashboardPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Daily Brain Challenge</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Daily Brain Challenge</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <MetricCard label="Attempts today" value={metrics.dailyBrainChallenge.attemptsToday} />
               <MetricCard label="Attempts this week" value={metrics.dailyBrainChallenge.attemptsThisWeek} />
@@ -81,11 +82,11 @@ export default function AdminDashboardPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Subscriptions &amp; revenue</h2>
-            <Card className="border-amber-200 bg-amber-50">
-              <p className="text-sm font-medium text-amber-800">Not yet tracked</p>
-              <p className="mt-1 text-sm text-amber-700">{metrics.billing.note}</p>
-            </Card>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Subscriptions &amp; revenue</h2>
+            <Notice tone="warning">
+              <p className="font-medium">Not yet tracked</p>
+              <p className="mt-1">{metrics.billing.note}</p>
+            </Notice>
           </section>
         </div>
       )}

@@ -62,34 +62,34 @@ export default function AdminReportsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">Weekly reports</h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-black">Weekly reports</h1>
+      <p className="mb-6 text-sm text-[#65615D]">
         See any child&apos;s weekly report as the parent sees it. Previewing stores nothing.
       </p>
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-sm text-slate-600">
+          <label className="text-sm text-[#65615D]">
             Find a child (name or parent email)
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
               placeholder="Aarav, or parent@gmail.com"
             />
           </label>
-          <label className="text-sm text-slate-600">
+          <label className="text-sm text-[#65615D]">
             Child
-            <select value={childId} onChange={(e) => setChildId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <select value={childId} onChange={(e) => setChildId(e.target.value)} className="mt-1 w-full rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black">
               <option value="">Choose…</option>
               {children.map((c) => (
                 <option key={c.id} value={c.id}>{c.name} (grade {c.grade}) · {c.parentEmail}</option>
               ))}
             </select>
           </label>
-          <label className="text-sm text-slate-600">
+          <label className="text-sm text-[#65615D]">
             Week
-            <select value={week} onChange={(e) => setWeek(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <select value={week} onChange={(e) => setWeek(e.target.value)} className="mt-1 w-full rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black">
               {weeks.map((w) => (
                 <option key={w.start} value={w.start}>{formatWeekRange(w.start, w.end)} ({w.start})</option>
               ))}
@@ -103,8 +103,8 @@ export default function AdminReportsPage() {
 
         {preview && (
           <div className="mt-6">
-            <div className="mb-3 space-y-1 text-sm text-slate-600">
-              <p><b className="text-slate-900">{preview.student.name}</b> · {preview.parent.email} · {formatWeekRange(preview.week.start, preview.week.end)}</p>
+            <div className="mb-3 space-y-1 text-sm text-[#65615D]">
+              <p><b className="text-black">{preview.student.name}</b> · {preview.parent.email} · {formatWeekRange(preview.week.start, preview.week.end)}</p>
               <p>{preview.eligibility.reason} {preview.stored ? 'A report is stored for this week.' : 'No report is stored for this week.'}</p>
             </div>
             <div className="mb-3 flex flex-wrap gap-1">
@@ -119,7 +119,7 @@ export default function AdminReportsPage() {
                   onClick={() => setTab(key)}
                   className={clsx(
                     'rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40',
-                    tab === key ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100',
+                    tab === key ? 'bg-[#EEF0FF] text-black' : 'text-[#65615D] hover:bg-[#F0EFED]',
                   )}
                 >
                   {label}
@@ -131,7 +131,7 @@ export default function AdminReportsPage() {
             )}
             {tab === 'built' && (
               <div className="rounded-xl bg-[#FAF9F6] p-4">
-                <p className="mb-3 text-xs text-slate-500">Built from today&apos;s data; not stored. A stored report never changes.</p>
+                <p className="mb-3 text-xs text-[#65615D]">Built from today&apos;s data; not stored. A stored report never changes.</p>
                 <WeeklyReportView report={preview.preview} />
               </div>
             )}

@@ -2,9 +2,12 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { AppHeader, BackLink } from "@/components/ui/AppHeader";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { cardClass } from "@/components/ui/Card";
+import { Notice } from "@/components/ui/Notice";
+import { PageMain, PageShell } from "@/components/ui/PageShell";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/Skeleton";
@@ -83,27 +86,22 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-indigo-700">
-            StudyPlan Analyzer
-          </Link>
-          <Link href={`/students/${params.id}/plan`} className="text-sm text-slate-500 hover:text-slate-800">
-            Back to full plan
-          </Link>
-        </div>
-      </header>
+    <PageShell className="pb-10">
+      <AppHeader>
+        <BackLink href={`/students/${params.id}/plan`} label="Back to full plan" short="Back" />
+      </AppHeader>
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-slate-900">Week {weekNumber} summary</h1>
-          <Button onClick={handleRegenerate} isLoading={isRegenerating} variant="secondary">
+      <PageMain>
+        <section className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <PageTitle>Week {weekNumber} summary</PageTitle>
+          </div>
+          <Button onClick={handleRegenerate} isLoading={isRegenerating} variant="secondary" size="lg" className="w-fit">
             Regenerate plan
           </Button>
-        </div>
+        </section>
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {error && <Notice className="mb-6">{error}</Notice>}
 
         {weeks === null && (
           <div className="flex flex-col gap-3">
@@ -117,68 +115,61 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
             title="No data for this week"
             description="This week isn't part of the current plan. It may already be over or the plan may have been regenerated."
             action={
-              <Link href={`/students/${params.id}/plan`}>
-                <Button variant="secondary">View full plan</Button>
-              </Link>
+              <ButtonLink href={`/students/${params.id}/plan`} variant="secondary">
+                View full plan
+              </ButtonLink>
             }
           />
         )}
 
         {currentWeek && (
-          <>
-            <Card className="mb-6">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-semibold text-green-600">{completed.length}</p>
-                  <p className="text-xs text-slate-500">Completed</p>
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-3 gap-3 text-center sm:gap-5">
+              {[
+                { label: 'Completed', value: completed.length, colour: 'bg-[#a4e5c7]' },
+                { label: 'Still planned', value: planned.length, colour: 'bg-[#F7CC46]' },
+                { label: 'Skipped', value: skipped.length, colour: 'bg-[#EDB1AA]' },
+              ].map((t) => (
+                <div key={t.label} className={`rounded-[25px] px-2 py-5 sm:p-6 ${t.colour}`}>
+                  <p className="text-3xl font-extrabold tracking-tight sm:text-4xl">{t.value}</p>
+                  <p className="mt-1 text-sm font-semibold text-black/70">{t.label}</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-semibold text-amber-600">{planned.length}</p>
-                  <p className="text-xs text-slate-500">Still planned</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold text-red-500">{skipped.length}</p>
-                  <p className="text-xs text-slate-500">Skipped</p>
-                </div>
-              </div>
-            </Card>
+              ))}
+            </div>
 
-            <Card className="mb-6">
-              <h3 className="mb-3 text-base font-semibold text-slate-900">Subject-wise progress</h3>
-              <div className="flex flex-col gap-3">
+            <section className={`${cardClass} p-6 sm:p-8`}>
+              <h3 className="mb-5 text-xl font-extrabold tracking-tight sm:text-2xl">Subject-wise progress</h3>
+              <div className="flex flex-col gap-4">
                 {Array.from(subjectGroups.entries()).map(([subject, stat]) => (
                   <div key={subject}>
-                    <div className="mb-1 flex justify-between text-sm">
-                      <span className="font-medium text-slate-700">{subject}</span>
-                      <span className="text-slate-500">
+                    <div className="mb-2 flex justify-between gap-3 text-sm sm:text-base">
+                      <span className="font-semibold text-black">{subject}</span>
+                      <span className="text-[#65615D]">
                         {stat.done}/{stat.total} sessions
                       </span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#F0EFED]">
                       <div
-                        className="h-full rounded-full bg-indigo-500"
+                        className="h-full rounded-full bg-black"
                         style={{ width: `${stat.total ? (stat.done / stat.total) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            </Card>
+            </section>
 
-            <Card>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900">Next week preview</h3>
+            <section className={`${cardClass} p-6 sm:p-8`}>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-xl font-extrabold tracking-tight sm:text-2xl">Next week preview</h3>
                 {nextWeek && (
-                  <Link
-                    href={`/students/${params.id}/week/${weekNumber + 1}`}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                  >
+                  <ButtonLink href={`/students/${params.id}/week/${weekNumber + 1}`} variant="secondary">
                     View week {weekNumber + 1} →
-                  </Link>
+                  </ButtonLink>
                 )}
               </div>
               {nextWeek ? (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   <Badge tone="brand">
                     {nextWeek.days.reduce((sum, d) => sum + d.sessions.length, 0)} sessions planned
                   </Badge>
@@ -193,12 +184,12 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">This is the final week of the current plan.</p>
+                <p className="text-sm text-[#65615D] sm:text-base">This is the final week of the current plan.</p>
               )}
-            </Card>
-          </>
+            </section>
+          </div>
         )}
-      </main>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }

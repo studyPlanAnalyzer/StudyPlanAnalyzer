@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api-client';
 import type { Todo, TodoStats } from '@/lib/types/todo';
+import { buttonClass } from '@/components/ui/Button';
+import { fieldClass } from '@/components/ui/Field';
+import { Notice } from '@/components/ui/Notice';
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -142,7 +145,7 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
             {streakMessage(stats.currentStreak)}
           </p>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-black/65">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-black/65">
             <span>Longest streak: {stats.longestStreak} days</span>
             <span>Today: {stats.todayCompletionRate}% complete</span>
           </div>
@@ -174,7 +177,7 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
                     }`}
                     title={`${d.date}: ${d.completed}/${d.total}`}
                   />
-                  <span className="text-[10px] font-bold text-black/50">
+                  <span className="text-sm font-bold text-black/50">
                     {label}
                   </span>
                 </div>
@@ -201,15 +204,13 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
 
       {/* ERROR */}
       {error && (
-        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <Notice className="mb-4">{error}</Notice>
       )}
 
       {/* ADD TASK */}
       <div className="mb-5 flex gap-2">
         {isAdding ? (
-          <div className="flex flex-1 items-center gap-3 rounded-full bg-[#F0EFED] px-5 py-3 text-sm font-semibold text-black/55">
+          <div className="flex h-11 flex-1 items-center gap-3 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold text-black/55">
             <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-black/20 border-t-black" />
             <span className="min-w-0 truncate">
               Adding &ldquo;{newTodo.trim()}&rdquo;...
@@ -223,14 +224,14 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="Add a task for today..."
               disabled={isAdding}
-              className="min-w-0 flex-1 rounded-full border border-black/15 bg-white px-5 py-3 text-sm outline-none transition placeholder:text-black/35 focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-[#F0EFED] disabled:text-black/40"
+              className={`${fieldClass} flex-1`}
             />
 
             <button
               type="button"
               onClick={handleAdd}
               disabled={isAdding || !newTodo.trim()}
-              className="inline-flex shrink-0 items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-black/80 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              className={buttonClass('primary')}
             >
               Add
             </button>
@@ -252,7 +253,7 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
             return (
               <li
                 key={todo.id}
-                className={`flex items-center gap-3 rounded-2xl bg-[#F0EFED] px-4 py-3 transition-opacity ${
+                className={`flex items-center gap-3 rounded-2xl bg-[#F0EFED] py-1 pl-4 pr-1 transition-opacity ${
                   isPending ? 'opacity-50' : ''
                 }`}
               >
@@ -282,7 +283,7 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
                   type="button"
                   onClick={() => handleDelete(todo.id)}
                   disabled={isPending}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm text-black/45 transition hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm text-black/45 transition hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Delete task"
                 >
                   ✕

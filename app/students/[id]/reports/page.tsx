@@ -8,6 +8,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { api, ApiError, getErrorMessage } from '@/lib/api-client';
 import { formatMinutes, formatWeekRange, reportStrings } from '@/lib/reports/strings';
 import type { HeadlineKind } from '@/lib/reports/types';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { cardClass } from '@/components/ui/Card';
 
 interface ReportListItem {
   weekStart: string;
@@ -16,14 +21,6 @@ interface ReportListItem {
   studyMinutes: number;
   builtLater: boolean;
   readAt: string | null;
-}
-
-function ArrowLeftIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
 }
 
 export default function ReportsPage(props: { params: Promise<{ id: string }> }) {
@@ -53,28 +50,12 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
   }, [params.id, router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[900px] items-center justify-between gap-6 px-5 py-5 sm:px-7">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">StudyPlan Analyzer</span>
-          </Link>
-          <Link
-            href="/dashboard"
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <ArrowLeftIcon />
-            <span>
-              Back<span className="hidden sm:inline"> to dashboard</span>
-            </span>
-          </Link>
-        </div>
-      </header>
+    <PageShell className="pb-24 sm:pb-8">
+      <AppHeader width="narrow">
+        <BackLink href="/dashboard" label="Back to dashboard" short="Back" />
+      </AppHeader>
 
-      <main className="mx-auto w-full max-w-[900px] px-5 pt-5 sm:px-7 sm:pt-8">
+      <PageMain width="narrow">
         {!data && !error && (
           <div className="space-y-5">
             <SkeletonCard />
@@ -82,13 +63,11 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
           </div>
         )}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <Notice className="mb-6">{error}</Notice>
         )}
         {data && (
           <>
-            <h1 className="text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-4xl">
-              {s.view.allReports}
-            </h1>
+            <PageTitle size="text-3xl sm:text-4xl">{s.view.allReports}</PageTitle>
             <p className="mt-2 text-sm text-[#65615D] sm:text-base">{data.student.name}</p>
             {data.reports.length === 0 ? (
               <div className="mt-6">
@@ -100,14 +79,14 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
                   <li key={r.weekStart}>
                     <Link
                       href={`/students/${params.id}/reports/${r.weekStart}`}
-                      className="block rounded-[24px] bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.05)] transition hover:shadow-[0_10px_28px_rgba(0,0,0,0.09)]"
+                      className={`${cardClass} block p-5 transition hover:shadow-[0_12px_30px_rgba(0,0,0,0.10)]`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-medium text-[#8A8580]">
                           {formatWeekRange(r.weekStart, r.weekEnd)}
                         </span>
                         {!r.readAt && (
-                          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                          <span className="rounded-full bg-[#EEF0FF] px-3 py-1 text-sm font-semibold text-black">
                             {s.view.newBadge}
                           </span>
                         )}
@@ -124,7 +103,7 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
             )}
           </>
         )}
-      </main>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }

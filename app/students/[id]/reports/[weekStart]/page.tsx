@@ -1,21 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState, use } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { WeeklyReportView } from '@/components/reports/WeeklyReportView';
 import { api, ApiError, getErrorMessage } from '@/lib/api-client';
 import { reportStrings } from '@/lib/reports/strings';
 import type { WeeklyReportSnapshot } from '@/lib/reports/types';
-
-function ArrowLeftIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
 
 export default function WeeklyReportPage(props: {
   params: Promise<{ id: string; weekStart: string }>;
@@ -54,29 +48,12 @@ export default function WeeklyReportPage(props: {
   }, [params.id, params.weekStart, router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[900px] items-center justify-between gap-6 px-5 py-5 sm:px-7">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">StudyPlan Analyzer</span>
-          </Link>
-          <Link
-            href={`/students/${params.id}/reports`}
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <ArrowLeftIcon />
-            <span>
-              <span className="sm:hidden">Back</span>
-              <span className="hidden sm:inline">{s.view.allReports}</span>
-            </span>
-          </Link>
-        </div>
-      </header>
+    <PageShell className="pb-24 sm:pb-8">
+      <AppHeader width="narrow">
+        <BackLink href={`/students/${params.id}/reports`} label={s.view.allReports} short="Back" />
+      </AppHeader>
 
-      <main className="mx-auto w-full max-w-[900px] px-5 pt-5 sm:px-7 sm:pt-8">
+      <PageMain width="narrow">
         {!report && !error && (
           <div className="space-y-5">
             <SkeletonCard />
@@ -85,10 +62,10 @@ export default function WeeklyReportPage(props: {
           </div>
         )}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <Notice className="mb-6">{error}</Notice>
         )}
         {report && <WeeklyReportView report={report} />}
-      </main>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }

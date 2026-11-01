@@ -1,11 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState, use } from 'react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { subjectClashFor } from '@/lib/subject-name';
+import { AddTopicInput } from '@/components/ui/AddTopicInput';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { cardClass } from '@/components/ui/Card';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { Field, Select, fieldClass, fieldOnColourClass } from '@/components/ui/Field';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
 import { suggestTopicsFor } from '@/lib/common-topics';
 
@@ -38,7 +45,7 @@ function todayDateString(): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Design tokens (shared with the dashboard, subjects and test pages)  */
+/* Design tokens                                                       */
 /* ------------------------------------------------------------------ */
 
 // Subject cards cycle through these colours. Topic rows sit on a white/55
@@ -51,185 +58,6 @@ const CARD_COLORS = [
   'bg-[#9ED0F2]', // sky
 ];
 
-// Page-level CSS: the headline animation (same as the dashboard), and a
-// custom dropdown arrow so every <select> looks like the text inputs.
-const PAGE_CSS = `
-.sp-root { color-scheme: light; }
-
-@keyframes sp-headline-enter {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes sp-underline-draw {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-.sp-headline { animation: sp-headline-enter 700ms ease-out both; }
-.sp-headline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -5px;
-  width: 100%;
-  height: 3px;
-  border-radius: 999px;
-  background: #f7cc46;
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: sp-underline-draw 900ms 400ms ease-out forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sp-headline, .sp-headline::after { animation: none; opacity: 1; transform: none; }
-  .sp-headline::after { transform: scaleX(1); }
-}
-
-.sp-select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 12px;
-}
-`;
-
-// Every form control is 38px tall, 14px text, pill-shaped.
-// Inputs on the white panel (grade, exam name, exam date):
-const fieldCls =
-  'h-[38px] w-full min-w-0 rounded-full border-[1.5px] border-[#dcdad3] bg-white px-4 text-sm font-semibold text-black outline-none placeholder:font-semibold placeholder:text-[#8f8f8f] focus:border-black';
-// Inputs/selects sitting on a coloured subject card:
-const colorFieldCls =
-  'h-[38px] w-full min-w-0 rounded-full border-[1.5px] border-black/10 bg-white px-4 text-sm font-semibold text-black outline-none placeholder:font-semibold placeholder:text-[#8f8f8f] focus:border-black/40';
-const colorSelectCls =
-  'sp-select h-[38px] w-full rounded-full border-[1.5px] border-black/10 bg-white pl-4 pr-9 text-sm font-semibold text-black outline-none focus:border-black/40';
-const topicSelectCls =
-  'sp-select h-[38px] rounded-full border-[1.5px] border-black/10 bg-white pl-4 pr-9 text-sm font-medium text-black outline-none focus:border-black/40 disabled:opacity-50';
-const topicFieldCls =
-  'h-[38px] w-full min-w-0 rounded-full border-[1.5px] border-black/10 bg-white px-4 text-sm font-medium text-black outline-none placeholder:font-normal placeholder:text-[#8f8f8f] focus:border-black/40';
-
-/* ------------------------------------------------------------------ */
-/* Small building blocks                                               */
-/* ------------------------------------------------------------------ */
-
-type Tone = 'black' | 'white' | 'outline' | 'yellow';
-type Size = 'md' | 'lg';
-
-const TONE: Record<Tone, string> = {
-  black: 'bg-black text-white hover:bg-black/80',
-  white: 'bg-white text-black hover:bg-white/80',
-  outline:
-    'border-[1.5px] border-[#dcdad3] bg-white text-black hover:bg-[#f4f3ee]',
-  yellow:
-    'bg-[#F7CC46] text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)]',
-};
-// md: 38px tall, 14px semibold. lg: the page's main action, sized like the
-// dashboard's "Add new child" button.
-const SIZE: Record<Size, string> = {
-  md: 'h-[38px] px-4 text-sm',
-  lg: 'h-12 px-6 text-sm sm:h-14 sm:px-7 sm:text-base',
-};
-
-function PillButton({
-  tone = 'black',
-  size = 'md',
-  loading = false,
-  className = '',
-  disabled,
-  children,
-  ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  tone?: Tone;
-  size?: Size;
-  loading?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled || loading}
-      className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${TONE[tone]} ${SIZE[size]} ${className}`}
-      {...rest}
-    >
-      {loading && (
-        <svg
-          className="h-4 w-4 animate-spin"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <circle
-            cx="12"
-            cy="12"
-            r="9"
-            stroke="currentColor"
-            strokeOpacity="0.3"
-            strokeWidth="3"
-          />
-          <path
-            d="M21 12a9 9 0 0 0-9-9"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </svg>
-      )}
-      {children}
-    </button>
-  );
-}
-
-function Badge({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-block rounded-full bg-black px-3 py-1 text-[11px] font-bold uppercase leading-4 tracking-[0.15em] text-white">
-      {children}
-    </span>
-  );
-}
-
-function Field({
-  label,
-  className = '',
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-sm font-semibold text-black">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-// Error box in the dashboard's red style, with the optional retry button.
-function ErrorBox({
-  message,
-  onRetry,
-  retrying,
-  className = 'mt-5',
-}: {
-  message: string | null;
-  onRetry?: () => void;
-  retrying?: boolean;
-  className?: string;
-}) {
-  if (!message) return null;
-  return (
-    <div
-      className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 ${className}`}
-    >
-      <span>{message}</span>
-      {onRetry && (
-        <PillButton tone="white" onClick={onRetry} loading={retrying}>
-          Try again
-        </PillButton>
-      )}
-    </div>
-  );
-}
-
 function EstimateSelect({
   value,
   onChange,
@@ -241,8 +69,9 @@ function EstimateSelect({
 }) {
   return (
     <Field label="Estimated confidence" className={className}>
-      <select
-        className={colorSelectCls}
+      <Select
+        onColour
+        className="w-full"
         value={value}
         onChange={(e) => onChange(e.target.value as Estimate)}
       >
@@ -252,13 +81,12 @@ function EstimateSelect({
         <option value="low">Low</option>
         <option value="medium">Medium</option>
         <option value="high">High</option>
-      </select>
+      </Select>
     </Field>
   );
 }
 
-const PANEL =
-  'rounded-[32px] bg-white p-3 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-[35px]';
+const PANEL = `${cardClass} p-4 sm:p-8`;
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -478,36 +306,15 @@ export default function NewSessionPage(props: {
   }
 
   return (
-    <div className="sp-root min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-16 text-black sm:pb-8">
-      <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
+    <PageShell className="pb-16 sm:pb-8">
+      <AppHeader>
+        <BackLink
+          href={isDraft ? '/onboarding' : `/students/${params.id}/analysis`}
+          label={isDraft ? 'Back to setup' : 'Back to analysis'}
+        />
+      </AppHeader>
 
-      {/* HEADER (same as the dashboard) */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
-
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* HEADER ACTION (styled like the dashboard's Log out pill) */}
-          <Link
-            href={isDraft ? '/onboarding' : `/students/${params.id}/analysis`}
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <span aria-hidden="true">←</span>
-            <span>{isDraft ? 'Back to setup' : 'Back to analysis'}</span>
-          </Link>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {!detail && !error && (
           <div className="flex flex-col gap-3">
             <SkeletonCard />
@@ -515,7 +322,7 @@ export default function NewSessionPage(props: {
           </div>
         )}
 
-        {!detail && error && <ErrorBox message={error} className="mb-5" />}
+        {!detail && error && <ErrorMessage message={error} className="mb-5" />}
 
         {detail &&
           (() => {
@@ -535,9 +342,9 @@ export default function NewSessionPage(props: {
                       new session can only start once the current exam is over.
                     </p>
                     <div className="mt-4 flex gap-2">
-                      <Link href={`/students/${params.id}/analysis`}>
-                        <PillButton>Go to analysis</PillButton>
-                      </Link>
+                      <ButtonLink href={`/students/${params.id}/analysis`}>
+                        Go to analysis
+                      </ButtonLink>
                     </div>
                   </div>
                 </div>
@@ -568,12 +375,15 @@ export default function NewSessionPage(props: {
                       cycle instead.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <PillButton onClick={() => setConfirmed(true)}>
+                      <Button onClick={() => setConfirmed(true)}>
                         Continue
-                      </PillButton>
-                      <Link href={`/students/${params.id}/analysis`}>
-                        <PillButton tone="white">Cancel</PillButton>
-                      </Link>
+                      </Button>
+                      <ButtonLink
+                        variant="white"
+                        href={`/students/${params.id}/analysis`}
+                      >
+                        Cancel
+                      </ButtonLink>
                     </div>
                   </div>
                 </div>
@@ -584,9 +394,9 @@ export default function NewSessionPage(props: {
               <>
                 {/* HERO SECTION */}
                 <section className="mb-8 sm:mb-10">
-                  <h1 className="sp-headline relative inline-block max-w-4xl text-[clamp(1.5rem,4.2vw,3.25rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                  <PageTitle size="text-[clamp(1.5rem,4.2vw,3.25rem)]">
                     Start a new academic session with no previous exams
-                  </h1>
+                  </PageTitle>
 
                   <p className="mt-4 max-w-xl text-sm leading-7 text-black sm:text-base lg:text-lg">
                     For {detail.student.name}. Add the new year&apos;s subjects
@@ -599,7 +409,7 @@ export default function NewSessionPage(props: {
                 <div className={PANEL}>
                   {!isDraft && (
                     <div className="mb-5 rounded-[28px] border-2 border-dashed border-[#d6d4cd] bg-white p-4 sm:p-5">
-                      <Badge>Grade</Badge>
+                      <Tag>Grade</Tag>
                       <div className="mt-4">
                         <Field
                           label="Grade for the new session (4–10)"
@@ -609,7 +419,7 @@ export default function NewSessionPage(props: {
                             type="number"
                             min={4}
                             max={10}
-                            className={fieldCls}
+                            className={fieldClass}
                             value={grade}
                             onChange={(e) => setGrade(e.target.value)}
                           />
@@ -619,11 +429,11 @@ export default function NewSessionPage(props: {
                   )}
 
                   <div className="rounded-[28px] border-2 border-dashed border-[#d6d4cd] bg-white p-4 sm:p-5">
-                    <Badge>First exam</Badge>
+                    <Tag>First exam</Tag>
                     <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
                       <Field label="Exam name" className="min-w-0">
                         <input
-                          className={fieldCls}
+                          className={fieldClass}
                           placeholder="e.g. First Term 2026"
                           value={examName}
                           onChange={(e) => setExamName(e.target.value)}
@@ -632,7 +442,7 @@ export default function NewSessionPage(props: {
                       <Field label="Exam date" className="min-w-0">
                         <input
                           type="date"
-                          className={fieldCls}
+                          className={fieldClass}
                           value={examDate}
                           onChange={(e) => setExamDate(e.target.value)}
                         />
@@ -669,14 +479,14 @@ export default function NewSessionPage(props: {
                           id={`new-subject-${i}`}
                           className={`scroll-mt-24 rounded-[2rem] p-4 sm:p-7 ${CARD_COLORS[i % CARD_COLORS.length]}`}
                         >
-                          <Badge>Subject {i + 1}</Badge>
+                          <Tag>Subject {i + 1}</Tag>
                           <div className="mt-4 flex flex-wrap items-end gap-3">
                             <Field
                               label="Subject"
                               className="min-w-[10rem] flex-1"
                             >
                               <input
-                                className={colorFieldCls}
+                                className={fieldOnColourClass}
                                 value={s.name}
                                 onChange={(e) =>
                                   updateNew(i, { name: e.target.value })
@@ -698,8 +508,9 @@ export default function NewSessionPage(props: {
                               label="Exam weight"
                               className="w-full sm:w-[150px]"
                             >
-                              <select
-                                className={colorSelectCls}
+                              <Select
+                                onColour
+                                className="w-full"
                                 value={s.examWeight}
                                 onChange={(e) =>
                                   updateNew(i, {
@@ -710,15 +521,15 @@ export default function NewSessionPage(props: {
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
                                 <option value="high">High</option>
-                              </select>
+                              </Select>
                             </Field>
                             <EstimateSelect
                               className="w-full sm:w-[190px]"
                               value={s.estimate}
                               onChange={(v) => updateNew(i, { estimate: v })}
                             />
-                            <PillButton
-                              tone="white"
+                            <Button
+                              variant="white"
                               onClick={() =>
                                 setNewSubjects((prev) =>
                                   prev.filter((_, j) => j !== i),
@@ -726,7 +537,7 @@ export default function NewSessionPage(props: {
                               }
                             >
                               Remove
-                            </PillButton>
+                            </Button>
                             {clash && (
                               <p className="w-full text-sm font-semibold text-red-700">
                                 {clash}
@@ -743,27 +554,30 @@ export default function NewSessionPage(props: {
                                 {s.topics.map((t, j) => (
                                   <div
                                     key={j}
-                                    className="flex flex-wrap items-center gap-3"
+                                    className="flex flex-wrap items-center gap-x-3 gap-y-1"
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={t.selected}
-                                      onChange={() =>
-                                        updateTopics(i, (ts) =>
-                                          ts.map((x, k) =>
-                                            k === j
-                                              ? { ...x, selected: !x.selected }
-                                              : x,
-                                          ),
-                                        )
-                                      }
-                                      className="h-4 w-4 rounded border-slate-300 accent-black"
-                                    />
-                                    <span className="min-w-[8rem] flex-1 text-sm font-semibold text-black">
-                                      {t.name}
-                                    </span>
-                                    <select
-                                      className={`${topicSelectCls} w-[126px]`}
+                                    <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={t.selected}
+                                        onChange={() =>
+                                          updateTopics(i, (ts) =>
+                                            ts.map((x, k) =>
+                                              k === j
+                                                ? { ...x, selected: !x.selected }
+                                                : x,
+                                            ),
+                                          )
+                                        }
+                                        className="h-5 w-5 shrink-0 cursor-pointer accent-black"
+                                      />
+                                      <span className="min-w-0 flex-1 text-sm font-semibold text-black">
+                                        {t.name}
+                                      </span>
+                                    </label>
+                                    <Select
+                                      onColour
+                                      className="w-[150px]"
                                       value={t.difficultyRating}
                                       onChange={(e) =>
                                         updateTopics(i, (ts) =>
@@ -786,7 +600,7 @@ export default function NewSessionPage(props: {
                                           Difficulty {d}
                                         </option>
                                       ))}
-                                    </select>
+                                    </Select>
                                   </div>
                                 ))}
                                 {s.topics.length === 0 && (
@@ -797,7 +611,8 @@ export default function NewSessionPage(props: {
                                   </p>
                                 )}
                               </div>
-                              <TopicInput
+                              <AddTopicInput
+                                className="mt-3"
                                 onAdd={(name) => addCustomTopic(i, name)}
                               />
                             </div>
@@ -810,15 +625,15 @@ export default function NewSessionPage(props: {
                   {/* Always directly under the last subject, so adding the
                       next one never means scrolling back up. */}
                   <div className="mt-5">
-                    <PillButton tone="yellow" onClick={addSubject}>
+                    <Button variant="yellow" onClick={addSubject}>
                       {newSubjects.length === 0
                         ? '+ Add subject'
                         : '+ Add another subject'}
-                    </PillButton>
+                    </Button>
                   </div>
                 </div>
 
-                <ErrorBox
+                <ErrorMessage
                   message={error}
                   onRetry={canRetry ? handleSubmit : undefined}
                   retrying={isSubmitting}
@@ -826,50 +641,19 @@ export default function NewSessionPage(props: {
 
                 {/* ACTION */}
                 <div className="mt-8">
-                  <PillButton
-                    tone="yellow"
+                  <Button
+                    variant="yellow"
                     size="lg"
                     onClick={handleSubmit}
-                    loading={isSubmitting}
+                    isLoading={isSubmitting}
                   >
                     Save and go to analysis
-                  </PillButton>
+                  </Button>
                 </div>
               </>
             );
           })()}
-      </main>
-    </div>
-  );
-}
-
-function TopicInput({ onAdd }: { onAdd: (name: string) => void }) {
-  const [value, setValue] = useState('');
-  return (
-    <div className="mt-3 flex gap-2">
-      <input
-        className={`${topicFieldCls} flex-1`}
-        placeholder="Add a custom topic"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            onAdd(value);
-            setValue('');
-          }
-        }}
-      />
-      <PillButton
-        tone="white"
-        className="border-[1.5px] border-black/10"
-        onClick={() => {
-          onAdd(value);
-          setValue('');
-        }}
-      >
-        Add
-      </PillButton>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }

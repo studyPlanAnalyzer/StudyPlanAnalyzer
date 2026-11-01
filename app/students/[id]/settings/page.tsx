@@ -17,6 +17,14 @@ import {
   MIN_SCHOOL_DAY_MINUTES,
   MIN_HOLIDAY_DAY_MINUTES,
 } from '@/lib/utils/study-limits';
+import { cardClass } from '@/components/ui/Card';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink, headerLinkClass } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { buttonClass } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -44,31 +52,7 @@ interface StudentDetail {
   latestPlan: { id: string; useBufferWeek: boolean } | null;
 }
 
-const cardClass =
-  'rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8';
-
-const pillBase =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60';
-const pillBlack = `${pillBase} bg-black text-white hover:bg-black/80`;
-const pillGrey = `${pillBase} bg-[#F0EFED] text-black hover:bg-[#E7E5E2]`;
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
+const sectionCard = `${cardClass} p-6 sm:p-8`;
 
 function CardTitle({
   emoji,
@@ -215,50 +199,23 @@ export default function StudentSettingsPage(
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell withBottomNav>
+      <AppHeader>
+        <Link
+          href={`/students/${params.id}/profile`}
+          className={`hidden sm:flex ${headerLinkClass}`}
+        >
+          Profile
+        </Link>
+        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
+      </AppHeader>
 
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* HEADER ACTIONS */}
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/students/${params.id}/profile`}
-              className="hidden h-14 items-center justify-center rounded-full px-5 text-base font-semibold transition hover:bg-black/5 sm:flex"
-            >
-              Profile
-            </Link>
-
-            <Link
-              href={`/students/${params.id}/plan`}
-              className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-            >
-              <ArrowLeftIcon />
-              <span>
-                Back<span className="hidden sm:inline"> to plan</span>
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {/* LOADING STATE */}
@@ -279,9 +236,9 @@ export default function StudentSettingsPage(
             return over ? (
               <>
                 <section className="mb-8 sm:mb-10">
-                  <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                  <PageTitle>
                     {detail.student.name}&apos;s settings.
-                  </h1>
+                  </PageTitle>
                 </section>
 
                 <ExamOverNotice
@@ -297,15 +254,15 @@ export default function StudentSettingsPage(
           <>
             {/* HERO SECTION */}
             <section className="mb-8 sm:mb-10">
-              <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+              <PageTitle>
                 {detail.student.name}&apos;s settings.
-              </h1>
+              </PageTitle>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                 Planning inputs. Name, grade and school are in the{' '}
                 <Link
                   href={`/students/${params.id}/profile`}
-                  className="font-semibold underline underline-offset-4 transition hover:text-black/60"
+                  className="-my-3.5 inline-block py-3.5 font-semibold underline underline-offset-4 transition hover:text-black/60"
                 >
                   student profile
                 </Link>
@@ -315,7 +272,7 @@ export default function StudentSettingsPage(
 
             <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
               {/* STUDY AVAILABILITY */}
-              <section className={cardClass}>
+              <section className={sectionCard}>
                 <CardTitle
                   emoji="🗓️"
                   tone="bg-[#F7CC46]"
@@ -323,7 +280,7 @@ export default function StudentSettingsPage(
                   description="Pick the days and how long each one can be."
                 />
 
-                <p className="mb-3 text-xs font-bold uppercase tracking-wide">
+                <p className="mb-3 text-sm font-bold uppercase tracking-wide">
                   Study days
                 </p>
 
@@ -335,7 +292,7 @@ export default function StudentSettingsPage(
                       aria-pressed={studyDays.includes(day)}
                       onClick={() => toggleDay(day)}
                       className={clsx(
-                        'rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 sm:text-base',
+                        'inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95 sm:text-base',
                         studyDays.includes(day)
                           ? 'bg-black text-white'
                           : 'bg-[#F0EFED] text-black hover:bg-[#E7E5E2]',
@@ -372,7 +329,7 @@ export default function StudentSettingsPage(
 
               <div className="flex flex-col gap-6">
                 {/* SUBJECTS, TOPICS AND MARKS */}
-                <section className={cardClass}>
+                <section className={sectionCard}>
                   <CardTitle
                     emoji="📚"
                     tone="bg-[#a4e5c7]"
@@ -383,14 +340,14 @@ export default function StudentSettingsPage(
                   <div className="flex flex-wrap gap-3">
                     <Link
                       href={`/students/${params.id}/subjects`}
-                      className={pillGrey}
+                      className={buttonClass('secondary')}
                     >
                       Manage subjects &amp; topics
                     </Link>
 
                     <Link
                       href={`/students/${params.id}/tests`}
-                      className={pillGrey}
+                      className={buttonClass('secondary')}
                     >
                       Edit test marks
                     </Link>
@@ -398,7 +355,7 @@ export default function StudentSettingsPage(
                 </section>
 
                 {/* NEXT EXAM */}
-                <section className={cardClass}>
+                <section className={sectionCard}>
                   <CardTitle emoji="🎯" tone="bg-[#a8acf0]" title="Next exam" />
 
                   <Input
@@ -413,9 +370,9 @@ export default function StudentSettingsPage(
 
             {/* SUCCESS MESSAGE */}
             {message && (
-              <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <Notice tone="success" className="mt-6">
                 {message}
-              </div>
+              </Notice>
             )}
 
             {/* SAVE */}
@@ -430,7 +387,7 @@ export default function StudentSettingsPage(
                 type="button"
                 onClick={handleSaveClick}
                 disabled={isSaving}
-                className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base"
+                className={buttonClass('yellow', 'lg', 'w-fit')}
               >
                 {isSaving
                   ? 'Saving…'
@@ -444,8 +401,7 @@ export default function StudentSettingsPage(
 
         {/* REGENERATE CONFIRMATION MODAL */}
         {showConfirm && detail?.latestPlan && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-[26px] bg-white p-6 shadow-2xl">
+          <Modal className="max-w-md">
               <h2 className="mb-2 text-lg font-bold">
                 Regenerate the study plan?
               </h2>
@@ -465,10 +421,10 @@ export default function StudentSettingsPage(
                 />
               </div>
 
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-wrap justify-end gap-3">
                 <button
                   type="button"
-                  className={pillGrey}
+                  className={buttonClass('secondary')}
                   onClick={() => setShowConfirm(false)}
                 >
                   Cancel
@@ -476,15 +432,14 @@ export default function StudentSettingsPage(
 
                 <button
                   type="button"
-                  className={pillBlack}
+                  className={buttonClass('primary')}
                   disabled={isSaving}
                   onClick={() => handleSaveAndRegenerate()}
                 >
                   {isSaving ? 'Saving…' : 'Continue'}
                 </button>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
 
         {/* BUFFER WEEK MODAL (first plan) */}
@@ -513,106 +468,9 @@ export default function StudentSettingsPage(
               />
             );
           })()}
-      </main>
+      </PageMain>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">▦</span>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">＋</span>
-            <span className="text-[10px] font-medium">Plan</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/today`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">ϟ</span>
-            <span className="text-[10px] font-medium">Today</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/daily-challenge`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">◧</span>
-            <span className="text-[10px] font-medium">Quiz</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/settings`}
-            className="flex flex-col items-center gap-1 py-3 text-black"
-          >
-            <span className="text-xl">●</span>
-            <span className="text-[10px] font-bold">You</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+      <StudentBottomNav studentId={params.id} active="you" />
+    </PageShell>
   );
 }

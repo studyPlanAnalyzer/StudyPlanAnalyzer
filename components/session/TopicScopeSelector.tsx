@@ -39,13 +39,13 @@ export function TopicScopeSelector({
   const chip = (t: TopicOption) => (
     <label
       key={t.id}
-      className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs"
+      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold"
     >
       <input
         type="checkbox"
         checked={selectedTopicIds.includes(t.id)}
         onChange={() => toggle(t.id)}
-        className="h-3 w-3"
+        className="h-4 w-4 shrink-0 cursor-pointer accent-black"
       />
       {t.name}
     </label>
@@ -57,14 +57,14 @@ export function TopicScopeSelector({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="text-xs text-indigo-600 hover:text-indigo-700"
+          className="min-h-11 text-left text-sm font-semibold text-black underline underline-offset-4 hover:text-black/70"
         >
           Whole subject — scope to specific topic(s) instead?
         </button>
       ) : (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-600">
+        <div className="rounded-[22px] bg-[#F0EFED] p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3">
+            <p className="text-sm font-semibold text-black/70">
               Scope this mark to specific topic(s) — leave unchecked for
               &quot;whole subject&quot;
             </p>
@@ -74,7 +74,7 @@ export function TopicScopeSelector({
                 setExpanded(false);
                 onChange([]);
               }}
-              className="text-xs text-slate-400 hover:text-slate-600"
+              className="min-h-11 text-sm font-semibold text-[#65615D] underline underline-offset-4 hover:text-black"
             >
               Reset to whole subject
             </button>
@@ -83,7 +83,7 @@ export function TopicScopeSelector({
             {topLevel.map((t) =>
               parentIds.has(t.id) ? (
                 <div key={t.id}>
-                  <p className="mb-1 text-xs font-medium text-slate-500">
+                  <p className="mb-1 text-sm font-semibold text-[#65615D]">
                     {t.name}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export function TopicScopeSelector({
             )}
           </div>
           {selectedTopicIds.length > 1 && (
-            <p className="mt-1.5 text-xs text-amber-600">
+            <p className="mt-2 text-sm font-medium text-[#805500]">
               This one score will count for every selected topic. To record a
               different score for each topic, save them as separate marks.
             </p>

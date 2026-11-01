@@ -7,6 +7,16 @@ import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { TopicScopeSelector } from '@/components/session/TopicScopeSelector';
 import { api, ApiError } from '@/lib/api-client';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { EmptyState, emptyStateActionClass } from '@/components/ui/EmptyState';
+import { cardClass } from '@/components/ui/Card';
+import { buttonClass } from '@/components/ui/Button';
+import { Tag } from '@/components/ui/Tag';
+import { Field, Select } from '@/components/ui/Field';
+import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 type Confidence = 'low' | 'medium' | 'high';
 
@@ -69,15 +79,9 @@ const cardColors = [
   'bg-[#EDB1AA]',
 ];
 
-const pillBase =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
-const pillBlack = `${pillBase} bg-black text-white hover:bg-black/80`;
-const pillWhite = `${pillBase} bg-white text-black hover:bg-black/5`;
-const pillDanger = `${pillBase} bg-white text-red-600 hover:bg-red-50`;
-const pillGrey = `${pillBase} bg-[#F0EFED] text-black hover:bg-[#E7E5E2]`;
 
 const iconBtn =
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50';
 
 const sameIds = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
@@ -116,24 +120,6 @@ function TrashIcon({ className = 'h-5 w-5' }: { className?: string }) {
       <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
-}
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
     </svg>
   );
 }
@@ -281,36 +267,12 @@ export default function TestHistoryPage(
     student?.subjects.find((s) => s.id === id)?.name ?? 'Deleted subject';
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell withBottomNav>
+      <AppHeader>
+        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
+      </AppHeader>
 
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* BACK BUTTON */}
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <ArrowLeftIcon />
-            <span>
-              Back<span className="hidden sm:inline"> to plan</span>
-            </span>
-          </Link>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* LOADING STATE */}
         {!tests && !error && (
           <div className="space-y-7">
@@ -321,18 +283,18 @@ export default function TestHistoryPage(
 
         {/* LOAD ERROR (nothing else to show) */}
         {!tests && error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {tests && student && (
           <>
             {/* HERO SECTION */}
             <section className="mb-8 sm:mb-10">
-              <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+              <PageTitle>
                 Test history.
-              </h1>
+              </PageTitle>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                 {student.student.name}. Fix a wrong mark, change a confidence
@@ -343,7 +305,7 @@ export default function TestHistoryPage(
 
             {/* NOTICE */}
             {notice && !hasDraft && (
-              <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <Notice tone="success" className="mb-6">
                 {notice}{' '}
                 {student.latestPlan && (
                   <Link
@@ -353,40 +315,33 @@ export default function TestHistoryPage(
                     View plan
                   </Link>
                 )}
-              </div>
+              </Notice>
             )}
 
             {/* ERROR MESSAGE */}
             {error && (
-              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <Notice className="mb-6">
                 {error}
-              </div>
+              </Notice>
             )}
 
             {tests.length === 0 ? (
-              <div className="rounded-[32px] bg-white px-6 py-16 text-center shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:py-20">
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-[#F7CC46] text-4xl">
-                  📝
-                </div>
-
-                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  No tests logged yet
-                </h2>
-
-                <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#65615D] sm:text-base">
-                  Marks you enter will show up here so you can correct them
-                  later.
-                </p>
-
-                <Link
-                  href={`/students/${params.id}/add-test-marks`}
-                  className="mt-7 inline-flex rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-black/80 active:scale-95"
-                >
-                  + Log a test
-                </Link>
-              </div>
+              <EmptyState
+                titleAs="h2"
+                icon="📝"
+                title="No tests logged yet"
+                description="Marks you enter will show up here so you can correct them later."
+                action={
+                  <Link
+                    href={`/students/${params.id}/add-test-marks`}
+                    className={emptyStateActionClass}
+                  >
+                    + Log a test
+                  </Link>
+                }
+              />
             ) : (
-              <div className="rounded-[32px] bg-white p-4 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-7 lg:p-10">
+              <div className={`${cardClass} p-4 sm:p-7 lg:p-10`}>
                 {/* TEST CARDS */}
                 <div className="flex flex-col gap-6">
                   {tests.map((t, index) => (
@@ -458,7 +413,7 @@ export default function TestHistoryPage(
                         type="button"
                         onClick={discardAll}
                         disabled={isSaving}
-                        className={`${pillGrey} px-7 py-3.5 sm:py-4 sm:text-base`}
+                        className={buttonClass('secondary', 'lg')}
                       >
                         Discard all
                       </button>
@@ -468,7 +423,7 @@ export default function TestHistoryPage(
                       type="button"
                       onClick={saveAll}
                       disabled={!hasDraft || isSaving}
-                      className={`${pillBlack} px-7 py-3.5 sm:py-4 sm:text-base`}
+                      className={buttonClass('primary', 'lg')}
                     >
                       {isSaving ? 'Saving…' : 'Save changes'}
                     </button>
@@ -478,107 +433,11 @@ export default function TestHistoryPage(
             )}
           </>
         )}
-      </main>
+      </PageMain>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">▦</span>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
+      <StudentBottomNav studentId={params.id} />
 
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">＋</span>
-            <span className="text-[10px] font-medium">Plan</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/today`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">ϟ</span>
-            <span className="text-[10px] font-medium">Today</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/daily-challenge`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">◧</span>
-            <span className="text-[10px] font-medium">Quiz</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/settings`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">●</span>
-            <span className="text-[10px] font-medium">You</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+    </PageShell>
   );
 }
 
@@ -646,7 +505,7 @@ function TestCard({
 
   if (wholeTestGone) {
     return (
-      <div className="rounded-[32px] border border-red-200 bg-red-50 p-6 sm:p-8">
+      <div className="rounded-[32px] bg-red-50 p-6 ring-1 ring-red-200 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold tracking-tight text-black/45 line-through sm:text-3xl">
@@ -659,7 +518,7 @@ function TestCard({
 
           <button
             type="button"
-            className={pillWhite}
+            className={buttonClass('white')}
             disabled={disabled}
             onClick={onUndoTest}
           >
@@ -677,7 +536,7 @@ function TestCard({
           <div className="flex flex-wrap items-end gap-3">
             <Input
               label="Test name"
-              className="min-w-[8rem] flex-1"
+              containerClassName="min-w-[8rem] flex-1"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -690,12 +549,12 @@ function TestCard({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" className={pillBlack} onClick={stage}>
+            <button type="button" className={buttonClass('primary')} onClick={stage}>
               Save
             </button>
             <button
               type="button"
-              className={pillWhite}
+              className={buttonClass('white')}
               onClick={() => {
                 setName(current.assessmentName);
                 setDate(current.assessmentDate);
@@ -709,11 +568,11 @@ function TestCard({
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
+            <Tag className="px-5 py-2">
               {new Date(current.assessmentDate).toLocaleDateString()} ·{' '}
               {keptMarks.length} subject{keptMarks.length === 1 ? '' : 's'}
               {testDraft && ' · edited'}
-            </span>
+            </Tag>
 
             <h2 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl">
               {current.assessmentName}
@@ -723,7 +582,7 @@ function TestCard({
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              className={pillBlack}
+              className={buttonClass('primary')}
               disabled={disabled}
               onClick={() => {
                 setName(current.assessmentName);
@@ -737,7 +596,7 @@ function TestCard({
 
             <button
               type="button"
-              className={pillDanger}
+              className={buttonClass('whiteDanger')}
               disabled={disabled}
               onClick={onDeleteTest}
             >
@@ -870,13 +729,13 @@ function MarkItem({
         </p>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-red-600">
+          <span className="text-sm font-semibold text-red-600">
             Will be deleted
           </span>
 
           <button
             type="button"
-            className={`${pillGrey} px-5 py-2`}
+            className={buttonClass('secondary')}
             disabled={disabled}
             onClick={onUndo}
           >
@@ -909,18 +768,16 @@ function MarkItem({
             value={full}
             onChange={(e) => setFull(e.target.value)}
           />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-black">Confidence</label>
-            <select
-              className="rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm"
+          <Field label="Confidence">
+            <Select
               value={confidence}
               onChange={(e) => setConfidence(e.target.value as Confidence)}
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
 
         <TopicScopeSelector
@@ -934,12 +791,12 @@ function MarkItem({
         )}
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" className={pillBlack} onClick={stage}>
+          <button type="button" className={buttonClass('primary')} onClick={stage}>
             Save
           </button>
           <button
             type="button"
-            className={pillWhite}
+            className={buttonClass('white')}
             onClick={() => setIsEditing(false)}
           >
             Cancel
@@ -956,7 +813,7 @@ function MarkItem({
           <p className="text-base font-bold sm:text-lg">
             {subjectName}
             {draft && (
-              <span className="ml-2 text-xs font-semibold text-black/55">
+              <span className="ml-2 text-sm font-semibold text-black/55">
                 · edited
               </span>
             )}

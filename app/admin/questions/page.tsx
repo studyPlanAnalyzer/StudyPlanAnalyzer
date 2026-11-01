@@ -11,6 +11,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { parseCsv } from "@/lib/utils/csv-parse";
 import { CATEGORY_LABELS, Question, QuestionCategory, QuestionStatus } from "@/lib/types/daily-challenge";
 import { GRADE_GROUP_LABELS, GradeGroup } from "@/lib/utils/grade-group";
+import { Modal } from '@/components/ui/Modal';
 
 const STATUS_TONE: Record<QuestionStatus, "weak" | "medium" | "strong" | "neutral"> = {
   PENDING: "medium",
@@ -80,7 +81,7 @@ export default function AdminQuestionsPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Question bank</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-black">Question bank</h1>
         <Button variant="secondary" onClick={() => setShowImport((v) => !v)}>
           {showImport ? "Hide import" : "Import questions"}
         </Button>
@@ -93,7 +94,7 @@ export default function AdminQuestionsPage() {
       <Card className="mb-6">
         <div className="grid gap-3 sm:grid-cols-4">
           <select
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
             value={gradeGroup}
             onChange={(e) => setGradeGroup(e.target.value)}
           >
@@ -102,7 +103,7 @@ export default function AdminQuestionsPage() {
             <option value="GROUP_8_10">{GRADE_GROUP_LABELS.GROUP_8_10}</option>
           </select>
           <select
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
@@ -114,7 +115,7 @@ export default function AdminQuestionsPage() {
             ))}
           </select>
           <select
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -129,8 +130,8 @@ export default function AdminQuestionsPage() {
       </Card>
 
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2">
-          <span className="text-sm text-indigo-800">{selected.size} selected</span>
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-black/10 bg-[#EEF0FF] px-4 py-2">
+          <span className="text-sm text-black">{selected.size} selected</span>
           <Button size="sm" onClick={() => bulkSetStatus("APPROVED")}>
             Approve all
           </Button>
@@ -143,7 +144,7 @@ export default function AdminQuestionsPage() {
         </div>
       )}
 
-      {questions === null && <p className="text-sm text-slate-400">Loading…</p>}
+      {questions === null && <p className="text-sm text-[#8A8580]">Loading…</p>}
 
       {questions !== null && questions.length === 0 && (
         <EmptyState title="No questions match these filters" description="Try clearing a filter, or import a new batch." />
@@ -158,20 +159,20 @@ export default function AdminQuestionsPage() {
                   type="checkbox"
                   checked={selected.has(q.id)}
                   onChange={() => toggleSelected(q.id)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300"
+                  className="mt-1 h-4 w-4 rounded border-black/15"
                 />
                 <div className="flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <Badge tone={STATUS_TONE[q.status]}>{q.status}</Badge>
                     <Badge tone="brand">{CATEGORY_LABELS[q.category]}</Badge>
                     <Badge tone="neutral">{GRADE_GROUP_LABELS[q.gradeGroup]}</Badge>
-                    <span className="text-xs text-slate-400">{q.difficulty}</span>
+                    <span className="text-xs text-[#8A8580]">{q.difficulty}</span>
                   </div>
-                  <p className="text-sm font-medium text-slate-800">{q.questionText}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Options: {q.options.join(" · ")} — <span className="font-medium text-green-700">Correct: {q.correctAnswer}</span>
+                  <p className="text-sm font-medium text-black">{q.questionText}</p>
+                  <p className="mt-1 text-xs text-[#65615D]">
+                    Options: {q.options.join(" · ")} — <span className="font-medium text-[#16865B]">Correct: {q.correctAnswer}</span>
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-[#8A8580]">
                     Used {q.timesUsed}x{q.lastUsedAt ? ` · last used ${q.lastUsedAt}` : ""}
                   </p>
                 </div>
@@ -262,9 +263,8 @@ function EditQuestionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto">
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Edit question</h2>
+    <Modal className="max-w-lg">
+        <h2 className="mb-4 text-base font-semibold text-black">Edit question</h2>
         <div className="flex flex-col gap-3">
           <Input label="Question text" value={questionText} onChange={(e) => setQuestionText(e.target.value)} />
           {options.map((opt, i) => (
@@ -274,9 +274,9 @@ function EditQuestionModal({
           <Input label="Explanation (optional)" value={explanation} onChange={(e) => setExplanation(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Category</label>
+              <label className="text-sm font-medium text-black/80">Category</label>
               <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as QuestionCategory)}
               >
@@ -288,9 +288,9 @@ function EditQuestionModal({
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-700">Grade group</label>
+              <label className="text-sm font-medium text-black/80">Grade group</label>
               <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="rounded-xl border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:border-black"
                 value={gradeGroup}
                 onChange={(e) => setGradeGroup(e.target.value as GradeGroup)}
               >
@@ -311,8 +311,7 @@ function EditQuestionModal({
             </Button>
           </div>
         </div>
-      </Card>
-    </div>
+    </Modal>
   );
 }
 
@@ -383,10 +382,10 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
 
   return (
     <Card className="mb-6">
-      <h2 className="mb-2 text-base font-semibold text-slate-900">Import questions</h2>
-      <p className="mb-3 text-xs text-slate-500">
+      <h2 className="mb-2 text-base font-semibold text-black">Import questions</h2>
+      <p className="mb-3 text-xs text-[#65615D]">
         Paste a JSON array (from an offline AI-generation pass) or upload a CSV. Expected columns/fields:{" "}
-        <code className="rounded bg-slate-100 px-1 py-0.5">
+        <code className="rounded bg-[#F0EFED] px-1 py-0.5">
           category, gradeGroup, difficulty, questionText, option1, option2, option3, option4, correctAnswer,
           explanation
         </code>
@@ -394,7 +393,7 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
       </p>
 
       <textarea
-        className="mb-3 h-32 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs"
+        className="mb-3 h-32 w-full rounded-lg border border-black/15 p-3 font-mono text-xs"
         placeholder='[{"category":"SCIENCE","gradeGroup":"GROUP_4_7","questionText":"...","option1":"...","option2":"...","option3":"...","option4":"...","correctAnswer":"..."}]'
         value={jsonText}
         onChange={(e) => setJsonText(e.target.value)}
@@ -404,18 +403,18 @@ function ImportPanel({ onImported }: { onImported: () => void }) {
         <Button onClick={handleImportJson} isLoading={isImporting} disabled={!jsonText.trim()}>
           Import pasted JSON
         </Button>
-        <label className={clsx("cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50")}>
+        <label className={clsx("cursor-pointer rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-[#F0EFED]")}>
           Upload JSON file
           <input type="file" accept=".json,application/json" className="hidden" onChange={handleJsonFile} />
         </label>
-        <label className={clsx("cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50")}>
+        <label className={clsx("cursor-pointer rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-[#F0EFED]")}>
           Upload CSV file
           <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFile} />
         </label>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {message && <p className="mt-3 text-sm text-green-600">{message}</p>}
+      {message && <p className="mt-3 text-sm text-[#16865B]">{message}</p>}
     </Card>
   );
 }

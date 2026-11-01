@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState, use } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api-client';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { PaymentFlow } from '@/components/billing/PaymentFlow';
 import type { BillingInfo } from '@/lib/billing/pricing';
@@ -86,39 +89,28 @@ export default function StudentLayout(
 
   if (lastState.current === null) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <SkeletonCard />
-      </div>
+      <PageShell>
+        <div className="mx-auto max-w-3xl px-5 py-10 sm:px-7">
+          <SkeletonCard />
+        </div>
+      </PageShell>
     );
   }
 
   const billing = data?.billing;
   if (billing && (billing.state === 'locked' || billing.state === 'unpaid')) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-indigo-700"
-            >
-              StudyPlan Analyzer
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-500 hover:text-slate-800"
-            >
-              Back to dashboard
-            </Link>
-          </div>
-        </header>
-        <main className="px-6 py-10">
+      <PageShell className="pb-10">
+        <AppHeader>
+          <BackLink href="/dashboard" label="Back to dashboard" short="Dashboard" />
+        </AppHeader>
+        <PageMain>
           {billing.state === 'locked' &&
             billing.paymentStatus !== 'rejected' && (
-              <p className="mx-auto mb-4 max-w-xl rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <Notice tone="warning" className="mx-auto mb-6 max-w-3xl font-medium">
                 {data?.childName}&apos;s payment is due, so the app is locked.
                 Pay below to unlock it.
-              </p>
+              </Notice>
             )}
           <PaymentFlow
             studentId={params.id}
@@ -127,15 +119,15 @@ export default function StudentLayout(
               router.refresh();
             }}
           />
-        </main>
-      </div>
+        </PageMain>
+      </PageShell>
     );
   }
 
   return (
     <>
       {billing?.state === 'grace' && (
-        <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-center text-sm text-amber-900">
+        <div className="border-b border-amber-200 bg-[#fff5dc] px-5 py-3 text-center text-sm font-medium text-[#805500]">
           Payment due for {data?.childName}. The app will lock on{' '}
           {billing.graceEndsAt
             ? new Date(billing.graceEndsAt).toLocaleDateString()
@@ -143,14 +135,14 @@ export default function StudentLayout(
           .{' '}
           <Link
             href={`/students/${params.id}/pay`}
-            className="font-semibold underline"
+            className="inline-flex min-h-11 items-center font-semibold underline"
           >
             Pay now
           </Link>
         </div>
       )}
       {billing?.state === 'pending' && (
-        <div className="border-b border-indigo-200 bg-indigo-50 px-6 py-2 text-center text-sm text-indigo-900">
+        <div className="border-b border-black/5 bg-[#EEF0FF] px-5 py-3 text-center text-sm font-medium text-black">
           Your payment will be verified within 24 hours.
         </div>
       )}

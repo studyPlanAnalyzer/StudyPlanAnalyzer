@@ -24,19 +24,19 @@ export function BufferWeekToggle({
   disabled?: boolean;
 }) {
   return (
-    <label className="flex items-start gap-2 text-sm">
+    <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-sm">
       <input
         type="checkbox"
-        className="mt-0.5 h-4 w-4 rounded border-slate-300 disabled:opacity-50"
+        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-black disabled:opacity-50"
         checked={checked && runwayOk}
         disabled={disabled || !runwayOk}
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        <span className="font-medium text-slate-900">
+        <span className="font-semibold text-black">
           End {BUFFER_DAYS} days before the exam
         </span>
-        <span className="block text-xs text-slate-500">
+        <span className="block text-[#65615D]">
           Leaves a self-directed final week for your child to review and
           prioritize on their own.
           {!runwayOk && ' Not enough time before the exam for this option.'}

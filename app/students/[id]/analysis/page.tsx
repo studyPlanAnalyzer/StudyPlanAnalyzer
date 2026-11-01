@@ -9,6 +9,15 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { api, ApiError } from '@/lib/api-client';
 import { DailyChallengeStatsCard } from '@/components/daily-challenge/DailyChallengeStatsCard';
 import { BufferWeekChoiceModal } from '@/components/plan/BufferWeekChoiceModal';
+import { Modal } from '@/components/ui/Modal';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { buttonClass } from '@/components/ui/Button';
+import { cardClass } from '@/components/ui/Card';
+import { Tag } from '@/components/ui/Tag';
+import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 interface SubjectAnalysis {
   subjectId: string;
@@ -106,17 +115,13 @@ function SubjectDetailModal({
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:py-10"
-      onClick={onClose}
+    <Modal
+      onBackdropClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="subject-analysis-title"
+      className="relative max-w-2xl sm:p-8"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="subject-analysis-title"
-        className="relative w-full max-w-2xl rounded-[26px] bg-white p-6 shadow-2xl sm:p-8"
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Header */}
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -127,7 +132,7 @@ function SubjectDetailModal({
               {subject.name}
             </h2>
 
-            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#65615D]">
+            <p className="mt-1 text-sm font-semibold uppercase tracking-[0.12em] text-[#65615D]">
               {subject.examWeight} exam weight
             </p>
           </div>
@@ -135,7 +140,7 @@ function SubjectDetailModal({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F0EFED] text-lg text-black transition hover:bg-[#E7E5E2] active:scale-95"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F0EFED] text-lg text-black transition hover:bg-[#E7E5E2] active:scale-95"
           >
             ×
           </button>
@@ -153,7 +158,7 @@ function SubjectDetailModal({
             </p>
 
             {subject.isEstimated && (
-              <span className="text-xs text-[#65615D]">Estimated</span>
+              <span className="text-sm text-[#65615D]">Estimated</span>
             )}
           </div>
 
@@ -179,7 +184,7 @@ function SubjectDetailModal({
             <p className="text-sm text-[#65615D]">Strength</p>
 
             <span
-              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${
+              className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold capitalize ${
                 strengthStyles[subject.strength] ?? strengthStyles.unknown
               }`}
             >
@@ -190,10 +195,10 @@ function SubjectDetailModal({
 
         {/* Low confidence notice */}
         {subject.latestConfidence === 'low' && (
-          <p className="mb-6 rounded-2xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#805500]">
+          <Notice tone="warning" className="mb-6 font-semibold">
             ⚠ Low confidence — treated as a priority topic even though the score
             looks strong.
-          </p>
+          </Notice>
         )}
 
         {/* Test history */}
@@ -208,7 +213,7 @@ function SubjectDetailModal({
             <div className="flex flex-col gap-3">
               {subject.percentHistory.map((score, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 text-xs text-[#65615D]">
+                  <span className="w-16 shrink-0 text-sm text-[#65615D]">
                     Test {i + 1}
                   </span>
 
@@ -221,7 +226,7 @@ function SubjectDetailModal({
                     />
                   </div>
 
-                  <span className="w-10 shrink-0 text-right text-xs font-bold text-black">
+                  <span className="w-10 shrink-0 text-right text-sm font-bold text-black">
                     {score}%
                   </span>
                 </div>
@@ -257,7 +262,7 @@ function SubjectDetailModal({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-[#65615D]">
+                  <div className="flex items-center gap-3 text-sm text-[#65615D]">
                     <span>
                       Priority{' '}
                       <strong className="font-semibold text-black">
@@ -277,8 +282,7 @@ function SubjectDetailModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -298,7 +302,6 @@ export default function AnalysisPage(props: {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBufferChoice, setShowBufferChoice] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const [pendingExam, setPendingExam] = useState<
     StudentDetail['exams'][number] | null
@@ -459,102 +462,22 @@ export default function AnalysisPage(props: {
   // --------------------------------------------------
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell withBottomNav>
+      <AppHeader
+        menu={{
+          breakpoint: 'lg',
+          items: [{ href: '/dashboard', label: '← Back to dashboard' }, ...menuItems],
+        }}
+      >
+        <BackLink href="/dashboard" label="Back to dashboard" />
+      </AppHeader>
 
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* Desktop back button */}
-          <Link
-            href="/dashboard"
-            className="hidden h-14 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-6 text-base font-semibold transition hover:bg-[#E7E5E2] active:scale-95 lg:flex"
-          >
-            <span>←</span>
-            Back to dashboard
-          </Link>
-
-          {/* Hamburger - mobile and tablet */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0EFED] text-black transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:w-14 lg:hidden"
-          >
-            {menuOpen ? (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 6l12 12M18 6L6 18"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Hamburger dropdown */}
-        {menuOpen && (
-          <nav className="absolute left-0 right-0 top-full mx-5 flex flex-col gap-1 rounded-[26px] bg-white p-3 shadow-2xl sm:mx-7 lg:hidden">
-            <Link
-              href="/dashboard"
-              onClick={() => setMenuOpen(false)}
-              className="rounded-2xl px-4 py-3 text-sm font-semibold transition hover:bg-black/5 sm:text-base"
-            >
-              ← Back to dashboard
-            </Link>
-
-            {menuItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="rounded-2xl px-4 py-3 text-sm font-semibold transition hover:bg-black/5 sm:text-base"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {/* LOADING STATE */}
@@ -570,10 +493,9 @@ export default function AnalysisPage(props: {
             {/* HERO SECTION */}
             <section className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0 flex-1">
-                {/* ANIMATED HEADLINE */}
-                <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                <PageTitle>
                   {analysis.student.name}&apos;s performance.
-                </h1>
+                </PageTitle>
 
                 <p className="mt-4 max-w-xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                   Grade {analysis.student.grade}
@@ -585,7 +507,7 @@ export default function AnalysisPage(props: {
                 {hasPlan && detail?.latestPlan && (
                   <Link
                     href={`/students/${params.id}/plan?planId=${detail.latestPlan.id}`}
-                    className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-6 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-[#E7E5E2] active:scale-95 sm:px-7 sm:py-4 sm:text-base"
+                    className={buttonClass('secondary', 'lg', 'w-fit')}
                   >
                     View current plan
                   </Link>
@@ -596,7 +518,7 @@ export default function AnalysisPage(props: {
                     type="button"
                     onClick={handleGeneratePlan}
                     disabled={isGenerating}
-                    className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base"
+                    className={buttonClass('yellow', 'lg', 'w-fit')}
                   >
                     {isGenerating
                       ? 'Generating...'
@@ -610,7 +532,7 @@ export default function AnalysisPage(props: {
 
             {/* EXAM PASSED NOTIFICATION */}
             {examHasPassed && primaryExam && (
-              <div className="mb-8 rounded-[26px] bg-[#F0EFED] px-5 py-6 sm:mb-10 sm:px-8 sm:py-7">
+              <Notice tone="neutral" className="mb-8 sm:mb-10">
                 <div className="flex items-start gap-4 sm:gap-5">
                   <svg
                     className="mt-1 h-7 w-7 shrink-0 text-black"
@@ -640,21 +562,21 @@ export default function AnalysisPage(props: {
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link
                         href={`/students/${params.id}/new-exam`}
-                        className="inline-flex items-center justify-center rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-black/80"
+                        className={buttonClass('primary', 'lg')}
                       >
                         Start new exam cycle
                       </Link>
 
                       <Link
                         href={`/students/${params.id}/new-session`}
-                        className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-black/5"
+                        className={buttonClass('white', 'lg', '', true)}
                       >
                         Start a new academic session with no previous exams
                       </Link>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Notice>
             )}
 
             {/* DESKTOP QUICK NAVIGATION */}
@@ -673,10 +595,8 @@ export default function AnalysisPage(props: {
             {/* PERFORMANCE SNAPSHOT + DAILY CHALLENGE */}
             <section className="mb-8 grid items-stretch gap-6 sm:mb-10 lg:grid-cols-[2fr_0.95fr]">
               {/* PERFORMANCE SNAPSHOT */}
-              <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10">
-                <div className="mb-7 inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
-                  Performance snapshot
-                </div>
+              <div className={`${cardClass} p-6 sm:p-8 lg:p-10`}>
+                <Tag className="mb-7 px-5 py-2">Performance snapshot</Tag>
 
                 {/* Overall average */}
                 <div className="flex items-center gap-5 sm:gap-6">
@@ -744,7 +664,7 @@ export default function AnalysisPage(props: {
 
                 <Link
                   href={`/students/${params.id}/subjects`}
-                  className="rounded-full bg-[#F0EFED] px-5 py-3 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95"
+                  className={buttonClass('secondary')}
                 >
                   Manage subjects →
                 </Link>
@@ -771,9 +691,7 @@ export default function AnalysisPage(props: {
                       >
                         {/* Exam weight and score */}
                         <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-                          <span className="rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
-                            {s.examWeight} exam weight
-                          </span>
+                          <Tag className="px-5 py-2">{s.examWeight} exam weight</Tag>
 
                           <div className="text-xl font-extrabold">
                             {s.latestPercent !== null
@@ -793,13 +711,13 @@ export default function AnalysisPage(props: {
                         </p>
 
                         {s.isEstimated && (
-                          <p className="mt-1 text-xs font-semibold text-black/60">
+                          <p className="mt-1 text-sm font-semibold text-black/60">
                             Estimated score
                           </p>
                         )}
 
                         {s.latestConfidence === 'low' && (
-                          <p className="mt-2 text-xs font-bold text-black">
+                          <p className="mt-2 text-sm font-bold text-black">
                             ⚠ Low confidence
                           </p>
                         )}
@@ -816,7 +734,7 @@ export default function AnalysisPage(props: {
 
                         {/* Priority topics */}
                         <div className="flex-1">
-                          <p className="mb-3 text-xs font-bold uppercase tracking-wide">
+                          <p className="mb-3 text-sm font-bold uppercase tracking-wide">
                             Priority topics
                           </p>
 
@@ -825,7 +743,7 @@ export default function AnalysisPage(props: {
                               {s.topics.slice(0, 4).map((t) => (
                                 <span
                                   key={t.id}
-                                  className="rounded-full bg-white/75 px-4 py-2 text-xs font-semibold text-black"
+                                  className="rounded-full bg-white/75 px-4 py-2 text-sm font-semibold text-black"
                                 >
                                   {t.name}
                                 </span>
@@ -841,7 +759,7 @@ export default function AnalysisPage(props: {
                         {/* View analysis button */}
                         <button
                           type="button"
-                          className="mt-7 flex w-fit items-center gap-2 rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition group-hover:bg-black/80"
+                          className={buttonClass('primary', 'lg', 'mt-7 w-fit')}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedSubject(s);
@@ -859,12 +777,10 @@ export default function AnalysisPage(props: {
 
             {/* TOP 3 TOPICS TO FOCUS ON */}
             {analysis.topPriorityTopics.length > 0 && (
-              <section className="mb-8 rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:mb-10 sm:p-8 lg:p-10">
+              <section className={`${cardClass} mb-8 p-6 sm:mb-10 sm:p-8 lg:p-10`}>
                 <div className="mb-6 flex items-start justify-between gap-4">
                   <div>
-                    <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
-                      Focus list
-                    </span>
+                    <Tag className="px-5 py-2">Focus list</Tag>
 
                     <h3 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">
                       Top 3 topics to focus on
@@ -923,52 +839,9 @@ export default function AnalysisPage(props: {
             )}
           </>
         )}
-      </main>
+      </PageMain>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">▦</span>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">＋</span>
-            <span className="text-[10px] font-medium">Plan</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/today`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">ϟ</span>
-            <span className="text-[10px] font-medium">Today</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/daily-challenge`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">◧</span>
-            <span className="text-[10px] font-medium">Quiz</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/settings`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">●</span>
-            <span className="text-[10px] font-medium">You</span>
-          </Link>
-        </div>
-      </nav>
+      <StudentBottomNav studentId={params.id} />
 
       {/* SUBJECT DETAIL MODAL */}
       {selectedSubject && (
@@ -992,60 +865,6 @@ export default function AnalysisPage(props: {
           onCancel={() => setShowBufferChoice(false)}
         />
       )}
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+    </PageShell>
   );
 }

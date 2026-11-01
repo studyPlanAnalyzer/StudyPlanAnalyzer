@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { api, getErrorMessage } from '@/lib/api-client';
 
@@ -59,14 +58,12 @@ export default function AdminPaymentsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Payments</h1>
-        <div className="flex gap-2">
-          <Link href="/admin/schools">
-            <Button size="sm" variant="secondary">
-              Schools
-            </Button>
-          </Link>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight text-black">Payments</h1>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/admin/schools" size="sm" variant="secondary">
+            Schools
+          </ButtonLink>
           <Button
             size="sm"
             variant={filter === 'pending' ? 'primary' : 'secondary'}
@@ -84,18 +81,18 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-      {rows === null && <p className="text-sm text-slate-500">Loading…</p>}
+      {rows === null && <p className="text-sm text-[#65615D]">Loading…</p>}
       {rows?.length === 0 && (
-        <p className="text-sm text-slate-500">Nothing here.</p>
+        <p className="text-sm text-[#65615D]">Nothing here.</p>
       )}
       <div className="flex flex-col gap-3">
         {rows?.map((p) => (
           <Card key={p.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="text-sm text-slate-700">
-                <p className="font-semibold text-slate-900">
+              <div className="text-sm text-black/80">
+                <p className="font-semibold text-black">
                   Rs {p.amountRs} · {p.months} month{p.months > 1 ? 's' : ''} ·{' '}
-                  <span className="uppercase text-slate-500">{p.status}</span>
+                  <span className="uppercase text-[#65615D]">{p.status}</span>
                 </p>
                 <p>
                   Transaction ID:{' '}
@@ -109,13 +106,13 @@ export default function AdminPaymentsPage() {
                   {p.childName ?? '—'} · School: {p.schoolName ?? '—'}
                 </p>
                 {p.submittedAt && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#8A8580]">
                     Submitted {new Date(p.submittedAt).toLocaleString()}
                   </p>
                 )}
               </div>
               {p.status === 'pending' && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     isLoading={busyId === p.id}

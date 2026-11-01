@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { api, ApiError } from '@/lib/api-client';
+import { buttonClass } from '@/components/ui/Button';
 
 interface Me {
   user: { id: string; name: string; isAdmin: boolean };
@@ -50,7 +51,7 @@ export default function AdminLayout({
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6] text-sm text-[#8A8580]">
         Loading…
       </div>
     );
@@ -58,15 +59,15 @@ export default function AdminLayout({
 
   if (status === 'denied') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 px-4 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Admins only</h1>
-        <p className="max-w-sm text-sm text-slate-500">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#FAF9F6] px-4 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight text-black">Admins only</h1>
+        <p className="max-w-sm text-sm text-[#65615D]">
           This area is for managing the Daily Brain Challenge question bank and
           isn&apos;t available on your account.
         </p>
         <Link
           href="/dashboard"
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className={buttonClass('secondary', 'md', 'mt-2')}
         >
           Back to dashboard
         </Link>
@@ -75,10 +76,13 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-4">
-          <Link href="/admin" className="text-lg font-semibold text-indigo-700">
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] text-black">
+      <header className="border-b border-black/10 bg-[#FAF9F6]">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <Link href="/admin" className="flex items-center gap-3 text-lg font-bold tracking-tight">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-base font-bold text-white">
+              S
+            </span>
             StudyPlan Analyzer · Admin
           </Link>
           <nav className="flex flex-wrap items-center gap-1">
@@ -92,10 +96,10 @@ export default function AdminLayout({
                   key={item.href}
                   href={item.href}
                   className={clsx(
-                    'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                    'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
                     isActive
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-slate-600 hover:bg-slate-100',
+                      ? 'bg-black text-white'
+                      : 'text-black/70 hover:bg-[#F0EFED]',
                   )}
                 >
                   {item.label}
@@ -104,7 +108,7 @@ export default function AdminLayout({
             })}
             <Link
               href="/dashboard"
-              className="ml-2 text-sm text-slate-400 hover:text-slate-700"
+              className="ml-1 rounded-full bg-[#F0EFED] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#E7E5E2]"
             >
               Exit admin
             </Link>

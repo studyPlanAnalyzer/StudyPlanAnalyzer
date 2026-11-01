@@ -2,7 +2,6 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import clsx from 'clsx';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
@@ -12,6 +11,15 @@ import {
   QuizAttemptResult,
   StudentQuizQuestion,
 } from '@/lib/types/daily-challenge';
+import { cardClass } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { Tag } from '@/components/ui/Tag';
+import { buttonClass } from '@/components/ui/Button';
+import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 interface DailyChallengeResponse {
   eligible: boolean;
@@ -34,56 +42,10 @@ const numberColors = [
   'bg-[#EDB1AA]',
 ];
 
-const cardClass =
-  'rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8';
-
-const blackBadge =
-  'inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white';
+const questionCard = `${cardClass} p-6 sm:p-8`;
 
 function isFullQuestion(q: StudentQuizQuestion | Question): q is Question {
   return 'correctAnswer' in q;
-}
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function EmptyCard({
-  emoji,
-  title,
-  description,
-}: {
-  emoji: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-[32px] bg-white px-6 py-16 text-center shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:py-20">
-      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] bg-[#F7CC46] text-4xl">
-        {emoji}
-      </div>
-
-      <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h2>
-
-      <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#65615D] sm:text-base">
-        {description}
-      </p>
-    </div>
-  );
 }
 
 export default function DailyChallengePage(
@@ -183,44 +145,20 @@ export default function DailyChallengePage(
   });
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell withBottomNav>
+      <AppHeader>
+        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
+      </AppHeader>
 
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* BACK BUTTON */}
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <ArrowLeftIcon />
-            <span>
-              Back<span className="hidden sm:inline"> to plan</span>
-            </span>
-          </Link>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* HERO SECTION */}
         <section className="mb-8 sm:mb-10">
-          <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+          <PageTitle>
             Daily Brain Challenge.
-          </h1>
+          </PageTitle>
 
           <div className="mt-5">
-            <span className={blackBadge}>{todayLabel}</span>
+            <Tag className="px-5 py-2">{todayLabel}</Tag>
           </div>
 
           <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
@@ -231,9 +169,9 @@ export default function DailyChallengePage(
 
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {/* LOADING STATE */}
@@ -246,8 +184,9 @@ export default function DailyChallengePage(
 
         {/* NOT ELIGIBLE */}
         {data && !data.eligible && (
-          <EmptyCard
-            emoji="🎒"
+          <EmptyState
+            titleAs="h2"
+            icon="🎒"
             title="Not available for this grade yet"
             description="The Daily Brain Challenge currently covers Grades 4–10."
           />
@@ -255,8 +194,9 @@ export default function DailyChallengePage(
 
         {/* NO QUIZ TODAY */}
         {data && data.eligible && !data.quiz && (
-          <EmptyCard
-            emoji="⏳"
+          <EmptyState
+            titleAs="h2"
+            icon="⏳"
             title="No challenge today"
             description="Nothing has been published yet for today — check back a bit later!"
           />
@@ -267,7 +207,7 @@ export default function DailyChallengePage(
           <>
             <div className="grid items-start gap-6 lg:grid-cols-2">
               {(data.questions as StudentQuizQuestion[]).map((q, i) => (
-                <div key={q.id} id={`question-${q.id}`} className={cardClass}>
+                <div key={q.id} id={`question-${q.id}`} className={questionCard}>
                   <div className="mb-5 flex items-center gap-4">
                     <div
                       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${
@@ -278,11 +218,11 @@ export default function DailyChallengePage(
                     </div>
 
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className={blackBadge}>
+                      <Tag className="px-5 py-2">
                         {CATEGORY_LABELS[q.category]}
-                      </span>
+                      </Tag>
 
-                      <span className="text-xs font-semibold text-[#65615D]">
+                      <span className="text-sm font-semibold text-[#65615D]">
                         Question {i + 1} of {totalQuestions}
                       </span>
                     </div>
@@ -330,7 +270,7 @@ export default function DailyChallengePage(
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base"
+                className={buttonClass('yellow', 'lg', 'w-fit')}
               >
                 {isSubmitting ? 'Submitting…' : 'Submit answers'}
               </button>
@@ -342,7 +282,7 @@ export default function DailyChallengePage(
         {resultToShow && (
           <>
             <div className="mb-8 rounded-[32px] bg-[#F7CC46] p-8 text-center sm:mb-10 sm:p-10">
-              <span className={blackBadge}>Your score</span>
+              <Tag className="px-5 py-2">Your score</Tag>
 
               <p className="mt-5 text-lg font-bold sm:text-xl">
                 {
@@ -367,7 +307,7 @@ export default function DailyChallengePage(
                   (a) => a.questionId === q.id,
                 );
                 return (
-                  <div key={q.id} className={cardClass}>
+                  <div key={q.id} className={questionCard}>
                     <div className="mb-5 flex items-center gap-4">
                       <div
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${
@@ -378,18 +318,14 @@ export default function DailyChallengePage(
                       </div>
 
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className={blackBadge}>
+                        <Tag className="px-5 py-2">
                           {CATEGORY_LABELS[q.category]}
-                        </span>
+                        </Tag>
 
                         {given?.correct ? (
-                          <span className="inline-flex rounded-full bg-[#a4e5c7] px-5 py-2 text-xs font-bold uppercase tracking-wide text-black">
-                            Correct
-                          </span>
+                          <Tag tone="mint" className="px-5 py-2">Correct</Tag>
                         ) : (
-                          <span className="inline-flex rounded-full bg-[#EDB1AA] px-5 py-2 text-xs font-bold uppercase tracking-wide text-black">
-                            Not quite
-                          </span>
+                          <Tag tone="coral" className="px-5 py-2">Not quite</Tag>
                         )}
                       </div>
                     </div>
@@ -425,52 +361,9 @@ export default function DailyChallengePage(
             </div>
           </>
         )}
-      </main>
+      </PageMain>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">▦</span>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">＋</span>
-            <span className="text-[10px] font-medium">Plan</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/today`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">ϟ</span>
-            <span className="text-[10px] font-medium">Today</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/daily-challenge`}
-            className="flex flex-col items-center gap-1 py-3 text-black"
-          >
-            <span className="text-xl">◧</span>
-            <span className="text-[10px] font-bold">Quiz</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/settings`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">●</span>
-            <span className="text-[10px] font-medium">You</span>
-          </Link>
-        </div>
-      </nav>
+      <StudentBottomNav studentId={params.id} active="quiz" />
 
       {/* TOAST */}
       {toast && (
@@ -483,66 +376,12 @@ export default function DailyChallengePage(
             type="button"
             onClick={() => setToast(null)}
             aria-label="Dismiss"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
           >
             ✕
           </button>
         </div>
       )}
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+    </PageShell>
   );
 }

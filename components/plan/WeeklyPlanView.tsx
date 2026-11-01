@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Badge } from '@/components/ui/Badge';
+import { buttonClass } from '@/components/ui/Button';
 
 export interface PlanSession {
   id: string;
@@ -103,7 +104,7 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                   {formatDate(day.date)}
                 </h4>
 
-                <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#666]">
+                <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#666]">
                   {day.totalMinutes} min planned
                 </span>
               </div>
@@ -116,7 +117,7 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                     className="flex min-w-0 flex-col gap-3 rounded-2xl bg-white p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-4"
                   >
                     {/* Session information */}
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2 [&_*]:!text-sm">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2">
                       <Badge tone={sessionTypeTone[s.sessionType]}>
                         {s.sessionType}
                       </Badge>
@@ -141,7 +142,7 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                         studentId && (
                           <Link
                             href={`/students/${studentId}/today`}
-                            className="rounded-full bg-[#f9cf48] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#efc13a]"
+                            className={buttonClass('yellow')}
                           >
                             Rate today's session
                           </Link>

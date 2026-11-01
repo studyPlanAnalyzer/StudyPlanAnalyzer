@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ButtonLink } from '@/components/ui/Button';
 
 /**
  * Shown instead of a study plan once the exam it was built for is over (the
@@ -33,19 +33,22 @@ export function ExamOverNotice({
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link
+            <ButtonLink
               href={`/students/${studentId}/new-exam`}
-              className="inline-flex items-center justify-center rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 sm:px-7 sm:py-4 sm:text-base"
+              variant="yellow"
+              size="lg"
             >
               Start new exam cycle
-            </Link>
+            </ButtonLink>
 
-            <Link
+            <ButtonLink
               href={`/students/${studentId}/new-session`}
-              className="inline-flex items-center justify-center rounded-full bg-[#F0EFED] px-6 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-[#E7E5E2] active:scale-95 sm:px-7 sm:py-4 sm:text-base"
+              variant="secondary"
+              size="lg"
+              wrap
             >
               Start a new academic session with no previous exams
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </div>

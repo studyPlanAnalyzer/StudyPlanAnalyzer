@@ -1,36 +1,38 @@
 'use client';
 
+import clsx from 'clsx';
+
 import { Button } from '@/components/ui/Button';
+import { Notice } from '@/components/ui/Notice';
 
 interface ErrorMessageProps {
   message: string | null;
   /** If provided, a "Try again" button is shown. */
   onRetry?: () => void;
   retrying?: boolean;
+  className?: string;
 }
 
 export function ErrorMessage({
   message,
   onRetry,
   retrying,
+  className = 'mt-5',
 }: ErrorMessageProps) {
   if (!message) return null;
   return (
-    <div
-      role="alert"
-      className="mt-4 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+    <Notice
+      className={clsx(
+        'flex flex-wrap items-center justify-between gap-3',
+        className,
+      )}
     >
-      <p className="text-sm text-red-700">{message}</p>
+      <span>{message}</span>
       {onRetry && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onRetry}
-          isLoading={retrying}
-        >
+        <Button variant="white" onClick={onRetry} isLoading={retrying}>
           Try again
         </Button>
       )}
-    </div>
+    </Notice>
   );
 }

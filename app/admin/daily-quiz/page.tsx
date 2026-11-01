@@ -16,5 +16,5 @@ export default function DailyQuizIndexPage() {
     router.replace(`/admin/daily-quiz/${tomorrowDateString()}`);
   }, [router]);
 
-  return <div className="flex min-h-[50vh] items-center justify-center text-sm text-slate-400">Loading…</div>;
+  return <div className="flex min-h-[50vh] items-center justify-center text-sm text-[#8A8580]">Loading…</div>;
 }

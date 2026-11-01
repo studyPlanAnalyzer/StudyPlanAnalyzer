@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { api, getErrorMessage } from '@/lib/api-client';
@@ -61,18 +60,16 @@ export default function AdminSchoolsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Schools</h1>
-        <Link href="/admin/payments">
-          <Button size="sm" variant="secondary">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight text-black">Schools</h1>
+        <ButtonLink href="/admin/payments" size="sm" variant="secondary">
             Payments
-          </Button>
-        </Link>
+          </ButtonLink>
       </div>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       <Card className="mb-6">
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[12rem] flex-1">
             <Input
               label="New school"
               value={name}
@@ -88,17 +85,17 @@ export default function AdminSchoolsPage() {
           </Button>
         </div>
       </Card>
-      {rows === null && <p className="text-sm text-slate-500">Loading…</p>}
+      {rows === null && <p className="text-sm text-[#65615D]">Loading…</p>}
       <div className="flex flex-col gap-3">
         {rows?.map((s) => (
           <Card key={s.id}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-slate-700">
-                <p className="font-semibold text-slate-900">{s.name}</p>
+              <div className="text-sm text-black/80">
+                <p className="font-semibold text-black">{s.name}</p>
                 <p>
                   Code: <b className="font-mono">{s.referenceCode}</b>
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#65615D]">
                   {s.paidUntil
                     ? `Paid until ${new Date(s.paidUntil).toLocaleDateString()}`
                     : 'Not paid yet: parents cannot use the code'}
@@ -106,7 +103,7 @@ export default function AdminSchoolsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <select
-                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  className="rounded-lg border border-black/15 px-2 py-1.5 text-sm"
                   value={months[s.id] ?? 3}
                   onChange={(e) =>
                     setMonths((m) => ({ ...m, [s.id]: Number(e.target.value) }))

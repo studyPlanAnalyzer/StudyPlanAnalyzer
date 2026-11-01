@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
+import { Tag } from '@/components/ui/Tag';
 
 interface Stats {
   last7Days: { completed: number; averageScore: number };
@@ -26,9 +27,7 @@ export function DailyChallengeStatsCard({ studentId }: { studentId: string }) {
       {/* HEADER */}
 
       <div className="mb-8 flex items-center justify-between gap-3">
-        <span className="rounded-full bg-black px-4 py-2 text-xs font-bold uppercase tracking-widest text-white sm:text-sm">
-          Daily Brain Challenge
-        </span>
+        <Tag className="px-4 py-2">Daily Brain Challenge</Tag>
 
         {/* Brain icon */}
 

@@ -8,6 +8,8 @@ import {
   reportStrings,
 } from '@/lib/reports/strings';
 import type { ActionKind, WeeklyReportSnapshot } from '@/lib/reports/types';
+import { buttonClass } from '@/components/ui/Button';
+import { cardClass } from '@/components/ui/Card';
 
 // ---------------------------------------------------------------------------
 // The full weekly report, drawn from the stored snapshot only, so it always
@@ -15,14 +17,14 @@ import type { ActionKind, WeeklyReportSnapshot } from '@/lib/reports/types';
 // the admin preview. Gentle colours only: nothing here is red.
 // ---------------------------------------------------------------------------
 
-const card = 'rounded-[28px] bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.05)] sm:p-7';
+const card = `${cardClass} p-5 sm:p-7`;
 const h2 = 'text-lg font-bold tracking-tight sm:text-xl';
 const row = 'flex flex-col gap-0.5 border-b border-[#F0EFED] py-3 last:border-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6';
 const label = 'text-sm text-[#65615D]';
 const value = 'text-sm font-semibold sm:text-right';
-const note = 'mt-2 text-xs leading-5 text-[#8A8580]';
-const pill = 'inline-flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-black/85 active:scale-95';
-const softPill = 'inline-flex h-10 items-center justify-center rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95';
+const note = 'mt-2 text-sm leading-6 text-[#8A8580]';
+const pill = buttonClass('primary');
+const softPill = buttonClass('secondary');
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
@@ -74,12 +76,12 @@ export function WeeklyReportView({
         <p className="text-sm font-medium text-[#8A8580]">
           {formatWeekRange(r.week.start, r.week.end)}
           {r.context.builtLater && (
-            <span className="ml-2 rounded-full bg-[#F0EFED] px-2.5 py-0.5 text-xs font-semibold text-[#65615D]">
+            <span className="ml-2 rounded-full bg-[#F0EFED] px-3 py-1 text-sm font-semibold text-[#65615D]">
               {v.builtLaterShort}
             </span>
           )}
         </p>
-        {r.context.builtLater && <p className="mt-2 text-xs leading-5 text-[#8A8580]">{v.builtLaterNote}</p>}
+        {r.context.builtLater && <p className={note}>{v.builtLaterNote}</p>}
         <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-[-0.03em] sm:text-3xl">
           {s.headline(r.headline, name)}
         </h1>
@@ -150,7 +152,7 @@ export function WeeklyReportView({
               {(['again', 'hard', 'good', 'easy'] as const).map((k) => (
                 <div key={k} className="rounded-2xl bg-[#F6F5F2] px-2 py-3">
                   <div className="text-lg font-bold">{r.revision.ratings[k]}</div>
-                  <div className="text-xs text-[#65615D]">{v.ratingNames[k]}</div>
+                  <div className="text-sm text-[#65615D]">{v.ratingNames[k]}</div>
                 </div>
               ))}
             </div>
@@ -218,7 +220,7 @@ export function WeeklyReportView({
               <div key={`${t.subjectName}-${t.name}-${t.assessmentName}`} className={row}>
                 <span className={label}>
                   {t.name === t.subjectName ? t.name : `${t.name} · ${t.subjectName}`}
-                  <span className="block text-xs text-[#8A8580]">
+                  <span className="block text-sm text-[#8A8580]">
                     {t.assessmentName}, {formatDay(t.date)}
                     {t.confidence ? ` · ${v.confidence[t.confidence]}` : ''}
                   </span>

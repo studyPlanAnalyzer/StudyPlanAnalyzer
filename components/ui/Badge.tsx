@@ -3,18 +3,18 @@ import clsx from "clsx";
 type Tone = "weak" | "medium" | "strong" | "neutral" | "brand";
 
 const toneClasses: Record<Tone, string> = {
-  weak: "bg-red-50 text-red-700 border-red-200",
-  medium: "bg-amber-50 text-amber-700 border-amber-200",
-  strong: "bg-green-50 text-green-700 border-green-200",
-  neutral: "bg-slate-100 text-slate-600 border-slate-200",
-  brand: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  weak: "bg-[#F1B5AE]/40 text-[#A4473D]",
+  medium: "bg-[#fff5dc] text-[#805500]",
+  strong: "bg-[#9DDFC2]/40 text-[#145c3d]",
+  neutral: "bg-[#F0EFED] text-black/70",
+  brand: "bg-[#EEF0FF] text-black",
 };
 
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: React.ReactNode }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold",
         toneClasses[tone]
       )}
     >

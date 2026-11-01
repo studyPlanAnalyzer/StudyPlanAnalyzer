@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import clsx from 'clsx';
 
+import { buttonClass } from '@/components/ui/Button';
+import { Tag } from '@/components/ui/Tag';
+
 export interface SessionItem {
   id: string;
   topicName: string | null;
@@ -92,18 +95,14 @@ export function SessionCard({
       {/* TOP ROW: type, free choice, duration */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex rounded-full bg-black px-5 py-2 text-xs font-bold uppercase tracking-wide text-white">
-            {session.sessionType}
-          </span>
+          <Tag className="px-5 py-2">{session.sessionType}</Tag>
 
           {session.isFiller && (
-            <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-bold uppercase tracking-wide text-black">
-              Free Choice
-            </span>
+            <Tag tone="white" className="px-5 py-2">Free Choice</Tag>
           )}
         </div>
 
-        <span className="whitespace-nowrap rounded-full bg-white/60 px-4 py-2 text-xs font-bold text-black">
+        <span className="whitespace-nowrap rounded-full bg-white/60 px-4 py-2 text-sm font-bold text-black">
           {session.durationMinutes} min
         </span>
       </div>
@@ -148,7 +147,7 @@ export function SessionCard({
       {/* RATING + ACTIONS */}
       {!isDone && !isSkipped && (
         <div className="mt-6 rounded-[26px] bg-white/60 p-5 sm:p-6">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-black">
+          <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
             How did it go?
           </p>
 
@@ -160,7 +159,7 @@ export function SessionCard({
                 onClick={() => setRating(r.value)}
                 aria-pressed={rating === r.value}
                 className={clsx(
-                  'rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95',
+                  'inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95',
                   r.tone,
                   rating === r.value && 'ring-2 ring-black ring-offset-2',
                 )}
@@ -175,7 +174,7 @@ export function SessionCard({
               type="button"
               onClick={handleComplete}
               disabled={rating === null || isSaving}
-              className="inline-flex items-center justify-center rounded-full bg-black px-7 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-black/80 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className={buttonClass('primary', 'lg')}
             >
               {isSaving ? 'Saving…' : 'Mark completed'}
             </button>
@@ -183,7 +182,7 @@ export function SessionCard({
             <button
               type="button"
               onClick={() => onSkip()}
-              className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-black/5 active:scale-95"
+              className={buttonClass('white', 'lg')}
             >
               Skip
             </button>

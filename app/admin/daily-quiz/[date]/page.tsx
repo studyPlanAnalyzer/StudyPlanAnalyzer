@@ -54,17 +54,17 @@ export default function DailyQuizPreparePage(
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">
+      <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-black">
         Prepare quiz for {params.date}
       </h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <p className="mb-6 text-sm text-[#65615D]">
         One 3-question quiz publishes per grade group: 1 IQ &amp; Logic, 1
         Science, 1 General Knowledge.
       </p>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      {!state && <p className="text-sm text-slate-400">Loading…</p>}
+      {!state && <p className="text-sm text-[#8A8580]">Loading…</p>}
 
       {state && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -180,7 +180,7 @@ function GradeGroupPanel({
   return (
     <Card>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">
+        <h2 className="text-base font-semibold text-black">
           {GRADE_GROUP_LABELS[gradeGroup]}
         </h2>
         {isPublished ? (
@@ -199,12 +199,12 @@ function GradeGroupPanel({
             .map(({ order, question }) => (
               <div
                 key={order}
-                className="rounded-lg border border-slate-200 p-3"
+                className="rounded-lg border border-black/10 p-3"
               >
                 <Badge tone="brand">
                   {question ? CATEGORY_LABELS[question.category] : '?'}
                 </Badge>
-                <p className="mt-1 text-sm font-medium text-slate-800">
+                <p className="mt-1 text-sm font-medium text-black">
                   {question?.questionText}
                 </p>
               </div>
@@ -222,14 +222,14 @@ function GradeGroupPanel({
         <div className="flex flex-col gap-5">
           {CATEGORY_ORDER.map((category) => (
             <div key={category}>
-              <p className="mb-2 text-sm font-medium text-slate-700">
+              <p className="mb-2 text-sm font-medium text-black/80">
                 {CATEGORY_LABELS[category]}
               </p>
               {!shortlists && (
-                <p className="text-xs text-slate-400">Loading options…</p>
+                <p className="text-xs text-[#8A8580]">Loading options…</p>
               )}
               {shortlists && shortlists[category].length === 0 && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-[#805500]">
                   No eligible approved questions (either none approved yet, or
                   all were used within the last 7 days). Approve more in the
                   question bank.
@@ -240,7 +240,7 @@ function GradeGroupPanel({
                   {shortlists[category].map((q) => (
                     <label
                       key={q.id}
-                      className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-2 text-sm hover:bg-slate-50"
+                      className="flex cursor-pointer items-start gap-2 rounded-lg border border-black/10 p-2 text-sm hover:bg-[#F0EFED]"
                     >
                       <input
                         type="radio"
@@ -256,7 +256,7 @@ function GradeGroupPanel({
                       />
                       <span>
                         {q.questionText}
-                        <span className="ml-1 text-xs text-slate-400">
+                        <span className="ml-1 text-xs text-[#8A8580]">
                           ({q.timesUsed}x used
                           {q.lastUsedAt
                             ? `, last ${q.lastUsedAt}`

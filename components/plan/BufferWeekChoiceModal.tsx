@@ -1,7 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
+
+const option =
+  'rounded-[22px] bg-[#F0EFED] p-4 text-left transition-colors hover:bg-[#E7E5E2] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#F0EFED]';
 
 export function BufferWeekChoiceModal({
   examDateLabel,
@@ -15,12 +18,11 @@ export function BufferWeekChoiceModal({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <Card className="w-full max-w-md">
-        <h2 className="mb-2 text-base font-semibold text-slate-900">
+    <Modal className="max-w-md">
+        <h2 className="mb-2 text-lg font-bold">
           When should the plan end?
         </h2>
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-sm leading-6 text-[#65615D]">
           Your exam is on {examDateLabel}. Choose how far the schedule should
           run.
         </p>
@@ -29,12 +31,12 @@ export function BufferWeekChoiceModal({
             type="button"
             disabled={!minimumRunwayOk}
             onClick={() => onChoose(true)}
-            className="rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-transparent"
+            className={option}
           >
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-bold sm:text-base">
               End 7 days before the exam
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-sm text-[#65615D]">
               Leaves a self-directed final week for your child to review and
               prioritize on their own.
               {!minimumRunwayOk &&
@@ -44,22 +46,21 @@ export function BufferWeekChoiceModal({
           <button
             type="button"
             onClick={() => onChoose(false)}
-            className="rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50"
+            className={option}
           >
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-bold sm:text-base">
               Use the full period, up to the exam date
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-sm text-[#65615D]">
               The schedule runs all the way to {examDateLabel}.
             </p>
           </button>
         </div>
         <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
         </div>
-      </Card>
-    </div>
+    </Modal>
   );
 }

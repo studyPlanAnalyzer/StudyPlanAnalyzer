@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { cardClass } from '@/components/ui/Card';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { PageTitle } from '@/components/ui/PageTitle';
 
 // Fill these two in before you publish.
 const OPERATOR = 'StudyPlan Analyzer';
@@ -14,11 +17,18 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10 text-gray-800">
-      <h1 className="text-3xl font-bold">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-gray-500">Last updated: {LAST_UPDATED}</p>
+    <PageShell className="pb-10">
+      <AppHeader width="narrow" brandHref="/">
+        <BackLink href="/login" label="Back to sign in" />
+      </AppHeader>
 
-      <p className="mt-6">
+      <PageMain width="narrow">
+      <PageTitle size="text-3xl sm:text-4xl">Privacy Policy</PageTitle>
+      <p className="mt-3 text-sm text-[#65615D]">Last updated: {LAST_UPDATED}</p>
+
+      <article className={`${cardClass} mt-8 p-6 leading-7 sm:p-10`}>
+
+      <p>
         {APP_NAME} (&ldquo;the app&rdquo;, &ldquo;we&rdquo;) is run by{' '}
         {OPERATOR}. It helps parents in Nepal build study plans for their
         children until the next exam. This policy explains what information the
@@ -26,7 +36,7 @@ export default function PrivacyPage() {
         who create accounts.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">1. Information we collect</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">1. Information we collect</h2>
       <h3 className="mt-4 font-semibold">From your Google account</h3>
       <p className="mt-1">
         You sign in with Google. Google gives us your name, your email address
@@ -90,7 +100,7 @@ export default function PrivacyPage() {
         address and request time, for security and troubleshooting.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">2. How we use it</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">2. How we use it</h2>
       <ul className="mt-2 list-disc space-y-1 pl-6">
         <li>To sign you in and keep your account secure.</li>
         <li>
@@ -107,7 +117,7 @@ export default function PrivacyPage() {
         send you email.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">3. Who can see it</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">3. Who can see it</h2>
       <p className="mt-1">
         Inside the app, only you can see your children&rsquo;s information.
         People who run the app can see account and payment details, and can open
@@ -134,7 +144,7 @@ export default function PrivacyPage() {
         may also share information if the law requires it.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">4. Cookies</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">4. Cookies</h2>
       <p className="mt-1">
         The app sets three cookies, all to keep you signed in: a short sign-in
         pass that lasts 15 minutes and is renewed automatically, a longer one
@@ -150,7 +160,7 @@ export default function PrivacyPage() {
         use its own cookies; Google&rsquo;s privacy policy covers those.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">
         5. Children&rsquo;s information
       </h2>
       <p className="mt-1">
@@ -159,7 +169,7 @@ export default function PrivacyPage() {
         parent can delete a child at any time (see sections 6 and 7).
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">6. How long we keep it</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">6. How long we keep it</h2>
       <p className="mt-1">
         We keep your information while your account exists. Nothing is deleted
         automatically.
@@ -185,7 +195,7 @@ export default function PrivacyPage() {
         the next time you sign in.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">7. Your choices</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">7. Your choices</h2>
       <ul className="mt-2 list-disc space-y-1 pl-6">
         <li>
           In the app you can change your child&rsquo;s details, edit or delete
@@ -202,7 +212,7 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
-      <h2 className="mt-8 text-xl font-semibold">8. Security</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">8. Security</h2>
       <p className="mt-1">
         Connections to the app and to our database are encrypted, sessions use
         secure cookies, and access to administration tools is limited. No online
@@ -210,20 +220,17 @@ export default function PrivacyPage() {
         information.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">9. Changes to this policy</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">9. Changes to this policy</h2>
       <p className="mt-1">
         If we change this policy we will update the date at the top of this
         page.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">10. Contact</h2>
+      <h2 className="mt-8 text-xl font-extrabold tracking-tight">10. Contact</h2>
       <p className="mt-1">Questions or requests: {CONTACT_EMAIL}</p>
 
-      <p className="mt-10 text-sm">
-        <Link href="/login" className="text-blue-600 underline">
-          Back to sign in
-        </Link>
-      </p>
-    </main>
+      </article>
+      </PageMain>
+    </PageShell>
   );
 }

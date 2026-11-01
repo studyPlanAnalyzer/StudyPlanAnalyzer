@@ -8,6 +8,14 @@ import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { suggestTopicsFor } from '@/lib/common-topics';
+import { cardClass } from '@/components/ui/Card';
+import { buttonClass } from '@/components/ui/Button';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { Field, Select } from '@/components/ui/Field';
+import { AddTopicInput } from '@/components/ui/AddTopicInput';
 
 interface Subject {
   id: string;
@@ -113,38 +121,8 @@ function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const cardClass =
-  'rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8';
-
-const selectClass =
-  'rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-[#F0EFED] disabled:opacity-60';
-
-const pillBase =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
-const pillBlack = `${pillBase} bg-black text-white hover:bg-black/80`;
-const pillGrey = `${pillBase} bg-[#F0EFED] text-black hover:bg-[#E7E5E2]`;
-const pillWhiteDanger = `${pillBase} bg-white text-red-600 hover:bg-red-50`;
-
-const primaryBtn =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base';
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
+const sectionCard = `${cardClass} p-6 sm:p-8`;
+const primaryBtn = buttonClass('yellow', 'lg');
 
 function CardTitle({
   emoji,
@@ -198,7 +176,7 @@ function NoticeCard({
   actions: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10">
+    <div className={`${cardClass} p-6 sm:p-8 lg:p-10`}>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-[#F7CC46] text-3xl">
           {emoji}
@@ -446,7 +424,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
   }
 
   const errorBox = error && (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    <Notice className="mb-6 flex flex-wrap items-center justify-between gap-3">
       <span>{error}</span>
 
       {detail && canRetry && (
@@ -454,48 +432,21 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
           type="button"
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 active:scale-95 disabled:opacity-50"
+          className={buttonClass('white', 'md', 'text-red-700')}
         >
           {isSubmitting ? 'Retrying…' : 'Try again'}
         </button>
       )}
-    </div>
+    </Notice>
   );
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-10 text-black">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-5 py-5 sm:gap-6 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link
-            href="/dashboard"
-            className="flex min-w-0 items-center gap-3 sm:gap-4"
-          >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell className="pb-10">
+      <AppHeader>
+        <BackLink href={`/students/${params.id}/analysis`} label="Back to analysis" short="Back" />
+      </AppHeader>
 
-            <span className="truncate text-lg font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* BACK */}
-          <Link
-            href={`/students/${params.id}/analysis`}
-            className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            <ArrowLeftIcon />
-            <span>
-              Back<span className="hidden sm:inline"> to analysis</span>
-            </span>
-          </Link>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* LOADING STATE */}
         {!detail && !error && (
           <div className="space-y-7">
@@ -506,9 +457,9 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
         {/* LOAD ERROR */}
         {!detail && error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {detail &&
@@ -561,7 +512,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                       </Link>
                       <Link
                         href={`/students/${params.id}/plan`}
-                        className={`${pillGrey} px-6 py-3.5 sm:px-7 sm:py-4 sm:text-base`}
+                        className={buttonClass('secondary', 'lg')}
                       >
                         Back to plan
                       </Link>
@@ -585,9 +536,9 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
               <>
                 {/* HERO SECTION */}
                 <section className="mb-8 sm:mb-10">
-                  <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+                  <PageTitle>
                     Start a new exam cycle.
-                  </h1>
+                  </PageTitle>
 
                   <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                     For {detail.student.name}. This retires the current exam,
@@ -600,7 +551,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
                 <div className="flex flex-col gap-6">
                   {/* NEXT EXAM */}
-                  <section className={cardClass}>
+                  <section className={sectionCard}>
                     <CardTitle
                       emoji="🎯"
                       tone="bg-[#a8acf0]"
@@ -625,7 +576,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                   </section>
 
                   {/* LATEST MARKS */}
-                  <section className={cardClass}>
+                  <section className={sectionCard}>
                     <CardTitle
                       emoji="📝"
                       tone="bg-[#F7CC46]"
@@ -658,7 +609,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                 return (
                                   <div key={m.key}>
                                     {showGroup && (
-                                      <p className="mb-2 mt-1 text-xs font-bold uppercase tracking-wide text-black/50">
+                                      <p className="mb-2 mt-1 text-sm font-bold uppercase tracking-wide text-black/50">
                                         {m.groupName}
                                       </p>
                                     )}
@@ -670,7 +621,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                             ? m.label
                                             : 'Whole subject'}
                                           {!m.topicId && (
-                                            <span className="mt-0.5 block text-xs font-normal text-[#65615D]">
+                                            <span className="mt-0.5 block text-sm font-normal text-[#65615D]">
                                               No topics yet. Add some on the
                                               Subjects page for a finer plan.
                                             </span>
@@ -704,12 +655,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                             })
                                           }
                                         />
-                                        <div className="flex flex-col gap-1">
-                                          <label className="text-sm font-medium text-black">
-                                            Confidence
-                                          </label>
-                                          <select
-                                            className={selectClass}
+                                        <Field label="Confidence">
+                                          <Select
                                             disabled={notInExam}
                                             value={m.confidenceLevel}
                                             onChange={(e) =>
@@ -724,12 +671,12 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                               Medium
                                             </option>
                                             <option value="high">High</option>
-                                          </select>
-                                        </div>
+                                          </Select>
+                                        </Field>
                                       </div>
 
                                       {notInExam && (
-                                        <p className="mt-3 text-xs font-semibold text-[#65615D]">
+                                        <p className="mt-3 text-sm font-semibold text-[#65615D]">
                                           Not in this exam. Nothing will be
                                           recorded for it.
                                         </p>
@@ -752,7 +699,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                   </section>
 
                   {/* NEW SUBJECTS */}
-                  <section className={cardClass}>
+                  <section className={sectionCard}>
                     <CardTitle
                       emoji="📚"
                       tone="bg-[#a4e5c7]"
@@ -762,7 +709,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                         <button
                           type="button"
                           onClick={addNewSubject}
-                          className={pillGrey}
+                          className={buttonClass('secondary')}
                         >
                           + Add subject
                         </button>
@@ -778,7 +725,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                           <div className="flex flex-wrap items-end gap-3">
                             <Input
                               label="Subject"
-                              className="min-w-[8rem] flex-1"
+                              containerClassName="min-w-[8rem] flex-1"
                               value={s.name}
                               onChange={(e) =>
                                 updateNewSubject(i, { name: e.target.value })
@@ -807,12 +754,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                 })
                               }
                             />
-                            <div className="flex flex-col gap-1">
-                              <label className="text-sm font-medium text-black">
-                                Exam weight
-                              </label>
-                              <select
-                                className={selectClass}
+                            <Field label="Exam weight">
+                              <Select
                                 value={s.examWeight}
                                 onChange={(e) =>
                                   updateNewSubject(i, {
@@ -824,11 +767,11 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
                                 <option value="high">High</option>
-                              </select>
-                            </div>
+                              </Select>
+                            </Field>
                             <button
                               type="button"
-                              className={pillWhiteDanger}
+                              className={buttonClass('whiteDanger')}
                               onClick={() => removeNewSubject(i)}
                             >
                               Remove
@@ -850,7 +793,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
                           {s.name.trim() && (
                             <div className="mt-5 border-t border-black/10 pt-5">
-                              <p className="mb-3 text-xs font-bold uppercase tracking-wide">
+                              <p className="mb-3 text-sm font-bold uppercase tracking-wide">
                                 Topics for {s.name}
                               </p>
                               <p className="mb-3 text-sm text-[#65615D]">
@@ -862,21 +805,23 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                 {s.topics.map((t, j) => (
                                   <div
                                     key={j}
-                                    className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3"
+                                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-white px-4 py-2"
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={t.selected}
-                                      onChange={() =>
-                                        toggleNewSubjectTopic(i, j)
-                                      }
-                                      className="h-5 w-5 shrink-0 cursor-pointer accent-black"
-                                    />
-                                    <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">
-                                      {t.name}
-                                    </span>
-                                    <select
-                                      className={`${selectClass} !py-1.5 text-xs`}
+                                    <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={t.selected}
+                                        onChange={() =>
+                                          toggleNewSubjectTopic(i, j)
+                                        }
+                                        className="h-5 w-5 shrink-0 cursor-pointer accent-black"
+                                      />
+                                      <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">
+                                        {t.name}
+                                      </span>
+                                    </label>
+                                    <Select
+                                      className="w-[150px]"
                                       value={t.difficultyRating}
                                       onChange={(e) =>
                                         setNewSubjectTopicDifficulty(
@@ -892,20 +837,21 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                           Difficulty {d}
                                         </option>
                                       ))}
-                                    </select>
+                                    </Select>
                                   </div>
                                 ))}
 
                                 {s.topics.length === 0 && (
-                                  <p className="rounded-2xl bg-[#fff5dc] px-4 py-3 text-sm font-medium text-[#805500]">
+                                  <Notice tone="warning" className="font-medium">
                                     No topics yet — this subject won&apos;t get
                                     any study sessions until you add at least
                                     one.
-                                  </p>
+                                  </Notice>
                                 )}
                               </div>
 
-                              <NewSubjectTopicInput
+                              <AddTopicInput
+                                className="mt-4"
                                 onAdd={(name) =>
                                   addCustomNewSubjectTopic(i, name)
                                 }
@@ -932,92 +878,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
               </>
             );
           })()}
-      </main>
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+      </PageMain>
+    </PageShell>
   );
 }
 
-function NewSubjectTopicInput({ onAdd }: { onAdd: (name: string) => void }) {
-  const [value, setValue] = useState('');
-  return (
-    <div className="mt-4 flex gap-2">
-      <input
-        className="min-w-0 flex-1 rounded-full border border-black/15 bg-white px-5 py-3 text-sm outline-none transition placeholder:text-black/35 focus:border-black focus:ring-2 focus:ring-black/10"
-        placeholder="Add a custom topic"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            onAdd(value);
-            setValue('');
-          }
-        }}
-      />
-      <button
-        type="button"
-        className={pillBlack}
-        onClick={() => {
-          onAdd(value);
-          setValue('');
-        }}
-      >
-        Add
-      </button>
-    </div>
-  );
-}

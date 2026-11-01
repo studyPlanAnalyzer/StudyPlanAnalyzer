@@ -6,6 +6,13 @@ import Link from 'next/link';
 import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
+import { cardClass } from '@/components/ui/Card';
+import { PageMain, PageShell } from '@/components/ui/PageShell';
+import { AppHeader, BackLink, headerLinkClass } from '@/components/ui/AppHeader';
+import { Notice } from '@/components/ui/Notice';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { buttonClass } from '@/components/ui/Button';
+import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 interface Student {
   id: string;
@@ -14,26 +21,7 @@ interface Student {
   schoolName: string | null;
 }
 
-const cardClass =
-  'rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10';
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
+const sectionCard = `${cardClass} p-6 sm:p-8 lg:p-10`;
 
 export default function ProfilePage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
@@ -170,59 +158,21 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 text-black sm:pb-8">
-      {/* HEADER */}
-      <header className="relative z-30 bg-[#FAF9F6]">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-5 sm:px-7 lg:px-0">
-          {/* BRAND */}
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-              S
-            </div>
+    <PageShell withBottomNav>
+      <AppHeader>
+        <Link href={`/students/${params.id}/subjects`} className={`hidden lg:block ${headerLinkClass}`}>
+          Subjects
+        </Link>
+        <Link href={`/students/${params.id}/tests`} className={`hidden lg:block ${headerLinkClass}`}>
+          Test history
+        </Link>
+        <Link href={`/students/${params.id}/settings`} className={`hidden lg:block ${headerLinkClass}`}>
+          Settings
+        </Link>
+        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
+      </AppHeader>
 
-            <span className="text-xl font-bold tracking-tight sm:text-2xl">
-              StudyPlan Analyzer
-            </span>
-          </Link>
-
-          {/* HEADER ACTIONS */}
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/students/${params.id}/subjects`}
-              className="hidden rounded-full px-4 py-3 text-sm font-semibold transition hover:bg-black/5 lg:block"
-            >
-              Subjects
-            </Link>
-
-            <Link
-              href={`/students/${params.id}/tests`}
-              className="hidden rounded-full px-4 py-3 text-sm font-semibold transition hover:bg-black/5 lg:block"
-            >
-              Test history
-            </Link>
-
-            <Link
-              href={`/students/${params.id}/settings`}
-              className="hidden rounded-full px-4 py-3 text-sm font-semibold transition hover:bg-black/5 lg:block"
-            >
-              Settings
-            </Link>
-
-            <Link
-              href={`/students/${params.id}/plan`}
-              className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-            >
-              <ArrowLeftIcon />
-              <span>
-                Back<span className="hidden sm:inline"> to plan</span>
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="mx-auto w-full max-w-[1400px] px-5 pt-5 sm:px-7 sm:pt-8 lg:px-0">
+      <PageMain>
         {/* LOADING STATE */}
         {!saved && !error && (
           <div className="space-y-7">
@@ -232,29 +182,29 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
 
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Notice className="mb-6">
             {error}
-          </div>
+          </Notice>
         )}
 
         {saved && (
           <>
             {/* HERO SECTION */}
             <section className="mb-8 sm:mb-10">
-              <h1 className="dashboard-headline relative inline-block max-w-full text-[clamp(1.15rem,5.1vw,4rem)] font-extrabold leading-tight tracking-[-0.045em]">
+              <PageTitle>
                 Student profile.
-              </h1>
+              </PageTitle>
             </section>
 
             {/* SUCCESS MESSAGE */}
             {justSaved && !dirty && (
-              <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <Notice tone="success" className="mb-6">
                 Profile saved.
-              </div>
+              </Notice>
             )}
 
             {/* PROFILE FORM */}
-            <section className={cardClass}>
+            <section className={sectionCard}>
               <div className="mb-7 flex items-start gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-[#F7CC46] text-2xl">
                   🎓
@@ -317,7 +267,7 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
                   type="button"
                   onClick={discard}
                   disabled={!dirty || isSaving}
-                  className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#F0EFED] px-6 py-3.5 text-sm font-semibold text-black transition-all duration-200 hover:bg-[#E7E5E2] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-7 sm:py-4 sm:text-base"
+                  className={buttonClass('secondary', 'lg')}
                 >
                   Discard changes
                 </button>
@@ -326,7 +276,7 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
                   type="button"
                   onClick={save}
                   disabled={!dirty || isSaving}
-                  className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:px-7 sm:py-4 sm:text-base"
+                  className={buttonClass('yellow', 'lg')}
                 >
                   {isSaving ? 'Saving…' : 'Save profile'}
                 </button>
@@ -334,106 +284,9 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
             </div>
           </>
         )}
-      </main>
+      </PageMain>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          <Link
-            href="/dashboard"
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">▦</span>
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/plan`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">＋</span>
-            <span className="text-[10px] font-medium">Plan</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/today`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">ϟ</span>
-            <span className="text-[10px] font-medium">Today</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/daily-challenge`}
-            className="flex flex-col items-center gap-1 py-3 text-black/35"
-          >
-            <span className="text-xl">◧</span>
-            <span className="text-[10px] font-medium">Quiz</span>
-          </Link>
-
-          <Link
-            href={`/students/${params.id}/settings`}
-            className="flex flex-col items-center gap-1 py-3 text-black"
-          >
-            <span className="text-xl">●</span>
-            <span className="text-[10px] font-bold">You</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* HEADLINE ANIMATION */}
-      <style jsx global>{`
-        @keyframes headline-enter {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes underline-draw {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-
-        .dashboard-headline {
-          animation: headline-enter 700ms ease-out both;
-        }
-
-        .dashboard-headline::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          bottom: -5px;
-          width: 100%;
-          height: 3px;
-          border-radius: 999px;
-          background: #f7cc46;
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: underline-draw 900ms 400ms ease-out forwards;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .dashboard-headline,
-          .dashboard-headline::after {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-
-          .dashboard-headline::after {
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
-    </div>
+      <StudentBottomNav studentId={params.id} active="you" />
+    </PageShell>
   );
 }
