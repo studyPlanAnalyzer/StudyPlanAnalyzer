@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
@@ -104,11 +104,12 @@ function CardTitle({
   );
 }
 
-export default function StudentSettingsPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function StudentSettingsPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [studyDays, setStudyDays] = useState<string[]>([]);

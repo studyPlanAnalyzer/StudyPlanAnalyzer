@@ -12,8 +12,9 @@ function todayKey() {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const denied = await requireChildAccess(params.id, userId, {

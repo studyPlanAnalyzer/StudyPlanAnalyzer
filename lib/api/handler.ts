@@ -58,6 +58,21 @@ function isDbQueryTimeout(chain: any[]) {
   });
 }
 
+/**
+ * Logs an error without the values it was handling. Drizzle's query errors
+ * put every parameter in their message (password hashes, token hashes,
+ * personal data), so each error in the chain is logged as its name, its
+ * Postgres code and its message with the parameters cut off.
+ */
+export function logError(label: string, err: unknown) {
+  const summary = errorChain(err).map((e) => ({
+    name: e?.name,
+    code: e?.code,
+    message: String(e?.message ?? e).split('\nparams:')[0],
+  }));
+  console.error(label, JSON.stringify(summary));
+}
+
 export function errorResponse(err: unknown) {
   const chain = errorChain(err);
 
@@ -90,7 +105,7 @@ export function errorResponse(err: unknown) {
   }
 
   if (isDbQueryTimeout(chain)) {
-    console.error('[api] DB query timeout:', err);
+    logError('[api] DB query timeout:', err);
     return NextResponse.json(
       {
         error: 'The server took too long to respond. Please try again.',
@@ -101,7 +116,7 @@ export function errorResponse(err: unknown) {
   }
 
   if (isDbUnreachable(chain)) {
-    console.error('[api] DB unreachable:', err);
+    logError('[api] DB unreachable:', err);
     return NextResponse.json(
       {
         error:
@@ -112,7 +127,7 @@ export function errorResponse(err: unknown) {
     );
   }
 
-  console.error('[api] Unhandled error:', err);
+  logError('[api] Unhandled error:', err);
   return NextResponse.json(
     {
       error: 'Something went wrong on our side. Please try again.',

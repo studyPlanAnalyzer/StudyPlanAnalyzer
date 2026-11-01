@@ -50,8 +50,9 @@ const bodySchema = z.object({
  * deleted and nothing is saved.
  */
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const [student] = await db

@@ -121,7 +121,56 @@ async function attempt<T>(url: string, options: RequestOptions): Promise<T> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Session refresh
+//
+// The access cookie lasts 15 minutes. When a request comes back 401, the
+// refresh cookie is traded for new tokens once and the request is sent again
+// (safe for writes too: every route checks auth before doing anything). Only
+// one refresh runs at a time across all of this browser's tabs (Web Locks),
+// because each refresh token works once and a second use of the same one is
+// treated as theft and ends the session.
+// ---------------------------------------------------------------------------
+
+// A 401 from these means "not signed in", not "access token expired".
+const NO_REFRESH_PREFIX = '/api/auth/';
+
+let refreshing: Promise<boolean> | null = null;
+
+export function refreshSession(): Promise<boolean> {
+  if (refreshing) return refreshing;
+  const run = (): Promise<boolean> =>
+    fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then((res) => res.ok)
+      .catch(() => false);
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  const pending = (async (): Promise<boolean> =>
+    locks ? await locks.request('studyplan-auth-refresh', run) : run())();
+  refreshing = pending.finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 async function request<T>(
+  url: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  try {
+    return await requestWithRetries<T>(url, options);
+  } catch (err) {
+    if (
+      err instanceof ApiError &&
+      err.status === 401 &&
+      !url.startsWith(NO_REFRESH_PREFIX) &&
+      (await refreshSession())
+    )
+      return requestWithRetries<T>(url, options);
+    throw err;
+  }
+}
+
+async function requestWithRetries<T>(
   url: string,
   options: RequestOptions = {},
 ): Promise<T> {

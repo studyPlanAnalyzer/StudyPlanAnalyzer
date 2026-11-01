@@ -14,9 +14,9 @@ const updateExamSchema = z.object({
 });
 
 export const PUT = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    // The id comes from the verified token: no database round trip for auth.
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const body = await req.json();

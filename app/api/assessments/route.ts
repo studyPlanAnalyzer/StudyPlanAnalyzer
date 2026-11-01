@@ -46,6 +46,21 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (!owns)
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
 
+  if (parsed.data.examId) {
+    const [exam] = await db
+      .select({ id: schema.exams.id })
+      .from(schema.exams)
+      .where(
+        and(
+          eq(schema.exams.id, parsed.data.examId),
+          eq(schema.exams.studentId, parsed.data.studentId),
+        ),
+      )
+      .limit(1);
+    if (!exam)
+      return NextResponse.json({ error: 'Exam not found' }, { status: 404 });
+  }
+
   const [assessment] = await db
     .insert(schema.assessments)
     .values({ ...parsed.data, examId: parsed.data.examId ?? null })

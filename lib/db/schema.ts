@@ -11,22 +11,27 @@ import {
   index,
   uniqueIndex,
   pgEnum,
+  primaryKey,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+import type { WeeklyReportSnapshot } from '../reports/types';
 
 // ---------------------------------------------------------------------------
 // users (parent accounts)
 // ---------------------------------------------------------------------------
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // Google's stable user id (the ID token's `sub`): the account's identity.
+  // Sign-in is Google only; the email is never used to find an account.
+  googleId: text('google_id').notNull().unique(),
   name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  // The Google account's email, for display only (it can change).
+  email: text('email').notNull(),
   phone: text('phone'),
   preferredLanguage: text('preferred_language').default('en').notNull(), // 'en' | 'ne'
+  // Set on every sign-in from ADMIN_EMAILS (lib/auth/google.ts).
   isAdmin: boolean('is_admin').default(false).notNull(),
-  emailVerified: boolean('email_verified').default(false).notNull(),
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -34,8 +39,56 @@ export const users = pgTable('users', {
 
 export const usersRelations = relations(users, ({ many }) => ({
   students: many(students),
-  otpCodes: many(otpCodes),
+  sessions: many(userSessions),
 }));
+
+// ---------------------------------------------------------------------------
+// user_sessions (one row per signed-in device: a refresh token "family")
+//
+// Access tokens name their session row (`sid`) and are honoured only while it
+// exists, so logging out or a detected refresh token replay (deleting the
+// row) ends the session at once, not when the access token expires. expiresAt follows
+// the newest refresh token in the family.
+// ---------------------------------------------------------------------------
+export const userSessions = pgTable(
+  'user_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdIdx: index('user_sessions_user_id_idx').on(t.userId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// refresh_tokens (every refresh token ever issued in a session, as a hash)
+//
+// Only a SHA-256 of the token is stored, so a database leak gives nothing that
+// can be replayed. Each token is used once: refreshing marks it used and
+// issues the next one. A used token presented again means it was copied, and
+// the whole session is revoked (lib/auth/session.ts).
+// ---------------------------------------------------------------------------
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => userSessions.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    usedAt: timestamp('used_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    sessionIdIdx: index('refresh_tokens_session_id_idx').on(t.sessionId),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // students
@@ -552,45 +605,6 @@ export const topicReviewsRelations = relations(topicReviews, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
-// OTP codes (email verification + password reset, shared table)
-// ---------------------------------------------------------------------------
-export const otpPurposeEnum = pgEnum('otp_purpose', [
-  'EMAIL_VERIFICATION',
-  'PASSWORD_RESET',
-]);
-
-export const otpCodes = pgTable(
-  'otp_codes',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
-    purpose: otpPurposeEnum('purpose').notNull(),
-    codeHash: text('code_hash').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    consumedAt: timestamp('consumed_at'),
-    attempts: integer('attempts').default(0).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (t) => ({
-    // Lookups are always "latest code for this email + purpose", so this
-    // composite index is what actually matters for both send (throttle
-    // check) and verify (fetch latest) — the userId FK alone wouldn't help.
-    emailPurposeIdx: index('otp_codes_email_purpose_idx').on(
-      t.email,
-      t.purpose,
-    ),
-    userIdIdx: index('otp_codes_user_id_idx').on(t.userId),
-  }),
-);
-
-export const otpCodesRelations = relations(otpCodes, ({ one }) => ({
-  user: one(users, { fields: [otpCodes.userId], references: [users.id] }),
-}));
-
-// ---------------------------------------------------------------------------
 // Daily Brain Challenge feature
 // ---------------------------------------------------------------------------
 
@@ -776,3 +790,78 @@ export const todosRelations = relations(todos, ({ one }) => ({
     references: [students.id],
   }),
 }));
+
+// ---------------------------------------------------------------------------
+// weekly_reports (one stored report per child per week; see lib/reports)
+//
+// The snapshot is the whole computed report as data. The in-app pages render
+// it as it is, so an old report never changes when the report logic changes
+// later. Reports are made on demand, when a parent opens the app after a
+// week has ended (lib/reports/generate.ts); readAt clears the "New weekly
+// report" notice.
+// ---------------------------------------------------------------------------
+export const weeklyReports = pgTable(
+  'weekly_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => students.id, { onDelete: 'cascade' }),
+    // First day of the report week (lib/reports/week.ts).
+    weekStart: date('week_start').notNull(),
+    snapshot: json('snapshot').$type<WeeklyReportSnapshot>().notNull(),
+    generatedAt: timestamp('generated_at').defaultNow().notNull(),
+    readAt: timestamp('read_at'),
+  },
+  (t) => ({
+    studentWeekUnique: uniqueIndex('weekly_reports_student_week_unique').on(
+      t.studentId,
+      t.weekStart,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// student_milestones (badges, each awarded to a child once)
+// ---------------------------------------------------------------------------
+export const studentMilestones = pgTable(
+  'student_milestones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => students.id, { onDelete: 'cascade' }),
+    // A MilestoneKey (lib/reports/types.ts).
+    key: text('key').notNull(),
+    // The report week it was earned in.
+    weekStart: date('week_start').notNull(),
+    awardedAt: timestamp('awarded_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    studentKeyUnique: uniqueIndex('student_milestones_student_key_unique').on(
+      t.studentId,
+      t.key,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// weekly_report_checks (each child-week already decided)
+//
+// A row means "this child's week has been looked at": it either got a report
+// or had no activity and gets none. So the on-demand check is one cheap
+// query, and a quiet week is never looked at again.
+// ---------------------------------------------------------------------------
+export const weeklyReportChecks = pgTable(
+  'weekly_report_checks',
+  {
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => students.id, { onDelete: 'cascade' }),
+    weekStart: date('week_start').notNull(),
+    checkedAt: timestamp('checked_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.studentId, t.weekStart] }),
+  }),
+);

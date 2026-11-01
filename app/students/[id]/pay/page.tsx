@@ -1,10 +1,12 @@
-'use client';
+'use client';;
+import { use } from "react";
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PaymentFlow } from '@/components/billing/PaymentFlow';
 
-export default function PayPage({ params }: { params: { id: string } }) {
+export default function PayPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   return (
     <div className="min-h-screen bg-slate-50">

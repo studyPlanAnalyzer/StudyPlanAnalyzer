@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { subjectClashFor } from '@/lib/subject-name';
@@ -68,7 +68,8 @@ function EstimateSelect({
   );
 }
 
-export default function NewSessionPage({ params }: { params: { id: string } }) {
+export default function NewSessionPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [examName, setExamName] = useState('');

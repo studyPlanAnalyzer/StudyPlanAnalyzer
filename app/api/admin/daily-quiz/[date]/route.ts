@@ -6,7 +6,8 @@ import { withErrorHandling } from "@/lib/api/handler";
 
 const GRADE_GROUPS = ["GROUP_4_7", "GROUP_8_10"] as const;
 
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { date: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, props: { params: Promise<{ date: string }> }) => {
+  const params = await props.params;
   const user = await getUserFromRequest(req);
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();

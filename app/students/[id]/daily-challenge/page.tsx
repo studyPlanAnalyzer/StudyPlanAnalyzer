@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
@@ -86,11 +86,12 @@ function EmptyCard({
   );
 }
 
-export default function DailyChallengePage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function DailyChallengePage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const [data, setData] = useState<DailyChallengeResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});

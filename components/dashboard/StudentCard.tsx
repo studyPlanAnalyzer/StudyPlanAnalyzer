@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api-client';
+import { reportStrings } from '@/lib/reports/strings';
 import type { TodoStats } from '@/lib/types/todo';
 import type { BillingInfo } from '@/lib/billing/pricing';
 
@@ -204,8 +207,38 @@ const managementButton =
 const cardLabel =
   'inline-flex w-fit items-center rounded-full bg-black px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white';
 
+// "New weekly report": one background request for every card on the
+// dashboard (they mount together), reused for a few seconds, then asked
+// again, so coming back after reading a report shows it as read. It also
+// makes any weekly report that has just become due (a POST for that reason).
+let unreadRequest: { at: number; promise: Promise<Map<string, string>> } | null = null;
+
+function useNewWeeklyReport(studentId: string): string | null {
+  const [weekStart, setWeekStart] = useState<string | null>(null);
+  useEffect(() => {
+    if (!unreadRequest || Date.now() - unreadRequest.at > 5000) {
+      unreadRequest = {
+        at: Date.now(),
+        promise: api
+          .post<{ unread: { studentId: string; weekStart: string }[] }>('/api/reports/refresh')
+          .then((d) => new Map(d.unread.map((u) => [u.studentId, u.weekStart])))
+          .catch(() => new Map<string, string>()),
+      };
+    }
+    let alive = true;
+    unreadRequest.promise.then((m) => {
+      if (alive) setWeekStart(m.get(studentId) ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [studentId]);
+  return weekStart;
+}
+
 export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
   const billing = s.billing;
+  const newReportWeek = useNewWeeklyReport(s.id);
 
   const locked =
     !!billing && (billing.state === 'locked' || billing.state === 'unpaid');
@@ -305,6 +338,20 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
               {locked ? 'Pay to unlock' : 'Pay now'}
             </Link>
           )}
+        </div>
+      )}
+
+      {/* New weekly report */}
+      {newReportWeek && (
+        <div className="mb-7 flex flex-col justify-between gap-3 rounded-full bg-[#EEF0FF] px-5 py-3 sm:flex-row sm:items-center">
+          <p className="text-sm font-medium text-black">📬 {reportStrings('en').view.notice(s.name)}</p>
+
+          <Link
+            href={`/students/${s.id}/reports/${newReportWeek}`}
+            className="inline-flex w-fit rounded-full bg-black px-5 py-2 text-xs font-bold text-white transition hover:bg-black/80"
+          >
+            {reportStrings('en').view.readIt}
+          </Link>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -42,7 +42,8 @@ function ArrowLeftIcon() {
   );
 }
 
-export default function TodayPage({ params }: { params: { id: string } }) {
+export default function TodayPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const [planId, setPlanId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);

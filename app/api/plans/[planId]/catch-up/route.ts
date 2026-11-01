@@ -14,8 +14,9 @@ export const maxDuration = 60;
 // rebuilt from today (the missed ones become "skipped" history, and any topic
 // still due comes back at the front of the schedule). Does nothing otherwise.
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { planId: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ planId: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     // The plan with its owner, and the check for missed sessions, in ONE round

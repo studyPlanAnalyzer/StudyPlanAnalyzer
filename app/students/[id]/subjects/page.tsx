@@ -1,7 +1,7 @@
 'use client';
 
 import { subjectClashFor } from '@/lib/subject-name';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -345,7 +345,8 @@ function CornerIcon({ className = 'h-4 w-4' }: { className?: string }) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-export default function SubjectsPage({ params }: { params: { id: string } }) {
+export default function SubjectsPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);

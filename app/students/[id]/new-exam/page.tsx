@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { subjectClashFor } from '@/lib/subject-name';
@@ -220,7 +220,8 @@ function NoticeCard({
   );
 }
 
-export default function NewExamPage({ params }: { params: { id: string } }) {
+export default function NewExamPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [examName, setExamName] = useState('');

@@ -30,7 +30,8 @@ const publishSchema = z.object({
  * questions and always recomputes timesUsed/lastUsedAt cleanly.
  */
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { date: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ date: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
     if (!user.isAdmin) return forbiddenResponse();

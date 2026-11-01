@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { api, getErrorMessage } from "@/lib/api-client";
 
 interface Metrics {
   signups: { total: number; newThisWeek: number; newThisMonth: number };
@@ -27,13 +28,10 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/dashboard-metrics", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).error || "Failed to load metrics");
-        return res.json();
-      })
+    api
+      .get<Metrics>("/api/admin/dashboard-metrics")
       .then(setMetrics)
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(getErrorMessage(err, "Failed to load metrics")));
   }, []);
 
   return (

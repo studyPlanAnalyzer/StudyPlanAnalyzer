@@ -19,7 +19,8 @@ function summarize(attempts: { score: number; completedAt: Date }[]) {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 

@@ -17,7 +17,7 @@ const createMarkSchema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   const body = await req.json();
@@ -37,9 +37,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     );
   }
 
-  // Ownership of the assessment (one query: assessment joined to its student)
-  // and the topic check run together, in one round instead of three in a row.
-  const [owned, topicRows] = await Promise.all([
+  // Ownership of the assessment (one query: assessment joined to its student),
+  // the subject (it must be the same student's) and the topic check run
+  // together, in one round instead of three in a row.
+  const [owned, subjectRows, topicRows] = await Promise.all([
     db
       .select({
         id: schema.students.id,
@@ -58,6 +59,20 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         ),
       )
       .limit(1),
+    db
+      .select({ id: schema.subjects.id })
+      .from(schema.subjects)
+      .innerJoin(
+        schema.assessments,
+        eq(schema.assessments.studentId, schema.subjects.studentId),
+      )
+      .where(
+        and(
+          eq(schema.subjects.id, data.subjectId),
+          eq(schema.assessments.id, data.assessmentId),
+        ),
+      )
+      .limit(1),
     data.topicIds.length > 0
       ? db
           .select()
@@ -72,6 +87,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     );
   const denied = paymentRequiredResponse(owned[0]);
   if (denied) return denied;
+  if (subjectRows.length === 0)
+    return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
 
   if (data.topicIds.length > 0) {
     if (topicRows.length !== new Set(data.topicIds).size) {

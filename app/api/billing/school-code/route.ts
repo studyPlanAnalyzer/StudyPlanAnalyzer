@@ -7,6 +7,7 @@ import { withErrorHandling } from '@/lib/api/handler';
 import { isBillingEnabled } from '@/lib/billing/config';
 import { billingStateOf, isDue } from '@/lib/billing/state';
 import { canonicalSchoolCode } from '@/lib/billing/codes';
+import { rateLimit } from '@/lib/rate-limit';
 
 const bodySchema = z.object({
   studentId: z.string().uuid(),
@@ -19,8 +20,11 @@ const bodySchema = z.object({
  * the child until the school's paid-until date, at once, with no checking.
  */
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
+  // A valid code unlocks the child for free, so codes can't be tried en masse.
+  const limited = rateLimit(`school-code:${userId}`, 10, 15 * 60);
+  if (limited) return limited;
 
   if (!isBillingEnabled())
     return NextResponse.json(

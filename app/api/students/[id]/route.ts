@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { pickExam } from '@/lib/exam-pick';
@@ -27,8 +27,9 @@ async function loadOwnedStudent(studentId: string, parentId: string) {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     // Archived subjects are hidden unless the caller asks for them (the
@@ -94,25 +95,13 @@ export const GET = withErrorHandling(
     // The current plan is the newest one that belongs to the CURRENT exam. A
     // new exam with no plan yet has none (null), even if an old plan for a
     // finished exam still exists.
-    // Once an exam is over its plan is of no further use, so it is deleted
-    // (its sessions go with it). This runs the first time anything loads the
-    // student after the exam date, and costs one extra statement only then.
-    // Test marks, topic mastery and spaced-repetition history are separate
-    // tables and are not touched.
+    // Once an exam is over its plan is of no further use and is never shown
+    // again. (A GET never changes anything, so the row is left in place.)
     const examById = new Map(exams.map((e) => [e.id, e]));
-    const expired = plans.filter((p) => {
+    const livePlans = plans.filter((p) => {
       const e = examById.get(p.examId);
-      return !!e && isExamOver(e.examDate);
+      return !(e && isExamOver(e.examDate));
     });
-    if (expired.length > 0) {
-      await db.delete(schema.studyPlans).where(
-        inArray(
-          schema.studyPlans.id,
-          expired.map((p) => p.id),
-        ),
-      );
-    }
-    const livePlans = plans.filter((p) => !expired.includes(p));
 
     const currentExam = pickExam(exams);
     const latestPlan = currentExam
@@ -174,8 +163,9 @@ const updateStudentSchema = z.object({
 });
 
 export const PUT = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const existing = await loadOwnedStudent(params.id, userId);
@@ -207,8 +197,9 @@ export const PUT = withErrorHandling(
 // topics, marks, plans, sessions, quiz attempts, to-dos, ...) is wired with
 // ON DELETE CASCADE, so removing this one row removes all of it.
 export const DELETE = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const existing = await loadOwnedStudent(params.id, userId);

@@ -18,7 +18,8 @@ const bodySchema = z.object({ months: z.number().int().min(1).max(36) });
  * child covered by the school moves with it.
  */
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
     if (!user.isAdmin) return forbiddenResponse();

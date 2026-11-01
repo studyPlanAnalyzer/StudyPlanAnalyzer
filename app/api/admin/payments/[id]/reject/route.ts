@@ -17,7 +17,8 @@ const bodySchema = z.object({ note: z.string().trim().max(500).optional() });
  * again.
  */
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
     if (!user.isAdmin) return forbiddenResponse();

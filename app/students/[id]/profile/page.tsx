@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Input } from '@/components/ui/Input';
@@ -35,7 +35,8 @@ function ArrowLeftIcon() {
   );
 }
 
-export default function ProfilePage({ params }: { params: { id: string } }) {
+export default function ProfilePage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const [saved, setSaved] = useState<Student | null>(null);
   const [name, setName] = useState('');

@@ -20,8 +20,7 @@ const createSubjectSchema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  // The id comes from the verified token: no database round trip for auth.
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   const body = await req.json();
@@ -76,7 +75,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 });
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   const studentId = req.nextUrl.searchParams.get('studentId');

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/admin/questions', label: 'Question bank' },
   { href: '/admin/daily-quiz', label: 'Daily quiz' },
   { href: '/admin/analytics', label: 'Analytics' },
+  { href: '/admin/reports', label: 'Weekly reports' },
 ];
 
 export default function AdminLayout({

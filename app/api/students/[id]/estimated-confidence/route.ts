@@ -50,7 +50,8 @@ async function loadOwnedSubjectIds(studentId: string, parentId: string) {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
@@ -73,7 +74,8 @@ export const GET = withErrorHandling(
 );
 
 export const PUT = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 

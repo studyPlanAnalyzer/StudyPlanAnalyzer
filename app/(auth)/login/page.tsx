@@ -1,34 +1,122 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Input } from '@/components/ui/Input';
-import { api, ApiError } from '@/lib/api-client';
+import { api, ApiError, refreshSession } from '@/lib/api-client';
 
+// Google Identity Services ("Sign in with Google"), loaded from Google. Only
+// the parts used here are typed.
+interface GoogleCredentialResponse {
+  credential: string;
+}
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize(options: {
+            client_id: string;
+            callback: (r: GoogleCredentialResponse) => void;
+            ux_mode?: 'popup' | 'redirect';
+            auto_select?: boolean;
+          }): void;
+          renderButton(el: HTMLElement, options: Record<string, unknown>): void;
+        };
+      };
+    };
+  }
+}
+
+const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client';
+
+// Where to go after signing in: the page the visitor was sent here from, if
+// it is a path on this site (never another site: no open redirect).
+function nextPath(): string {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\')
+    ? next
+    : '/dashboard';
+}
+
+/**
+ * Sign-in and sign-up in one: "Continue with Google". Google's popup hands
+ * this page an ID token, which goes to POST /api/auth/google (same origin);
+ * the server checks it and signs the parent in. A first sign-in creates the
+ * account.
+ */
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const buttonRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-    try {
-      await api.post('/api/auth/login', form);
-      router.push('/dashboard');
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
-        router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
-        return;
+  // Sent here because the 15-minute access cookie wasn't there (for example,
+  // arriving from a link on another site, which SameSite=Strict cookies don't
+  // ride along with)? A still-valid refresh cookie signs straight back in.
+  useEffect(() => {
+    refreshSession().then((ok) => {
+      if (ok) router.replace(nextPath());
+    });
+  }, [router]);
+
+  const onCredential = useCallback(
+    async (r: GoogleCredentialResponse) => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        await api.post('/api/auth/google', { credential: r.credential });
+        router.push(nextPath());
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Something went wrong');
+        setIsLoading(false);
       }
-      setError(err instanceof ApiError ? err.message : 'Something went wrong');
-    } finally {
-      setIsLoading(false);
+    },
+    [router],
+  );
+
+  // Loads Google's script once and draws its button. Drawn again whenever the
+  // button's container comes back (after a failed sign-in).
+  useEffect(() => {
+    if (isLoading) return;
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      setError('Google sign-in is not set up yet.');
+      return;
     }
-  }
+    const render = () => {
+      const g = window.google?.accounts.id;
+      if (!g || !buttonRef.current) return;
+      g.initialize({ client_id: clientId, callback: onCredential, ux_mode: 'popup', auto_select: false });
+      g.renderButton(buttonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'pill',
+        width: 300,
+      });
+    };
+    if (window.google?.accounts?.id) {
+      render();
+      return;
+    }
+    let script = document.querySelector<HTMLScriptElement>(`script[src="${GOOGLE_SCRIPT}"]`);
+    if (!script) {
+      script = document.createElement('script');
+      script.src = GOOGLE_SCRIPT;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    const failed = () =>
+      setError("Couldn't load Google sign-in. Check your connection and try again.");
+    script.addEventListener('load', render);
+    script.addEventListener('error', failed);
+    return () => {
+      script?.removeEventListener('load', render);
+      script?.removeEventListener('error', failed);
+    };
+  }, [onCredential, isLoading]);
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#FAF9F6] text-black">
@@ -45,14 +133,6 @@ export default function LoginPage() {
               StudyPlan Analyzer
             </span>
           </Link>
-
-          {/* SIGN UP */}
-          <Link
-            href="/signup"
-            className="flex h-12 items-center justify-center rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base"
-          >
-            Sign up
-          </Link>
         </div>
       </header>
 
@@ -64,61 +144,31 @@ export default function LoginPage() {
           </div>
 
           <h1 className="dashboard-headline relative inline-block max-w-full text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-4xl">
-            Welcome back.
+            Welcome.
           </h1>
 
           <p className="mt-4 text-sm leading-7 text-[#65615D] sm:text-base">
-            Log in to see your child&apos;s study plan.
+            Sign in with your Google account to see your child&apos;s study plan. New here? The
+            same button creates your account.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
-            <Input
-              label="Email"
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-            <Input
-              label="Password"
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-
-            {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
+          <div className="mt-8 flex min-h-[44px] justify-center">
+            {isLoading ? (
+              <p className="text-sm font-semibold text-[#65615D]">Signing you in…</p>
+            ) : (
+              <div ref={buttonRef} />
             )}
+          </div>
 
-            <div className="flex justify-end">
-              <Link
-                href="/forgot-password"
-                className="text-sm font-semibold underline underline-offset-4 transition hover:text-black/60"
-              >
-                Forgot password?
-              </Link>
+          {error && (
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#F7CC46] px-6 py-3.5 text-sm font-semibold text-black shadow-[0_5px_12px_rgba(0,0,0,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#F0C33A] hover:shadow-[0_7px_16px_rgba(0,0,0,0.10)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:py-4 sm:text-base"
-            >
-              {isLoading ? 'Logging in…' : 'Log in'}
-            </button>
-          </form>
-
-          <p className="mt-7 text-center text-sm text-[#65615D] sm:text-base">
-            New here?{' '}
-            <Link
-              href="/signup"
-              className="font-bold text-black underline underline-offset-4 transition hover:text-black/60"
-            >
-              Create an account
-            </Link>
+          <p className="mt-7 text-center text-xs leading-5 text-[#8A8580]">
+            We only receive your name and email address from Google. We never see your Google
+            password.
           </p>
         </div>
       </main>

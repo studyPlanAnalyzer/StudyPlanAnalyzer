@@ -77,8 +77,9 @@ const curriculumSchema = z.object({
 // Saves everything changed on the Subjects page, and rebuilds the plan from it,
 // in one transaction: either all of it happens or none of it.
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const parsed = curriculumSchema.safeParse(await req.json());

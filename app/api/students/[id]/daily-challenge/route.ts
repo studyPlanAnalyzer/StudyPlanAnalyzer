@@ -30,7 +30,8 @@ async function loadOwnedStudent(studentId: string, parentId: string) {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
@@ -130,14 +131,15 @@ const submitSchema = z.object({
     .array(
       z.object({
         questionId: z.string().uuid(),
-        selectedAnswer: z.string().min(1),
+        selectedAnswer: z.string().min(1).max(1000),
       }),
     )
     .length(5),
 });
 
 export const POST = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
@@ -167,7 +169,8 @@ export const POST = withErrorHandling(
         ),
       )
       .limit(1);
-    if (!quiz)
+    // Only the quiz for this child's own grade group can be answered.
+    if (!quiz || quiz.gradeGroup !== gradeGroupFromGradeText(student.grade))
       return NextResponse.json(
         { error: 'Quiz not found or not published' },
         { status: 404 },
@@ -203,8 +206,10 @@ export const POST = withErrorHandling(
       .from(schema.dailyQuizQuestions)
       .where(eq(schema.dailyQuizQuestions.dailyQuizId, dailyQuizId));
     const validQuestionIds = new Set(links.map((l) => l.questionId));
+    // Each of the quiz's questions answered exactly once.
     if (
       answers.length !== links.length ||
+      new Set(answers.map((a) => a.questionId)).size !== answers.length ||
       !answers.every((a) => validQuestionIds.has(a.questionId))
     ) {
       return NextResponse.json(

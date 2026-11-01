@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Input } from '@/components/ui/Input';
@@ -138,11 +138,12 @@ function ArrowLeftIcon() {
   );
 }
 
-export default function TestHistoryPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function TestHistoryPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const [tests, setTests] = useState<AssessmentRow[] | null>(null);
   const [student, setStudent] = useState<StudentDetail | null>(null);

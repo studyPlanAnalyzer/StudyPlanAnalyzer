@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, use } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api-client';
@@ -19,13 +19,18 @@ interface BillingResponse {
  * to payment); a child in the grace days or waiting for verification sees a
  * notice above the page.
  */
-export default function StudentLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { id: string };
-}) {
+export default function StudentLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
+
+  const {
+    children
+  } = props;
+
   const router = useRouter();
   const pathname = usePathname();
   const [data, setData] = useState<BillingResponse | null>(null);

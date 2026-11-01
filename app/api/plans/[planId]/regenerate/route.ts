@@ -15,11 +15,9 @@ const regenerateSchema = z.object({
   useBufferWeek: z.boolean().optional(),
 });
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { planId: string } },
-) {
-  const userId = getAuthUserId(req);
+export async function POST(req: NextRequest, props: { params: Promise<{ planId: string }> }) {
+  const params = await props.params;
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   const rawBody = await req.json().catch(() => ({}));

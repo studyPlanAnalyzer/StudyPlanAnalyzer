@@ -92,6 +92,27 @@
       "when": 1793167727698,
       "tag": "0012_fresh_sharon_carter",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793430272377,
+      "tag": "0013_sessions_and_email_case",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793431427463,
+      "tag": "0014_refresh_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793513255244,
+      "tag": "0015_black_lester",
+      "breakpoints": true
     }
   ]
 }

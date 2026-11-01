@@ -17,7 +17,7 @@ import {
   todayUTC,
 } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
-import { withErrorHandling } from '@/lib/api/handler';
+import { withErrorHandling, logError } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 // The session, its plan and its student (checked to be this parent's) in ONE
@@ -54,8 +54,9 @@ const updateSessionSchema = z.object({
 });
 
 export const PUT = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const owned = await loadOwnedSession(params.id, userId);
@@ -238,7 +239,7 @@ export const PUT = withErrorHandling(
           });
           planUpdated = rebuilt.ok;
         } catch (err) {
-          console.error('Plan rebuild after day completion failed', err);
+          logError('Plan rebuild after day completion failed', err);
         }
       }
     }

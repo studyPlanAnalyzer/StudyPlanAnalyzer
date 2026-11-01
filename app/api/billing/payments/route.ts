@@ -22,7 +22,7 @@ const bodySchema = z.object({
  * is due, never early and never while another is waiting to be checked.
  */
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   if (!isBillingEnabled())

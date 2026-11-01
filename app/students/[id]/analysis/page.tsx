@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -286,7 +286,8 @@ function SubjectDetailModal({
 // MAIN ANALYSIS PAGE
 // --------------------------------------------------
 
-export default function AnalysisPage({ params }: { params: { id: string } }) {
+export default function AnalysisPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
 
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);

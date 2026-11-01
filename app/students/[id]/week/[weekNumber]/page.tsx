@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,8 @@ interface PlanResponse {
   weeks: PlanWeek[];
 }
 
-export default function WeekSummaryPage({ params }: { params: { id: string; weekNumber: string } }) {
+export default function WeekSummaryPage(props: { params: Promise<{ id: string; weekNumber: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const weekNumber = Number(params.weekNumber);
   const [planId, setPlanId] = useState<string | null>(null);

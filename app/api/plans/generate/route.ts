@@ -19,7 +19,7 @@ const generatePlanSchema = z.object({
 const BUFFER_DAYS = 7;
 
 export async function POST(req: NextRequest) {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   const body = await req.json();

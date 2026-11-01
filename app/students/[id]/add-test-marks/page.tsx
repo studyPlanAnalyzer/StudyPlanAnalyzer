@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -262,11 +262,12 @@ function CornerIcon({ className = 'h-4 w-4' }: { className?: string }) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-export default function AddTestMarksPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function AddTestMarksPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [testName, setTestName] = useState('');

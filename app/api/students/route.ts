@@ -78,7 +78,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 });
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
   // Three queries for ALL the children, run together. It used to be one query

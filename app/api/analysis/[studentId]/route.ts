@@ -23,8 +23,9 @@ function strengthFromPercent(percent: number): StrengthLevel {
 }
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { studentId: string } }) => {
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ studentId: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     // One parallel round instead of seven queries in a row. Nothing is returned

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -26,11 +26,12 @@ interface DailyQuizResponse {
   groups: QuizState[];
 }
 
-export default function DailyQuizPreparePage({
-  params,
-}: {
-  params: { date: string };
-}) {
+export default function DailyQuizPreparePage(
+  props: {
+    params: Promise<{ date: string }>;
+  }
+) {
+  const params = use(props.params);
   const [state, setState] = useState<DailyQuizResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 

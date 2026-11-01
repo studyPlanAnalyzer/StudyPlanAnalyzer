@@ -8,9 +8,9 @@ import { isExamOver } from '@/lib/plan-expiry';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const GET = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { planId: string } }) => {
-    // The id comes from the verified token: no database round trip for auth.
-    const userId = getAuthUserId(req);
+  async (req: NextRequest, props: { params: Promise<{ planId: string }> }) => {
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     // One parallel round instead of six queries in a row. The plan is joined
@@ -68,11 +68,9 @@ export const GET = withErrorHandling(
     const denied = paymentRequiredResponse(student);
     if (denied) return denied;
 
-    // The exam is over: the plan is cleared, and reported as gone.
+    // The exam is over: the plan is reported as gone. (A GET never changes
+    // anything; the row is simply never shown again.)
     if (exam && isExamOver(exam.examDate)) {
-      await db
-        .delete(schema.studyPlans)
-        .where(eq(schema.studyPlans.id, plan.id));
       return NextResponse.json(
         { error: 'This plan has ended with its exam' },
         { status: 404 },

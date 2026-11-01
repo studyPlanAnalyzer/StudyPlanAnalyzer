@@ -14,9 +14,10 @@ const updateTodoSchema = z.object({
 export const PATCH = withErrorHandling(
   async (
     req: NextRequest,
-    { params }: { params: { id: string; todoId: string } },
+    props: { params: Promise<{ id: string; todoId: string }> },
   ) => {
-    const userId = getAuthUserId(req);
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const body = await req.json();
@@ -55,9 +56,10 @@ export const PATCH = withErrorHandling(
 export const DELETE = withErrorHandling(
   async (
     req: NextRequest,
-    { params }: { params: { id: string; todoId: string } },
+    props: { params: Promise<{ id: string; todoId: string }> },
   ) => {
-    const userId = getAuthUserId(req);
+    const params = await props.params;
+    const userId = await getAuthUserId(req);
     if (!userId) return unauthorizedResponse();
 
     const denied = await requireChildAccess(params.id, userId, {

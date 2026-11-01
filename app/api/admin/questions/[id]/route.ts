@@ -30,8 +30,9 @@ const updateQuestionSchema = z.object({
 
 export const PUT = withErrorHandling(async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  props: { params: Promise<{ id: string }> },
 ) => {
+  const params = await props.params;
   const user = await getUserFromRequest(req);
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();

@@ -46,7 +46,8 @@ const updateTopicSchema = z.object({
 });
 
 export const PUT = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
@@ -83,7 +84,8 @@ export const PUT = withErrorHandling(
 // mark_topics links. Planned/skipped sessions for the topic are removed so they
 // don't show up as blank sessions; completed sessions stay with topicId = null.
 export const DELETE = withErrorHandling(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
+    const params = await props.params;
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
 
