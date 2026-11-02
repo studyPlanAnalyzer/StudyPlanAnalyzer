@@ -14,10 +14,12 @@ import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
+import { examDateProblem } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import {
   MIN_SCHOOL_DAY_MINUTES,
   MIN_HOLIDAY_DAY_MINUTES,
+  MAX_DAILY_MINUTES,
 } from '@/lib/utils/study-limits';
 import clsx from 'clsx';
 
@@ -240,12 +242,17 @@ export default function OnboardingPage() {
         return `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes of study time.`;
       if (holidayDayMinutes < MIN_HOLIDAY_DAY_MINUTES)
         return `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes of study time.`;
+      if (
+        schoolDayMinutes > MAX_DAILY_MINUTES ||
+        holidayDayMinutes > MAX_DAILY_MINUTES
+      )
+        return `A day can have at most ${MAX_DAILY_MINUTES} minutes (2 hours) of study time.`;
     }
     if (step === 3) {
       if (!exam.name.trim() || !exam.examDate)
         return 'Please enter the exam name and date.';
-      if (new Date(exam.examDate).getTime() <= Date.now())
-        return 'Exam date must be in the future.';
+      const examDateError = examDateProblem(exam.examDate);
+      if (examDateError) return `${examDateError}.`;
     }
     if (step === 4) {
       if (subjects.length === 0 || subjects.some((s) => !s.name.trim()))
@@ -512,6 +519,7 @@ export default function OnboardingPage() {
                     hint={`Minimum ${MIN_SCHOOL_DAY_MINUTES} minutes`}
                     type="number"
                     min={MIN_SCHOOL_DAY_MINUTES}
+                    max={MAX_DAILY_MINUTES}
                     value={schoolDayMinutes}
                     onChange={(e) =>
                       setSchoolDayMinutes(Number(e.target.value))
@@ -522,6 +530,7 @@ export default function OnboardingPage() {
                     hint={`Minimum ${MIN_HOLIDAY_DAY_MINUTES} minutes (1.5 hours)`}
                     type="number"
                     min={MIN_HOLIDAY_DAY_MINUTES}
+                    max={MAX_DAILY_MINUTES}
                     value={holidayDayMinutes}
                     onChange={(e) =>
                       setHolidayDayMinutes(Number(e.target.value))

@@ -2,7 +2,14 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { logError } from '@/lib/api/handler';
 import { billingStateOf } from '@/lib/billing/state';
-import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import {
+  addDays,
+  APP_TIME_ZONE,
+  appDay,
+  appDayStart,
+  fromDateString,
+  toDateString,
+} from '@/lib/utils/date-utils';
 import { buildWeeklyReport } from './build-weekly-report';
 import { loadReportInput } from './load-report-inputs';
 import {
@@ -60,7 +67,7 @@ export function reportBilling(
 
 /** The child existed by the week's last day. */
 export function existedBy(s: Pick<Student, 'createdAt'>, week: ReportWeek) {
-  return s.createdAt.getTime() < addDays(fromDateString(week.end), 1).getTime();
+  return s.createdAt.getTime() < appDayStart(addDays(fromDateString(week.end), 1)).getTime();
 }
 
 /**
@@ -71,11 +78,12 @@ export function existedBy(s: Pick<Student, 'createdAt'>, week: ReportWeek) {
  * attempted (quiz_attempts.completed_at). One query.
  */
 export async function activityWeeks(studentId: string, from: ReportWeek, to: ReportWeek) {
-  const startAt = fromDateString(from.start).toISOString();
-  const endAt = addDays(fromDateString(to.end), 1).toISOString();
+  // Timestamps are stored in UTC; each is counted on its day in Nepal.
+  const startAt = appDayStart(fromDateString(from.start)).toISOString();
+  const endAt = appDayStart(addDays(fromDateString(to.end), 1)).toISOString();
   const { rows } = await db.execute<{ day: string }>(sql`
     select distinct day::text as day from (
-      select (ss.completed_at)::date as day
+      select (ss.completed_at at time zone 'UTC' at time zone ${APP_TIME_ZONE})::date as day
         from study_sessions ss
         join study_plans sp on sp.id = ss.plan_id
        where sp.student_id = ${studentId}
@@ -88,7 +96,7 @@ export async function activityWeeks(studentId: string, from: ReportWeek, to: Rep
          and a.assessment_date between ${from.start} and ${to.end}
          and exists (select 1 from marks m where m.assessment_id = a.id)
       union all
-      select (qa.completed_at)::date as day
+      select (qa.completed_at at time zone 'UTC' at time zone ${APP_TIME_ZONE})::date as day
         from quiz_attempts qa
        where qa.student_id = ${studentId}
          and qa.completed_at >= ${startAt} and qa.completed_at < ${endAt}
@@ -132,7 +140,7 @@ async function buildWeek(student: Student, week: ReportWeek, billing: BillingFor
 /** Looks at the child's undecided weeks and builds the reports due. */
 async function catchUp(student: Student, billing: BillingForReport, now: Date): Promise<number> {
   const last = lastFinishedWeek(now);
-  const added = weekContaining(toDateString(student.createdAt));
+  const added = weekContaining(toDateString(appDay(student.createdAt)));
   let first = last;
   for (let i = 1; i < LOOKBACK_WEEKS && first.start > added.start; i++) first = previousWeek(first);
 

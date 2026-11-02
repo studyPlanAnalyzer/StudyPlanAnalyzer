@@ -5,15 +5,18 @@ import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import {
-  MIN_SCHOOL_DAY_MINUTES,
-  MIN_HOLIDAY_DAY_MINUTES,
-} from '@/lib/utils/study-limits';
+  dateStringSchema,
+  examDateProblem,
+  holidayDayMinutesSchema,
+  schoolDayMinutesSchema,
+  studyDaysSchema,
+} from '@/lib/validation';
 import { pickExam } from '@/lib/exam-pick';
 import { isExamOver } from '@/lib/plan-expiry';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
-import { addDays, fromDateString, todayUTC } from '@/lib/utils/date-utils';
+import { addDays, fromDateString, appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
@@ -31,13 +34,10 @@ class SaveError extends Error {
 }
 
 const bodySchema = z.object({
-  studyDays: z.array(z.string()).min(1),
-  schoolDayMinutes: z.number().int().min(MIN_SCHOOL_DAY_MINUTES),
-  holidayDayMinutes: z.number().int().min(MIN_HOLIDAY_DAY_MINUTES),
-  examDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  studyDays: studyDaysSchema,
+  schoolDayMinutes: schoolDayMinutesSchema,
+  holidayDayMinutes: holidayDayMinutesSchema,
+  examDate: dateStringSchema.optional(),
   // Buffer-week choice. Left out, the existing plan keeps its own setting.
   useBufferWeek: z.boolean().optional(),
 });
@@ -136,8 +136,8 @@ export const PUT = withErrorHandling(
         let exam = chosenExam;
 
         if (exam && examDate && examDate !== exam.examDate) {
-          if (fromDateString(examDate).getTime() <= Date.now())
-            throw new SaveError('Exam date must be in the future', 400);
+          const examDateError = examDateProblem(examDate);
+          if (examDateError) throw new SaveError(examDateError, 400);
           const [moved] = await tx
             .update(schema.exams)
             .set({ examDate })
@@ -152,7 +152,7 @@ export const PUT = withErrorHandling(
           const result = await rebuildPlan({
             plan,
             student: updatedStudent,
-            fromDate: todayUTC(),
+            fromDate: appToday(),
             useBufferWeek,
             ex: tx,
           });
@@ -165,12 +165,12 @@ export const PUT = withErrorHandling(
 
         // No plan for this exam yet: build the first one.
         const examDay = fromDateString(exam.examDate);
-        if (examDay.getTime() <= Date.now())
+        if (isExamOver(exam.examDate))
           throw new SaveError('Exam date must be in the future', 400);
         const endDate = useBufferWeek
           ? addDays(examDay, -BUFFER_DAYS)
           : examDay;
-        if (endDate.getTime() <= Date.now())
+        if (endDate.getTime() <= appToday().getTime())
           throw new SaveError(
             "Not enough time before the exam to leave a consolidation week. Choose 'use the full period' instead.",
             400,

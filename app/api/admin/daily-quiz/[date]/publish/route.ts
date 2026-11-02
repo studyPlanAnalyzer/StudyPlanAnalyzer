@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   getUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/auth/middleware';
 import { CATEGORY_ORDER, QuestionCategory } from '@/lib/types/daily-challenge';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import {
+  appToday,
+  isRealDateString,
+  toDateString,
+} from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 
 const publishSchema = z.object({
@@ -35,6 +39,11 @@ export const POST = withErrorHandling(
     const user = await getUserFromRequest(req);
     if (!user) return unauthorizedResponse();
     if (!user.isAdmin) return forbiddenResponse();
+    if (!isRealDateString(params.date))
+      return NextResponse.json(
+        { error: 'Use a real date (YYYY-MM-DD)' },
+        { status: 400 },
+      );
 
     const body = await req.json();
     const parsed = publishSchema.safeParse(body);
@@ -109,41 +118,51 @@ export const POST = withErrorHandling(
       }
     }
 
-    const [quiz] = existing
-      ? await db
-          .update(schema.dailyQuizzes)
-          .set({ isPublished: true, updatedAt: new Date() })
-          .where(eq(schema.dailyQuizzes.id, existing.id))
-          .returning()
-      : await db
-          .insert(schema.dailyQuizzes)
-          .values({ date: params.date, gradeGroup, isPublished: true })
-          .returning();
+    // The quiz, its question links and the usage counters are saved together,
+    // and the quiz is marked published as the very last step, so students can
+    // never see a quiz whose questions are half replaced.
+    const quiz = await db.transaction(async (tx) => {
+      const [row] = existing
+        ? [existing]
+        : await tx
+            .insert(schema.dailyQuizzes)
+            .values({ date: params.date, gradeGroup, isPublished: false })
+            .returning();
 
-    // Clear any stale links (e.g. left over from a prior unpublish) then
-    // create fresh ones in the fixed IQ -> Science -> GK order.
-    await db
-      .delete(schema.dailyQuizQuestions)
-      .where(eq(schema.dailyQuizQuestions.dailyQuizId, quiz.id));
-    await db.insert(schema.dailyQuizQuestions).values(
-      selections.map((s, order) => ({
-        dailyQuizId: quiz.id,
-        questionId: s.questionId,
-        order,
-      })),
-    );
+      // Clear any stale links (e.g. left over from a prior unpublish) then
+      // create fresh ones in the fixed category order.
+      await tx
+        .delete(schema.dailyQuizQuestions)
+        .where(eq(schema.dailyQuizQuestions.dailyQuizId, row.id));
+      await tx.insert(schema.dailyQuizQuestions).values(
+        selections.map((s, order) => ({
+          dailyQuizId: row.id,
+          questionId: s.questionId,
+          order,
+        })),
+      );
 
-    const todayStr = toDateString(todayUTC());
-    for (const { questionId } of selections) {
-      await db
+      await tx
         .update(schema.questions)
         .set({
           timesUsed: sql`${schema.questions.timesUsed} + 1`,
-          lastUsedAt: todayStr,
+          lastUsedAt: toDateString(appToday()),
           updatedAt: new Date(),
         })
-        .where(eq(schema.questions.id, questionId));
-    }
+        .where(
+          inArray(
+            schema.questions.id,
+            selections.map((s) => s.questionId),
+          ),
+        );
+
+      const [published] = await tx
+        .update(schema.dailyQuizzes)
+        .set({ isPublished: true, updatedAt: new Date() })
+        .where(eq(schema.dailyQuizzes.id, row.id))
+        .returning();
+      return published;
+    });
 
     return NextResponse.json({ quiz }, { status: 201 });
   },

@@ -7,9 +7,10 @@ import { withErrorHandling } from '@/lib/api/handler';
 import { pickExam } from '@/lib/exam-pick';
 import { isExamOver } from '@/lib/plan-expiry';
 import {
-  MIN_SCHOOL_DAY_MINUTES,
-  MIN_HOLIDAY_DAY_MINUTES,
-} from '@/lib/utils/study-limits';
+  holidayDayMinutesSchema,
+  schoolDayMinutesSchema,
+  studyDaysSchema,
+} from '@/lib/validation';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 async function loadOwnedStudent(studentId: string, parentId: string) {
@@ -143,23 +144,9 @@ const updateStudentSchema = z.object({
     .max(200)
     .transform((s) => s.replace(/\s+/g, ' '))
     .optional(),
-  studyDays: z.array(z.string()).min(1).optional(),
-  schoolDayMinutes: z
-    .number()
-    .int()
-    .min(
-      MIN_SCHOOL_DAY_MINUTES,
-      `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes`,
-    )
-    .optional(),
-  holidayDayMinutes: z
-    .number()
-    .int()
-    .min(
-      MIN_HOLIDAY_DAY_MINUTES,
-      `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes`,
-    )
-    .optional(),
+  studyDays: studyDaysSchema.optional(),
+  schoolDayMinutes: schoolDayMinutesSchema.optional(),
+  holidayDayMinutes: holidayDayMinutesSchema.optional(),
 });
 
 export const PUT = withErrorHandling(

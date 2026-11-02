@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { and, gte, lte } from "drizzle-orm";
+import { and, gte, lte, sql, type AnyColumn } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
-import { addDays, toDateString, todayUTC } from "@/lib/utils/date-utils";
+import { addDays, appDayStart, appToday, toDateString } from "@/lib/utils/date-utils";
 import { withErrorHandling } from "@/lib/api/handler";
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
@@ -10,55 +10,64 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();
 
-  const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const allUsers = await db
-    .select({ id: schema.users.id, createdAt: schema.users.createdAt, lastLoginAt: schema.users.lastLoginAt })
-    .from(schema.users);
-
-  const totalUsers = allUsers.length;
-  const newUsersThisWeek = allUsers.filter((u) => u.createdAt >= sevenDaysAgo).length;
-  const newUsersThisMonth = allUsers.filter((u) => u.createdAt >= startOfMonth).length;
+  // Day boundaries are midnights in Nepal, like the rest of the app. Every
+  // number is counted in the database, not by loading the rows.
+  const today = appToday();
+  const startOfDay = appDayStart(today);
+  const sevenDaysAgo = appDayStart(addDays(today, -7));
+  const thirtyDaysAgo = appDayStart(addDays(today, -30));
+  const startOfMonth = appDayStart(
+    new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)),
+  );
+  const since = (col: AnyColumn, from: Date) =>
+    sql<number>`count(*) filter (where ${col} >= ${from.toISOString()})::int`;
 
   // DAU/WAU/MAU are based on lastLoginAt, which is set on every successful
   // login (and at signup). This is a real, if simple, activity signal —
   // note it only reflects login events, not in-app engagement depth.
-  const dau = allUsers.filter((u) => u.lastLoginAt && u.lastLoginAt >= startOfDay).length;
-  const wau = allUsers.filter((u) => u.lastLoginAt && u.lastLoginAt >= sevenDaysAgo).length;
-  const mau = allUsers.filter((u) => u.lastLoginAt && u.lastLoginAt >= thirtyDaysAgo).length;
-
-  const totalStudents = (await db.select({ id: schema.students.id }).from(schema.students)).length;
-
-  // Study plan engagement: sessions actually completed in the last 7 days,
-  // vs. how many were scheduled — a decent proxy for whether people are
-  // actually using the plans, not just generating them.
-  const todayStr = toDateString(todayUTC());
-  const weekAgoStr = toDateString(addDays(todayUTC(), -7));
-  const recentSessions = await db
-    .select({ status: schema.studySessions.status, scheduledDate: schema.studySessions.scheduledDate })
-    .from(schema.studySessions)
-    .where(and(gte(schema.studySessions.scheduledDate, weekAgoStr), lte(schema.studySessions.scheduledDate, todayStr)));
-  const sessionsScheduledLast7Days = recentSessions.length;
-  const sessionsCompletedLast7Days = recentSessions.filter(
-    (s) => s.status === "completed" || s.status === "partly_completed"
-  ).length;
-
-  // Daily Brain Challenge engagement.
-  const attemptsToday = await db
-    .select({ id: schema.quizAttempts.id })
-    .from(schema.quizAttempts)
-    .where(gte(schema.quizAttempts.completedAt, startOfDay));
-  const attemptsThisWeek = await db
-    .select({ id: schema.quizAttempts.id })
-    .from(schema.quizAttempts)
-    .where(gte(schema.quizAttempts.completedAt, sevenDaysAgo));
+  const [[users], [students], [sessions], [attempts]] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        newThisWeek: since(schema.users.createdAt, sevenDaysAgo),
+        newThisMonth: since(schema.users.createdAt, startOfMonth),
+        dau: since(schema.users.lastLoginAt, startOfDay),
+        wau: since(schema.users.lastLoginAt, sevenDaysAgo),
+        mau: since(schema.users.lastLoginAt, thirtyDaysAgo),
+      })
+      .from(schema.users),
+    db.select({ total: sql<number>`count(*)::int` }).from(schema.students),
+    // Study plan engagement: sessions actually completed in the last 7 days,
+    // vs. how many were scheduled — a decent proxy for whether people are
+    // actually using the plans, not just generating them.
+    db
+      .select({
+        scheduled: sql<number>`count(*)::int`,
+        completed: sql<number>`count(*) filter (where ${schema.studySessions.status} in ('completed', 'partly_completed'))::int`,
+      })
+      .from(schema.studySessions)
+      .where(
+        and(
+          gte(schema.studySessions.scheduledDate, toDateString(addDays(today, -7))),
+          lte(schema.studySessions.scheduledDate, toDateString(today)),
+        ),
+      ),
+    // Daily Brain Challenge engagement.
+    db
+      .select({
+        today: since(schema.quizAttempts.completedAt, startOfDay),
+        thisWeek: sql<number>`count(*)::int`,
+      })
+      .from(schema.quizAttempts)
+      .where(gte(schema.quizAttempts.completedAt, sevenDaysAgo)),
+  ]);
+  const totalUsers = users.total;
+  const newUsersThisWeek = users.newThisWeek;
+  const newUsersThisMonth = users.newThisMonth;
+  const { dau, wau, mau } = users;
+  const totalStudents = students.total;
+  const sessionsScheduledLast7Days = sessions.scheduled;
+  const sessionsCompletedLast7Days = sessions.completed;
 
   return NextResponse.json({
     signups: {
@@ -83,8 +92,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
           : 0,
     },
     dailyBrainChallenge: {
-      attemptsToday: attemptsToday.length,
-      attemptsThisWeek: attemptsThisWeek.length,
+      attemptsToday: attempts.today,
+      attemptsThisWeek: attempts.thisWeek,
     },
     billing: {
       tracked: false,

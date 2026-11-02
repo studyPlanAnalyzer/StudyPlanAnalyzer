@@ -1,12 +1,11 @@
-import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { addDays, appDay, fromDateString, toDateString } from '@/lib/utils/date-utils';
 
 // ---------------------------------------------------------------------------
 // The report week, in ONE place.
 //
-// Like the rest of the app, days are UTC days (lib/utils/date-utils.ts). A
-// report week runs Sunday to Saturday, matching Nepal's school week (Saturday
-// is the day off). A week's report can be made once the week has ended, at
-// Saturday 24:00 UTC (05:45 Sunday in Nepal).
+// Like the rest of the app, days are days in Nepal (lib/utils/date-utils.ts).
+// A report week runs Sunday to Saturday. A week's report can be made once the
+// week has ended, at Saturday 24:00 in Nepal (18:15 UTC).
 //
 // To move the week, change only this constant.
 // ---------------------------------------------------------------------------
@@ -56,5 +55,5 @@ export function isInWeek(day: string, week: ReportWeek): boolean {
 
 /** The most recent week that has ended by `now`. */
 export function lastFinishedWeek(now: Date): ReportWeek {
-  return previousWeek(weekContaining(toDateString(now)));
+  return previousWeek(weekContaining(toDateString(appDay(now))));
 }

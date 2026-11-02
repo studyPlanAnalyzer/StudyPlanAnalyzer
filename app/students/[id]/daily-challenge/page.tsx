@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
+import { fromDateString, todayKey } from '@/lib/utils/date-utils';
 import {
   CATEGORY_LABELS,
   Question,
@@ -139,9 +140,10 @@ export default function DailyChallengePage(
     ? data.questions.filter((q) => !!answers[q.id]).length
     : 0;
 
-  const todayLabel = new Date().toLocaleDateString('en-US', {
+  const todayLabel = fromDateString(todayKey()).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
+    timeZone: 'UTC',
   });
 
   return (

@@ -7,10 +7,7 @@ import type { Todo, TodoStats } from '@/lib/types/todo';
 import { buttonClass } from '@/components/ui/Button';
 import { fieldClass } from '@/components/ui/Field';
 import { Notice } from '@/components/ui/Notice';
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayKey } from '@/lib/utils/date-utils';
 
 const STREAK_MESSAGES: [number, string][] = [
   [30, '🔥 A month straight. Unstoppable.'],

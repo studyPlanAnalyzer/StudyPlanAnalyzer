@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { verifyAccessToken, AccessTokenPayload } from './jwt';
 import { accessCookie } from './cookies';
+import { isAdminEmail } from './google-user';
 import { db, schema } from '@/lib/db';
 import { and, eq, gt } from 'drizzle-orm';
 
@@ -28,6 +29,10 @@ function liveSession(payload: AccessTokenPayload) {
  * record. Returns null if the token is missing or invalid, the session has
  * ended, or the user no longer exists.
  *
+ * isAdmin is true only while the account is marked admin AND its email is
+ * still in ADMIN_EMAILS, so removing someone from the list takes effect on
+ * their very next request, not at their next sign-in.
+ *
  * Use this at the top of every protected API route that needs the user record:
  *   const user = await getUserFromRequest(req);
  *   if (!user) return unauthorized();
@@ -50,7 +55,8 @@ export async function getUserFromRequest(req: NextRequest) {
     .where(liveSession(payload))
     .limit(1);
 
-  return row ?? null;
+  if (!row) return null;
+  return { ...row, isAdmin: row.isAdmin && isAdminEmail(row.email) };
 }
 
 /**

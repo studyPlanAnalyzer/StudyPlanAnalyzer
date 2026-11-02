@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema } from '@/lib/validation';
 
 /**
  * The child, for the report APIs: it must be this parent's (404 otherwise,
@@ -33,4 +33,4 @@ export async function reportChild(
 }
 
 /** A report's week in a URL: YYYY-MM-DD. */
-export const weekStartSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const weekStartSchema = dateStringSchema;

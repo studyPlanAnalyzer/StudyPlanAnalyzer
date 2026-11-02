@@ -5,10 +5,11 @@ import { and, asc, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { requireChildAccess } from '@/lib/billing/guard';
+import { dateStringSchema } from '@/lib/validation';
 
 const createTodoSchema = z.object({
   content: z.string().min(1).max(500),
-  todoDate: z.string().min(1), // YYYY-MM-DD
+  todoDate: dateStringSchema,
 });
 
 export const GET = withErrorHandling(
@@ -25,6 +26,11 @@ export const GET = withErrorHandling(
         { status: 400 },
       );
     }
+    if (!dateStringSchema.safeParse(todoDate).success)
+      return NextResponse.json(
+        { error: 'Use a real date (YYYY-MM-DD)' },
+        { status: 400 },
+      );
 
     // The child must be this parent's, and paid up.
     const denied = await requireChildAccess(params.id, userId, {

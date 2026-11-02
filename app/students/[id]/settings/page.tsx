@@ -16,6 +16,7 @@ import {
 import {
   MIN_SCHOOL_DAY_MINUTES,
   MIN_HOLIDAY_DAY_MINUTES,
+  MAX_DAILY_MINUTES,
 } from '@/lib/utils/study-limits';
 import { cardClass } from '@/components/ui/Card';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
@@ -146,6 +147,11 @@ export default function StudentSettingsPage(
       problem = `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes of study time.`;
     } else if (holidayDayMinutes < MIN_HOLIDAY_DAY_MINUTES) {
       problem = `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes (1.5 hours) of study time.`;
+    } else if (
+      schoolDayMinutes > MAX_DAILY_MINUTES ||
+      holidayDayMinutes > MAX_DAILY_MINUTES
+    ) {
+      problem = `A day can have at most ${MAX_DAILY_MINUTES} minutes (2 hours) of study time.`;
     }
 
     if (problem) {
@@ -309,6 +315,7 @@ export default function StudentSettingsPage(
                     hint={`Minimum ${MIN_SCHOOL_DAY_MINUTES} minutes (45 minutes)`}
                     type="number"
                     min={MIN_SCHOOL_DAY_MINUTES}
+                    max={MAX_DAILY_MINUTES}
                     value={schoolDayMinutes}
                     onChange={(e) =>
                       setSchoolDayMinutes(Number(e.target.value))
@@ -319,6 +326,7 @@ export default function StudentSettingsPage(
                     hint={`Minimum ${MIN_HOLIDAY_DAY_MINUTES} minutes (1.5 hours)`}
                     type="number"
                     min={MIN_HOLIDAY_DAY_MINUTES}
+                    max={MAX_DAILY_MINUTES}
                     value={holidayDayMinutes}
                     onChange={(e) =>
                       setHolidayDayMinutes(Number(e.target.value))
@@ -451,16 +459,12 @@ export default function StudentSettingsPage(
               (e) => e.id === detail.currentExamId,
             );
             if (!primaryExam) return null;
-            const daysUntilExam = Math.ceil(
-              (new Date(primaryExam.examDate).getTime() - Date.now()) /
-                (1000 * 60 * 60 * 24),
-            );
             return (
               <BufferWeekChoiceModal
                 examDateLabel={new Date(
                   primaryExam.examDate,
                 ).toLocaleDateString()}
-                minimumRunwayOk={daysUntilExam > 7}
+                minimumRunwayOk={hasBufferRunway(primaryExam.examDate)}
                 onChoose={(useBufferWeek) =>
                   handleSaveAndRegenerate(useBufferWeek)
                 }

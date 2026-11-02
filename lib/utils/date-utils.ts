@@ -1,13 +1,48 @@
 /** All dates are handled as UTC-midnight `Date` objects and formatted as
  * "YYYY-MM-DD" strings for storage in Postgres `date` columns, so that
- * timezone drift never shifts a study session onto the wrong day. */
+ * timezone drift never shifts a study session onto the wrong day.
+ *
+ * Which calendar day it is "now" is decided in the app's time zone, Nepal
+ * (Asia/Kathmandu, UTC+5:45, no daylight saving), on the server and in every
+ * browser alike: today's sessions, the daily challenge, to-dos, report weeks
+ * and "the exam is over" all roll over at midnight in Nepal. */
+
+export const APP_TIME_ZONE = 'Asia/Kathmandu';
+const APP_UTC_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
 
 export function startOfDayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-export function todayUTC(): Date {
-  return startOfDayUTC(new Date());
+/** The app's (Nepal) calendar day that `instant` falls on, as a UTC-midnight Date. */
+export function appDay(instant: Date = new Date()): Date {
+  return startOfDayUTC(new Date(instant.getTime() + APP_UTC_OFFSET_MS));
+}
+
+/** Today in the app's time zone, as a UTC-midnight Date. */
+export function appToday(): Date {
+  return appDay();
+}
+
+/** Today in the app's time zone, as YYYY-MM-DD. */
+export function todayKey(): string {
+  return toDateString(appDay());
+}
+
+/** The instant the app day `day` (a UTC-midnight Date) begins: midnight in Nepal. */
+export function appDayStart(day: Date): Date {
+  return new Date(startOfDayUTC(day).getTime() - APP_UTC_OFFSET_MS);
+}
+
+/** Whole days from today (Nepal) to the "YYYY-MM-DD" day: 0 today, 1 tomorrow. */
+export function daysUntil(dateStr: string): number {
+  return diffInDays(fromDateString(dateStr), appToday());
+}
+
+/** True for a "YYYY-MM-DD" string naming a real calendar day (not 2027-02-30). */
+export function isRealDateString(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  return toDateString(fromDateString(s)) === s;
 }
 
 export function addDays(date: Date, days: number): Date {

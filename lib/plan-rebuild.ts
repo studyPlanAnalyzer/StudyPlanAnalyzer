@@ -1,7 +1,8 @@
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
-import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { addDays, appToday, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { isExamOver } from '@/lib/plan-expiry';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
 
 const BUFFER_DAYS = 7;
@@ -55,7 +56,7 @@ export async function rebuildPlan({
   if (!exam) return { ok: false, status: 404, error: 'Exam not found' };
 
   const examDate = fromDateString(exam.examDate);
-  if (examDate.getTime() <= Date.now()) {
+  if (isExamOver(exam.examDate)) {
     return {
       ok: false,
       status: 400,
@@ -70,7 +71,7 @@ export async function rebuildPlan({
     ? addDays(examDate, -BUFFER_DAYS)
     : examDate;
   const effectiveEndDate =
-    scheduleEndDate.getTime() <= Date.now() ? examDate : scheduleEndDate;
+    scheduleEndDate.getTime() <= appToday().getTime() ? examDate : scheduleEndDate;
 
   // Nothing left to schedule (for example the last study day just finished).
   if (fromDate.getTime() > effectiveEndDate.getTime()) {

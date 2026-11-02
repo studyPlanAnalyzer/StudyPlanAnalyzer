@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { withErrorHandling } from "@/lib/api/handler";
 
@@ -31,7 +31,7 @@ export const GET = withErrorHandling(async (req: NextRequest, props: { params: P
       const questionIds = links.map((l) => l.questionId);
       const questionRows =
         questionIds.length > 0
-          ? await db.select().from(schema.questions)
+          ? await db.select().from(schema.questions).where(inArray(schema.questions.id, questionIds))
           : [];
       const questionById = new Map(questionRows.map((q) => [q.id, q]));
 

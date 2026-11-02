@@ -12,15 +12,16 @@ import {
   clashMessage,
 } from '@/lib/subject-name';
 import { saveMarks, type NewMark } from '@/lib/save-mark';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema, examDateProblem } from '@/lib/validation';
 
 const level = z.enum(['low', 'medium', 'high']);
 const name = z.string().trim().min(1).max(200);
 
 const bodySchema = z.object({
   name,
-  examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  examDate: dateStringSchema,
   // Latest marks for subjects the child already has (blank ones are left out).
   marks: z
     .array(
@@ -131,12 +132,10 @@ export const POST = withErrorHandling(
     const denied = paymentRequiredResponse(student);
     if (denied) return denied;
 
-    const today = toDateString(todayUTC());
-    if (examDate <= today)
-      return NextResponse.json(
-        { error: 'Exam date must be in the future' },
-        { status: 400 },
-      );
+    const today = toDateString(appToday());
+    const examDateError = examDateProblem(examDate);
+    if (examDateError)
+      return NextResponse.json({ error: examDateError }, { status: 400 });
 
     // Only one exam is active at a time: a new cycle starts after the last exam.
     const active = exams.find((e) => e.isPrimary && e.examDate > today);

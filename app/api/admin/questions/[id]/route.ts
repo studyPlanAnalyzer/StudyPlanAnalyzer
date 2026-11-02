@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   getUserFromRequest,
   unauthorizedResponse,
@@ -61,6 +61,36 @@ export const PUT = withErrorHandling(async (
       { error: 'correctAnswer must be one of the 4 options' },
       { status: 400 },
     );
+  }
+
+  // Students' answers to a published quiz were marked against these options
+  // and this answer, so they can't change afterwards. Wording, explanation,
+  // difficulty and status can.
+  const answerChanged =
+    JSON.stringify(nextOptions) !== JSON.stringify(existing.options) ||
+    nextCorrectAnswer !== existing.correctAnswer;
+  if (answerChanged) {
+    const [published] = await db
+      .select({ date: schema.dailyQuizzes.date })
+      .from(schema.dailyQuizQuestions)
+      .innerJoin(
+        schema.dailyQuizzes,
+        eq(schema.dailyQuizzes.id, schema.dailyQuizQuestions.dailyQuizId),
+      )
+      .where(
+        and(
+          eq(schema.dailyQuizQuestions.questionId, params.id),
+          eq(schema.dailyQuizzes.isPublished, true),
+        ),
+      )
+      .limit(1);
+    if (published)
+      return NextResponse.json(
+        {
+          error: `This question is in the published quiz for ${published.date}, so its options and correct answer can't be changed. Add a new question instead.`,
+        },
+        { status: 409 },
+      );
   }
 
   const [question] = await db

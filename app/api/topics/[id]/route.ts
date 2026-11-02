@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   getUserFromRequest,
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { deleteTopics } from '@/lib/topic-delete';
 
 async function loadOwnedTopic(topicId: string, parentId: string) {
   const [topic] = await db
@@ -80,9 +81,9 @@ export const PUT = withErrorHandling(
   },
 );
 
-// Cascades to the topic's sub-topics, spaced-repetition state, review history and
-// mark_topics links. Planned/skipped sessions for the topic are removed so they
-// don't show up as blank sessions; completed sessions stay with topicId = null.
+// Deletes the topic, its sub-topics and what existed only for them (open
+// sessions, marks scoped only to them), in one transaction: see deleteTopics.
+// Completed sessions stay with topicId = null.
 export const DELETE = withErrorHandling(
   async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
     const params = await props.params;
@@ -94,25 +95,8 @@ export const DELETE = withErrorHandling(
       return NextResponse.json({ error: 'Topic not found' }, { status: 404 });
     const denied = paymentRequiredResponse(owned.student);
     if (denied) return denied;
-    const existing = owned.topic;
 
-    // Sub-topics go with their topic, so clear their open sessions too.
-    const children = await db
-      .select({ id: schema.topics.id })
-      .from(schema.topics)
-      .where(eq(schema.topics.parentTopicId, params.id));
-    await db
-      .delete(schema.studySessions)
-      .where(
-        and(
-          inArray(schema.studySessions.topicId, [
-            params.id,
-            ...children.map((c) => c.id),
-          ]),
-          inArray(schema.studySessions.status, ['planned', 'skipped']),
-        ),
-      );
-    await db.delete(schema.topics).where(eq(schema.topics.id, params.id));
+    await db.transaction((tx) => deleteTopics(tx, [params.id]));
     return NextResponse.json({ success: true });
   },
 );

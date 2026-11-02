@@ -2,6 +2,7 @@ import { leafPriority } from '@/lib/utils/plan-generator';
 import { computeStreaks } from '@/lib/utils/streak';
 import {
   addDays,
+  appDay,
   diffInDays,
   fromDateString,
   toDateString,
@@ -39,8 +40,8 @@ import {
 // zero, and comparisons only appear when there was a whole previous week.
 // ---------------------------------------------------------------------------
 
-/** The UTC day of an ISO timestamp. */
-const dayOf = (iso: string) => iso.slice(0, 10);
+/** The day (in Nepal) an ISO timestamp falls on. */
+const dayOf = (iso: string) => toDateString(appDay(new Date(iso)));
 
 const isFinished = (s: SessionRow) =>
   s.status === 'completed' || s.status === 'partly_completed';

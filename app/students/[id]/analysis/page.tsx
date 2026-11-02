@@ -9,6 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { api, ApiError } from '@/lib/api-client';
 import { DailyChallengeStatsCard } from '@/components/daily-challenge/DailyChallengeStatsCard';
 import { BufferWeekChoiceModal } from '@/components/plan/BufferWeekChoiceModal';
+import { hasBufferRunway } from '@/components/plan/BufferWeekToggle';
+import { todayKey } from '@/lib/utils/date-utils';
 import { Modal } from '@/components/ui/Modal';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { AppHeader, BackLink } from '@/components/ui/AppHeader';
@@ -421,7 +423,7 @@ export default function AnalysisPage(props: {
     detail?.exams.find((e) => e.id === detail.currentExamId) ?? null;
 
   const examHasPassed = primaryExam
-    ? new Date(primaryExam.examDate).getTime() < Date.now()
+    ? primaryExam.examDate <= todayKey()
     : false;
 
   const canStartSession = !primaryExam || examHasPassed;
@@ -855,12 +857,7 @@ export default function AnalysisPage(props: {
       {showBufferChoice && pendingExam && (
         <BufferWeekChoiceModal
           examDateLabel={new Date(pendingExam.examDate).toLocaleDateString()}
-          minimumRunwayOk={
-            Math.ceil(
-              (new Date(pendingExam.examDate).getTime() - Date.now()) /
-                (1000 * 60 * 60 * 24),
-            ) > 7
-          }
+          minimumRunwayOk={hasBufferRunway(pendingExam.examDate)}
           onChoose={handleBufferChoice}
           onCancel={() => setShowBufferChoice(false)}
         />

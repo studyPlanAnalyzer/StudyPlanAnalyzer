@@ -14,6 +14,8 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
+import { todayKey } from '@/lib/utils/date-utils';
+import { examDateProblem } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 
 type Level = 'low' | 'medium' | 'high';
@@ -40,9 +42,7 @@ interface NewSubject {
   topics: TopicForm[];
 }
 
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const todayDateString = todayKey;
 
 /* ------------------------------------------------------------------ */
 /* Design tokens                                                       */
@@ -206,8 +206,8 @@ export default function NewSessionPage(props: {
     if (!isDraft && (!Number.isInteger(g) || g < 4 || g > 10))
       return 'Enter the grade as a whole number from 4 to 10.';
     if (!examName.trim() || !examDate) return 'Enter the exam name and date.';
-    if (new Date(examDate).getTime() <= Date.now())
-      return 'Exam date must be in the future.';
+    const examDateError = examDateProblem(examDate);
+    if (examDateError) return `${examDateError}.`;
     if (newSubjects.some((s) => !s.name.trim()))
       return 'Every new subject needs a name.';
     if (newSubjects.length === 0) return 'Add at least one subject.';

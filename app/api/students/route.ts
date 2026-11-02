@@ -10,9 +10,10 @@ import {
 import { withErrorHandling } from '@/lib/api/handler';
 import { billingInfoFor } from '@/lib/billing/pricing';
 import {
-  MIN_SCHOOL_DAY_MINUTES,
-  MIN_HOLIDAY_DAY_MINUTES,
-} from '@/lib/utils/study-limits';
+  holidayDayMinutesSchema,
+  schoolDayMinutesSchema,
+  studyDaysSchema,
+} from '@/lib/validation';
 
 const createStudentSchema = z.object({
   name: z.string().min(1).max(200),
@@ -30,26 +31,9 @@ const createStudentSchema = z.object({
     .min(3, 'School name is required')
     .max(200)
     .transform((s) => s.replace(/\s+/g, ' ')),
-  studyDays: z
-    .array(z.string())
-    .min(1)
-    .default(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun']),
-  schoolDayMinutes: z
-    .number()
-    .int()
-    .min(
-      MIN_SCHOOL_DAY_MINUTES,
-      `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes`,
-    )
-    .default(45),
-  holidayDayMinutes: z
-    .number()
-    .int()
-    .min(
-      MIN_HOLIDAY_DAY_MINUTES,
-      `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes`,
-    )
-    .default(90),
+  studyDays: studyDaysSchema.default(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun']),
+  schoolDayMinutes: schoolDayMinutesSchema.default(45),
+  holidayDayMinutes: holidayDayMinutesSchema.default(90),
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {

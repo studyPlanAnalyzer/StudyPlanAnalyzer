@@ -7,6 +7,8 @@ import { subjectClashFor } from '@/lib/subject-name';
 import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
+import { todayKey } from '@/lib/utils/date-utils';
+import { examDateProblem } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import { cardClass } from '@/components/ui/Card';
 import { buttonClass } from '@/components/ui/Button';
@@ -117,9 +119,7 @@ interface NewSubjectEntry {
   topics: { name: string; difficultyRating: number; selected: boolean }[];
 }
 
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const todayDateString = todayKey;
 
 const sectionCard = `${cardClass} p-6 sm:p-8`;
 const primaryBtn = buttonClass('yellow', 'lg');
@@ -330,8 +330,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
   function validate(): string | null {
     if (!examName.trim() || !examDate) return 'Enter the exam name and date.';
-    if (new Date(examDate).getTime() <= Date.now())
-      return 'Exam date must be in the future.';
+    const examDateError = examDateProblem(examDate);
+    if (examDateError) return `${examDateError}.`;
     // Every lowest-level item needs an entry. "Out of" 0 means it isn't in
     // this exam, so nothing is recorded for it.
     for (const m of marks) {

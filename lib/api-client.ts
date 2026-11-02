@@ -133,7 +133,10 @@ async function attempt<T>(url: string, options: RequestOptions): Promise<T> {
 // ---------------------------------------------------------------------------
 
 // A 401 from these means "not signed in", not "access token expired".
+// /api/auth/me is the exception: it is an ordinary signed-in read (the admin
+// pages and dashboard check the user with it), so it refreshes like any other.
 const NO_REFRESH_PREFIX = '/api/auth/';
+const REFRESHABLE_AUTH_URL = '/api/auth/me';
 
 let refreshing: Promise<boolean> | null = null;
 
@@ -162,7 +165,7 @@ async function request<T>(
     if (
       err instanceof ApiError &&
       err.status === 401 &&
-      !url.startsWith(NO_REFRESH_PREFIX) &&
+      (!url.startsWith(NO_REFRESH_PREFIX) || url === REFRESHABLE_AUTH_URL) &&
       (await refreshSession())
     )
       return requestWithRetries<T>(url, options);

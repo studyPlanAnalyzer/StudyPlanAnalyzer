@@ -14,6 +14,8 @@ describe('admin reports', { skip: SKIP_DB }, () => {
   let preview: typeof import('@/app/api/admin/reports/preview/route');
 
   before(async () => {
+    // Admin rights need the account flag AND the email in ADMIN_EMAILS.
+    process.env.ADMIN_EMAILS = 'admin@gmail.com';
     ctx = await setupTestDb();
     const { db, schema } = ctx;
     const { signAccessToken } = await import('@/lib/auth/jwt');
@@ -66,6 +68,16 @@ describe('admin reports', { skip: SKIP_DB }, () => {
     assert.equal(body.parent.email, 'sita@gmail.com');
     assert.ok(!('email' in body) && !('outboxStatus' in body));
     assert.deepEqual(await counts(), before);
+  });
+
+  test('an email removed from ADMIN_EMAILS loses admin access on the next request', async () => {
+    process.env.ADMIN_EMAILS = 'someone-else@gmail.com';
+    try {
+      assert.equal((await get(children, '', 'admin')).status, 403);
+    } finally {
+      process.env.ADMIN_EMAILS = 'admin@gmail.com';
+    }
+    assert.equal((await get(children, '', 'admin')).status, 200);
   });
 
   test('a bad week or child is refused', async () => {

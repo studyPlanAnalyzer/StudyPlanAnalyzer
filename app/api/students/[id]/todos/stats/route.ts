@@ -6,10 +6,7 @@ import { computeStreaks } from '@/lib/utils/streak';
 import type { DayCompletion } from '@/lib/types/todo';
 import { withErrorHandling } from '@/lib/api/handler';
 import { requireChildAccess } from '@/lib/billing/guard';
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { addDays, appToday, toDateString, todayKey } from '@/lib/utils/date-utils';
 
 export const GET = withErrorHandling(
   async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
@@ -51,9 +48,7 @@ export const GET = withErrorHandling(
       today.total > 0 ? Math.round((today.completed / today.total) * 100) : 0;
 
     const last7Days: DayCompletion[] = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = toDateString(addDays(appToday(), -i));
       const entry = byDate.get(key) ?? { total: 0, completed: 0 };
       return { date: key, ...entry };
     }).reverse();

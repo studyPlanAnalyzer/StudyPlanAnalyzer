@@ -7,10 +7,17 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from "@/lib/api/handler";
+import { dateStringSchema } from '@/lib/validation';
+import { paymentRequiredResponse } from '@/lib/billing/guard';
 
-async function assertOwnsStudent(studentId: string, parentId: string) {
+/** The student with its billing fields, if it belongs to this parent. */
+async function loadOwnedStudent(studentId: string, parentId: string) {
   const [student] = await db
-    .select({ id: schema.students.id })
+    .select({
+      id: schema.students.id,
+      paidUntil: schema.students.paidUntil,
+      paymentStatus: schema.students.paymentStatus,
+    })
     .from(schema.students)
     .where(
       and(
@@ -19,13 +26,13 @@ async function assertOwnsStudent(studentId: string, parentId: string) {
       ),
     )
     .limit(1);
-  return !!student;
+  return student ?? null;
 }
 
 const createAssessmentSchema = z.object({
   studentId: z.string().uuid(),
   examId: z.string().uuid().optional(),
-  assessmentDate: z.string().min(1), // YYYY-MM-DD
+  assessmentDate: dateStringSchema,
   assessmentName: z.string().min(1).max(200),
 });
 
@@ -42,9 +49,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     );
   }
 
-  const owns = await assertOwnsStudent(parsed.data.studentId, user.id);
-  if (!owns)
+  const owned = await loadOwnedStudent(parsed.data.studentId, user.id);
+  if (!owned)
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owned);
+  if (denied) return denied;
 
   if (parsed.data.examId) {
     const [exam] = await db
@@ -82,9 +91,11 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       { status: 400 },
     );
 
-  const owns = await assertOwnsStudent(studentId, user.id);
-  if (!owns)
+  const owned = await loadOwnedStudent(studentId, user.id);
+  if (!owned)
     return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+  const denied = paymentRequiredResponse(owned);
+  if (denied) return denied;
 
   const assessments = await db
     .select()

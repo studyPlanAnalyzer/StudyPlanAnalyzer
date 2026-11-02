@@ -14,7 +14,7 @@ import {
   diffInDays,
   fromDateString,
   toDateString,
-  todayUTC,
+  appToday,
 } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { withErrorHandling, logError } from '@/lib/api/handler';
@@ -46,6 +46,47 @@ async function loadOwnedSession(sessionId: string, parentId: string) {
     )
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The topic's next SM-2 state after a rated session, or null when the session
+ * wasn't due. Only a due session advances the real ladder: the topic's
+ * first-ever review (no nextReviewDate yet), or one scheduled on/after the
+ * stored due date. A leveling-pass "practice" session on a topic that isn't
+ * due yet is still rated and logged, but must NOT count as a genuine spaced
+ * repetition, otherwise a topic can rack up 5 "repetitions" within days.
+ */
+function nextSpacedState(
+  state: typeof schema.topicSpacedState.$inferSelect | undefined,
+  scheduledDate: string,
+  rating: Rating,
+  examDate: string | undefined,
+) {
+  const currentState: SpacedState = state
+    ? {
+        intervalDays: state.intervalDays,
+        easeFactor: Number(state.easeFactor),
+        repetitionCount: state.repetitionCount,
+        lastReviewDate: state.lastReviewDate,
+        nextReviewDate: state.nextReviewDate,
+        status: state.status as SpacedState['status'],
+      }
+    : {
+        intervalDays: 0,
+        easeFactor: 2.5,
+        repetitionCount: 0,
+        lastReviewDate: null,
+        nextReviewDate: null,
+        status: 'new',
+      };
+  const isDue =
+    !currentState.nextReviewDate || scheduledDate >= currentState.nextReviewDate;
+  if (!isDue) return null;
+  // Keep review gaps proportional to the time left before the exam.
+  const cap = examDate
+    ? intervalCapForExam(diffInDays(fromDateString(examDate), appToday()))
+    : undefined;
+  return updateTopicSpacedState(currentState, rating, cap);
 }
 
 const updateSessionSchema = z.object({
@@ -85,87 +126,73 @@ export const PUT = withErrorHandling(
       );
     }
 
-    // What the spaced-repetition update needs is read together, before any
-    // write: the topic's current state and the exam date. Only when the session
-    // is tied to a topic and the parent actually rated it.
+    // A session can be done on its day or later, never ahead of it, so the
+    // spaced-repetition ladder can't be advanced early.
+    const today = toDateString(appToday());
+    if (isCompletion && existing.scheduledDate > today) {
+      return NextResponse.json(
+        {
+          error: `This session is planned for ${existing.scheduledDate}. It can be marked done on that day.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Only a rated session tied to a topic updates that topic's SM-2 state.
     const reviewTopicId =
       isCompletion && existing.topicId && rating !== undefined
         ? existing.topicId
         : null;
-    const [stateRows, examRows] = reviewTopicId
-      ? await Promise.all([
-          db
-            .select()
-            .from(schema.topicSpacedState)
-            .where(eq(schema.topicSpacedState.topicId, reviewTopicId))
-            .limit(1),
-          db
-            .select({ examDate: schema.exams.examDate })
-            .from(schema.exams)
-            .where(eq(schema.exams.id, plan.examId))
-            .limit(1),
-        ])
-      : [[], []];
-
-    // Work out the new SM-2 state (if any) before the transaction opens.
-    let nextState: ReturnType<typeof updateTopicSpacedState> | null = null;
-    if (reviewTopicId && rating !== undefined) {
-      const state = stateRows[0];
-      const currentState: SpacedState = state
-        ? {
-            intervalDays: state.intervalDays,
-            easeFactor: Number(state.easeFactor),
-            repetitionCount: state.repetitionCount,
-            lastReviewDate: state.lastReviewDate,
-            nextReviewDate: state.nextReviewDate,
-            status: state.status as SpacedState['status'],
-          }
-        : {
-            intervalDays: 0,
-            easeFactor: 2.5,
-            repetitionCount: 0,
-            lastReviewDate: null,
-            nextReviewDate: null,
-            status: 'new',
-          };
-
-      // Only advance the real SM-2 ladder when this session was actually due
-      // — i.e. it's the topic's first-ever review (no nextReviewDate yet), or
-      // its scheduled date is on/after the stored due date. A leveling-pass
-      // "practice" session on a topic that isn't due yet still gets rated and
-      // logged below, but must NOT count as a genuine spaced repetition —
-      // otherwise a topic can rack up 5 "repetitions" within days (from a
-      // tightly-packed forecast sequence, not real spacing).
-      const isDue =
-        !currentState.nextReviewDate ||
-        existing.scheduledDate >= currentState.nextReviewDate;
-
-      if (isDue) {
-        // Keep review gaps proportional to the time left before the exam.
-        const exam = examRows[0];
-        const cap = exam
-          ? intervalCapForExam(
-              diffInDays(fromDateString(exam.examDate), todayUTC()),
-            )
-          : undefined;
-        nextState = updateTopicSpacedState(currentState, rating as Rating, cap);
-      }
-    }
+    const [exam] = reviewTopicId
+      ? await db
+          .select({ examDate: schema.exams.examDate })
+          .from(schema.exams)
+          .where(eq(schema.exams.id, plan.examId))
+          .limit(1)
+      : [];
 
     // The session, its review state and the review log are saved together, or
-    // not at all, so a half-recorded session can't be left behind.
-    const updatedSession = await db.transaction(async (tx) => {
+    // not at all, so a half-recorded session can't be left behind. The session
+    // row and the topic's state are locked first, so a double click or a
+    // second device waits for this one and then sees its result.
+    const outcome = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(schema.studySessions)
+        .where(eq(schema.studySessions.id, params.id))
+        .for('update');
+      if (!current) return null;
+
+      // Completing a session that is already done changes nothing: no second
+      // review is logged and the ladder isn't advanced twice.
+      if (
+        isCompletion &&
+        (current.status === 'completed' || current.status === 'partly_completed')
+      )
+        return { session: current, changed: false };
+
       const [saved] = await tx
         .update(schema.studySessions)
         .set({
           status,
-          rating: rating ?? existing.rating,
-          completedAt: isCompletion ? new Date() : existing.completedAt,
+          rating: rating ?? current.rating,
+          completedAt: isCompletion ? new Date() : current.completedAt,
         })
         .where(eq(schema.studySessions.id, params.id))
         .returning();
 
       if (reviewTopicId && rating !== undefined) {
+        const [state] = await tx
+          .select()
+          .from(schema.topicSpacedState)
+          .where(eq(schema.topicSpacedState.topicId, reviewTopicId))
+          .for('update');
+        const nextState = nextSpacedState(
+          state,
+          current.scheduledDate,
+          rating as Rating,
+          exam?.examDate,
+        );
         if (nextState) {
           await tx
             .insert(schema.topicSpacedState)
@@ -195,21 +222,25 @@ export const PUT = withErrorHandling(
 
         await tx.insert(schema.topicReviews).values({
           topicId: reviewTopicId,
-          scheduledDate: existing.scheduledDate,
-          completedDate: toDateString(todayUTC()),
+          scheduledDate: current.scheduledDate,
+          completedDate: today,
           rating,
-          durationMinutes: existing.durationMinutes,
+          durationMinutes: current.durationMinutes,
         });
       }
-      return saved;
+      return { session: saved, changed: true };
     });
+    if (!outcome)
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (!outcome.changed)
+      return NextResponse.json({ session: outcome.session, planUpdated: false });
+    const updatedSession = outcome.session;
 
     // When the last required session of a day is dealt with (done or skipped),
     // rebuild the days ahead so they reflect the SM-2 state just updated. Doing
     // it once per day, not per session, keeps the plan from shifting mid-day.
     // Optional "free choice" sessions never hold a day open.
     let planUpdated = false;
-    const today = toDateString(todayUTC());
     if (
       status !== 'planned' &&
       !existing.isFiller &&
@@ -235,7 +266,7 @@ export const PUT = withErrorHandling(
           const rebuilt = await rebuildPlan({
             plan,
             student,
-            fromDate: addDays(todayUTC(), 1),
+            fromDate: addDays(appToday(), 1),
           });
           planUpdated = rebuilt.ok;
         } catch (err) {

@@ -6,7 +6,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { insertTopicRows } from '@/lib/topic-leaves';
 import { rebuildPlan } from '@/lib/plan-rebuild';
-import { todayUTC } from '@/lib/utils/date-utils';
+import { appToday } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import {
   subjectNameSchema,
@@ -14,6 +14,7 @@ import {
   clashMessage,
 } from '@/lib/subject-name';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { deleteTopics } from '@/lib/topic-delete';
 
 export const maxDuration = 60;
 
@@ -226,23 +227,9 @@ export const POST = withErrorHandling(
       await db.transaction(async (tx) => {
         // Deletions first. Open sessions for deleted items go too, so they don't
         // linger as blank sessions; completed ones stay with the link cleared.
+        // Marks scoped only to deleted topics go with them (see deleteTopics).
         const openStatuses: ('planned' | 'skipped')[] = ['planned', 'skipped'];
-        if (removedTopicIds.size > 0) {
-          await tx
-            .delete(schema.studySessions)
-            .where(
-              and(
-                inArray(
-                  schema.studySessions.topicId,
-                  Array.from(removedTopicIds),
-                ),
-                inArray(schema.studySessions.status, openStatuses),
-              ),
-            );
-          await tx
-            .delete(schema.topics)
-            .where(inArray(schema.topics.id, deletedTopicIds));
-        }
+        await deleteTopics(tx, deletedTopicIds);
         if (deletedSubjectIds.length > 0) {
           await tx
             .delete(schema.studySessions)
@@ -337,7 +324,7 @@ export const POST = withErrorHandling(
           const result = await rebuildPlan({
             plan,
             student,
-            fromDate: todayUTC(),
+            fromDate: appToday(),
             ex: tx,
           });
           if (result.ok) planUpdated = true;
