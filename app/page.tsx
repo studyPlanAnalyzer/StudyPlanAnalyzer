@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { ClimbIllustration } from '@/components/landing/ClimbIllustration';
+import { AppLogo } from '@/components/ui/AppHeader';
 import { ForgettingCurve } from '@/components/landing/ForgettingCurve';
 import { LandingStyles } from '@/components/landing/LandingStyles';
 import { RevisionCalendar } from '@/components/landing/RevisionCalendar';
@@ -187,14 +188,9 @@ export default function LandingPage() {
       {/* HEADER */}
       <header className="relative z-30">
         <div className={`${container} flex items-center justify-between gap-4 py-5`}>
-          <Link href="/" className={`flex min-w-0 items-center gap-3 rounded-full sm:gap-4 ${focusRing}`}>
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-lg font-bold text-white sm:h-14 sm:w-14 sm:text-2xl"
-            >
-              S
-            </span>
-            <span className="truncate text-base font-bold tracking-tight sm:text-2xl">
+          <Link href="/" className={`flex min-w-0 items-center gap-4 rounded-full ${focusRing}`}>
+            <AppLogo className="h-12 w-12 sm:h-14 sm:w-14" />
+            <span className="sr-only text-2xl font-bold tracking-tight sm:not-sr-only">
               StudyPlan Analyzer
             </span>
           </Link>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import { api, ApiError } from '@/lib/api-client';
 import { buttonClass } from '@/components/ui/Button';
+import { AppLogo } from '@/components/ui/AppHeader';
 
 interface Me {
   user: { id: string; name: string; isAdmin: boolean };
@@ -80,10 +81,8 @@ export default function AdminLayout({
       <header className="border-b border-black/10 bg-[#FAF9F6]">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
           <Link href="/admin" className="flex items-center gap-3 text-lg font-bold tracking-tight">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-base font-bold text-white">
-              S
-            </span>
-            StudyPlan Analyzer · Admin
+            <AppLogo className="h-10 w-10" />
+            <span className="sr-only sm:not-sr-only">StudyPlan Analyzer · Admin</span>
           </Link>
           <nav className="flex flex-wrap items-center gap-1">
             {NAV_ITEMS.map((item) => {

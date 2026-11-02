@@ -18,6 +18,15 @@ const BREAKPOINT = {
   xl: { desktop: 'hidden xl:flex', mobile: 'xl:hidden' },
 };
 
+/** The StudyPlan Analyzer mark (an S around an open book). Decorative: the
+ * name beside it, or the link it sits in, says what it is. */
+export function AppLogo({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/logo.png" alt="" width={56} height={56} className={clsx('shrink-0', className)} />
+  );
+}
+
 /** The dashboard's grey header pill (Log out, Back to …). */
 export const headerPillClass =
   'flex h-12 items-center justify-center gap-2 rounded-full bg-[#F0EFED] px-5 text-sm font-semibold transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:px-6 sm:text-base';
@@ -53,12 +62,11 @@ export function AppHeader({
   return (
     <header className="relative z-30 bg-[#FAF9F6]">
       <div className={clsx('mx-auto flex items-center justify-between py-5', CONTAINER[width])}>
-        <Link href={brandHref} className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
-            S
-          </div>
+        <Link href={brandHref} className="flex shrink-0 items-center gap-4">
+          <AppLogo className="h-12 w-12 sm:h-14 sm:w-14" />
 
-          <span className="text-xl font-bold tracking-tight sm:text-2xl">
+          {/* Phones show the logo alone; the name is still read out. */}
+          <span className="sr-only text-2xl font-bold tracking-tight sm:not-sr-only">
             StudyPlan Analyzer
           </span>
         </Link>
