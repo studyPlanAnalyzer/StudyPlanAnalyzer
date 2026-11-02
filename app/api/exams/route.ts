@@ -3,14 +3,15 @@ import { z } from 'zod';
 import { db, schema } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema, examDateProblem } from '@/lib/validation';
 
 const createExamSchema = z.object({
   studentId: z.string().uuid(),
   name: z.string().min(1).max(200),
-  examDate: z.string().min(1), // YYYY-MM-DD
+  examDate: dateStringSchema,
   isPrimary: z.boolean().optional().default(true),
 });
 
@@ -26,6 +27,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       { status: 400 },
     );
   }
+  // Same date rule as every other place an exam date is entered.
+  const examDateError = examDateProblem(parsed.data.examDate);
+  if (examDateError)
+    return NextResponse.json({ error: examDateError }, { status: 400 });
 
   // The ownership check and the current primary exam are read together
   // (two queries in a row before). Nothing is changed unless the student
@@ -68,7 +73,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // but only once the old one has actually concluded.
   if (parsed.data.isPrimary) {
     const currentPrimary = primaries[0];
-    const today = toDateString(todayUTC());
+    const today = toDateString(appToday());
     if (currentPrimary && currentPrimary.examDate > today) {
       return NextResponse.json(
         {

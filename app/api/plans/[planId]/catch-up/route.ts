@@ -3,7 +3,7 @@ import { and, eq, lt } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
@@ -23,7 +23,7 @@ export const POST = withErrorHandling(
     // (it was three queries in a row, on every Plan and Today page load). The
     // missed check only reveals a yes/no and is ignored unless the plan is
     // this parent's.
-    const today = todayUTC();
+    const today = appToday();
     const [foundRows, missedRows] = await Promise.all([
       db
         .select({ plan: schema.studyPlans, student: schema.students })

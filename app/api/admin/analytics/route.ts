@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { gte } from "drizzle-orm";
+import { count, gte, inArray } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
-import { addDays, toDateString, todayUTC } from "@/lib/utils/date-utils";
+import { addDays, toDateString, appToday } from "@/lib/utils/date-utils";
 import { withErrorHandling } from "@/lib/api/handler";
 
 const LOOKBACK_DAYS = 30;
@@ -12,12 +12,15 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();
 
-  const cutoff = toDateString(addDays(todayUTC(), -LOOKBACK_DAYS));
+  const cutoff = toDateString(addDays(appToday(), -LOOKBACK_DAYS));
 
   const quizzes = await db.select().from(schema.dailyQuizzes).where(gte(schema.dailyQuizzes.date, cutoff));
   const quizIds = quizzes.map((q) => q.id);
 
-  const attempts = quizIds.length > 0 ? await db.select().from(schema.quizAttempts) : [];
+  const attempts =
+    quizIds.length > 0
+      ? await db.select().from(schema.quizAttempts).where(inArray(schema.quizAttempts.dailyQuizId, quizIds))
+      : [];
   const quizIdSet = new Set(quizIds);
   const relevantAttempts = attempts.filter((a) => quizIdSet.has(a.dailyQuizId));
 
@@ -25,7 +28,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // A precise per-grade-group total would need a live headcount of students
   // in that grade group; keeping this simple since it's a rough indicator,
   // not a precise KPI.
-  const allStudents = await db.select({ id: schema.students.id }).from(schema.students);
+  const [{ n: totalStudents }] = await db.select({ n: count() }).from(schema.students);
 
   const quizById = new Map(quizzes.map((q) => [q.id, q]));
 
@@ -64,7 +67,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 
   return NextResponse.json({
     lookbackDays: LOOKBACK_DAYS,
-    totalStudentsInSystem: allStudents.length,
+    totalStudentsInSystem: totalStudents,
     days: results,
   });
 });

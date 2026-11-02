@@ -5,7 +5,9 @@ import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
-import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { addDays, appToday, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { isExamOver } from '@/lib/plan-expiry';
+import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
@@ -18,7 +20,7 @@ const generatePlanSchema = z.object({
 
 const BUFFER_DAYS = 7;
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async (req: NextRequest) => {
   const userId = await getAuthUserId(req);
   if (!userId) return unauthorizedResponse();
 
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
   const existingPlan = existingPlans[0];
 
   const examDate = fromDateString(exam.examDate);
-  if (examDate.getTime() <= Date.now()) {
+  if (isExamOver(exam.examDate)) {
     return NextResponse.json(
       { error: 'Exam date must be in the future' },
       { status: 400 },
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
   const scheduleEndDate = useBufferWeek
     ? addDays(examDate, -BUFFER_DAYS)
     : examDate;
-  if (scheduleEndDate.getTime() <= Date.now()) {
+  if (scheduleEndDate.getTime() <= appToday().getTime()) {
     return NextResponse.json(
       {
         error:
@@ -89,16 +91,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (existingPlan) {
-    return NextResponse.json(
-      {
-        error:
-          'A plan already exists for this exam. Use regenerate to rebuild it instead.',
-        planId: existingPlan.id,
-      },
-      { status: 409 },
-    );
-  }
+  if (existingPlan) return planExists(existingPlan.id);
 
   const subjectInputs = await loadSubjectInputs(studentId, examId);
   if (subjectInputs.length === 0) {
@@ -127,38 +120,53 @@ export async function POST(req: NextRequest) {
     subjects: subjectInputs,
   });
 
-  const plan = await db.transaction(async (tx) => {
-    const [insertedPlan] = await tx
-      .insert(schema.studyPlans)
-      .values({
-        studentId,
-        examId,
-        totalDays: result.totalDays,
-        averageDailyMinutes: result.averageDailyMinutes,
-        weakFocusPercent: result.weakFocusPercent,
-        mediumFocusPercent: result.mediumFocusPercent,
-        strongFocusPercent: result.strongFocusPercent,
-        unscheduledTopicIds: result.unscheduledTopicIds,
-        useBufferWeek,
-      })
-      .returning();
+  // One plan per exam is enforced by a unique index, so two requests at once
+  // (a double click) can't both create one: the second gets the same 409.
+  let plan;
+  try {
+    plan = await db.transaction(async (tx) => {
+      const [insertedPlan] = await tx
+        .insert(schema.studyPlans)
+        .values({
+          studentId,
+          examId,
+          totalDays: result.totalDays,
+          averageDailyMinutes: result.averageDailyMinutes,
+          weakFocusPercent: result.weakFocusPercent,
+          mediumFocusPercent: result.mediumFocusPercent,
+          strongFocusPercent: result.strongFocusPercent,
+          unscheduledTopicIds: result.unscheduledTopicIds,
+          useBufferWeek,
+        })
+        .returning();
 
-    if (result.sessions.length > 0) {
-      await tx.insert(schema.studySessions).values(
-        result.sessions.map((s) => ({
-          planId: insertedPlan.id,
-          topicId: s.topicId,
-          subjectId: s.subjectId,
-          scheduledDate: s.scheduledDate,
-          durationMinutes: s.durationMinutes,
-          sessionType: s.sessionType,
-          isFiller: s.isFiller ?? false,
-        })),
-      );
-    }
+      if (result.sessions.length > 0) {
+        await tx.insert(schema.studySessions).values(
+          result.sessions.map((s) => ({
+            planId: insertedPlan.id,
+            topicId: s.topicId,
+            subjectId: s.subjectId,
+            scheduledDate: s.scheduledDate,
+            durationMinutes: s.durationMinutes,
+            sessionType: s.sessionType,
+            isFiller: s.isFiller ?? false,
+          })),
+        );
+      }
 
-    return insertedPlan;
-  });
+      return insertedPlan;
+    });
+  } catch (err: any) {
+    const code = err?.code ?? err?.cause?.code;
+    if (code !== '23505') throw err;
+    const [winner] = await db
+      .select({ id: schema.studyPlans.id })
+      .from(schema.studyPlans)
+      .where(eq(schema.studyPlans.examId, examId))
+      .limit(1);
+    if (!winner) throw err;
+    return planExists(winner.id);
+  }
 
   return NextResponse.json(
     {
@@ -168,5 +176,16 @@ export async function POST(req: NextRequest) {
       scheduleEndDate: toDateString(scheduleEndDate),
     },
     { status: 201 },
+  );
+});
+
+function planExists(planId: string) {
+  return NextResponse.json(
+    {
+      error:
+        'A plan already exists for this exam. Use regenerate to rebuild it instead.',
+      planId,
+    },
+    { status: 409 },
   );
 }

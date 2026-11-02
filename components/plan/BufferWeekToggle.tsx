@@ -1,13 +1,14 @@
 'use client';
 
+import { daysUntil } from '@/lib/utils/date-utils';
+
 const BUFFER_DAYS = 7;
 
 // Same rule the API applies: once the last 7 days are set aside, the schedule
 // must still end in the future.
 export function hasBufferRunway(examDate: string | null | undefined): boolean {
   if (!examDate) return false;
-  const msUntilExam = new Date(examDate).getTime() - Date.now();
-  return msUntilExam > BUFFER_DAYS * 24 * 60 * 60 * 1000;
+  return daysUntil(examDate) > BUFFER_DAYS;
 }
 
 // Compact version of the "End 7 days before the exam" option from

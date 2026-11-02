@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
+import { todayKey } from '@/lib/utils/date-utils';
 
 export interface PlanSession {
   id: string;
@@ -45,14 +46,6 @@ const statusLabel: Record<PlanSession['status'], string> = {
   partly_completed: 'Partly done',
   skipped: 'Skipped',
 };
-
-function todayKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 function formatDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {

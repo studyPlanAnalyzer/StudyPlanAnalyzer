@@ -7,11 +7,14 @@ import {
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopics } from '@/lib/topic-leaves';
-import { fromDateString, toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import {
-  MIN_SCHOOL_DAY_MINUTES,
-  MIN_HOLIDAY_DAY_MINUTES,
-} from '@/lib/utils/study-limits';
+  dateStringSchema,
+  examDateProblem,
+  holidayDayMinutesSchema,
+  schoolDayMinutesSchema,
+  studyDaysSchema,
+} from '@/lib/validation';
 
 const level = z.enum(['low', 'medium', 'high']);
 
@@ -20,25 +23,13 @@ const onboardingSchema = z.object({
     name: z.string().min(1).max(200),
     grade: z.string().regex(/^([4-9]|10)$/, 'Grade must be 4 to 10'),
     schoolName: z.string().min(1).max(200),
-    studyDays: z.array(z.string()).min(1),
-    schoolDayMinutes: z
-      .number()
-      .int()
-      .min(
-        MIN_SCHOOL_DAY_MINUTES,
-        `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes`,
-      ),
-    holidayDayMinutes: z
-      .number()
-      .int()
-      .min(
-        MIN_HOLIDAY_DAY_MINUTES,
-        `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes`,
-      ),
+    studyDays: studyDaysSchema,
+    schoolDayMinutes: schoolDayMinutesSchema,
+    holidayDayMinutes: holidayDayMinutesSchema,
   }),
   exam: z.object({
     name: z.string().min(1).max(200),
-    examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    examDate: dateStringSchema,
   }),
   subjects: z
     .array(
@@ -92,12 +83,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     subjects: subjectsIn,
   } = parsed.data;
 
-  if (fromDateString(examIn.examDate).getTime() <= Date.now()) {
-    return NextResponse.json(
-      { error: 'Exam date must be in the future' },
-      { status: 400 },
-    );
-  }
+  const examDateError = examDateProblem(examIn.examDate);
+  if (examDateError)
+    return NextResponse.json({ error: examDateError }, { status: 400 });
 
   const seen = new Set<string>();
   for (const s of subjectsIn) {
@@ -135,7 +123,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         .values({
           studentId: student.id,
           examId: exam.id,
-          assessmentDate: toDateString(todayUTC()),
+          assessmentDate: toDateString(appToday()),
           assessmentName: 'Latest marksheet',
         })
         .returning();

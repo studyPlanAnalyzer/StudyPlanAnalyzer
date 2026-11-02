@@ -3,7 +3,7 @@ import { db, schema } from '@/lib/db';
 import { pickExam } from '@/lib/exam-pick';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { leafTopics } from '@/lib/topic-leaves';
-import { addDays, fromDateString, toDateString } from '@/lib/utils/date-utils';
+import { addDays, appDay, appDayStart, fromDateString, toDateString } from '@/lib/utils/date-utils';
 import { nextWeek, previousWeek, type ReportWeek } from './week';
 import { ATTENTION_RATING_WINDOW_DAYS, STREAK_HISTORY_DAYS } from './thresholds';
 import type {
@@ -136,8 +136,8 @@ export async function loadReportInput(a: {
       .where(
         and(
           eq(schema.quizAttempts.studentId, id),
-          gte(schema.quizAttempts.completedAt, fromDateString(prev.start)),
-          lt(schema.quizAttempts.completedAt, fromDateString(after.start)),
+          gte(schema.quizAttempts.completedAt, appDayStart(fromDateString(prev.start))),
+          lt(schema.quizAttempts.completedAt, appDayStart(fromDateString(after.start))),
         ),
       ),
     db
@@ -244,8 +244,8 @@ export async function loadReportInput(a: {
       s.sessionType === 'review' &&
       isFinished(s) &&
       s.completedAt &&
-      s.completedAt.slice(0, 10) <= s.scheduledDate &&
-      s.completedAt.slice(0, 10) <= week.end,
+      day(appDay(new Date(s.completedAt))) <= s.scheduledDate &&
+      day(appDay(new Date(s.completedAt))) <= week.end,
   ).length;
 
   const previousReport: WeeklyReportSnapshot | null =

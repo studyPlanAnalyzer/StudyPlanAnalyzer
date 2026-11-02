@@ -4,8 +4,9 @@ import {
   diffInDays,
   isWeekday,
   toDateString,
-  todayUTC,
+  appToday,
 } from './date-utils';
+import { MAX_EXAM_DAYS_AHEAD } from './study-limits';
 import {
   blendedPercent,
   ESTIMATED_CONFIDENCE_PERCENT,
@@ -281,8 +282,15 @@ function inProgressReviewMinutes(tier: Tier): number {
 export function generateStudyPlan(
   input: PlanGeneratorInput,
 ): PlanGeneratorResult {
-  const start = input.startDate ? input.startDate : todayUTC();
-  const scheduleEnd = input.scheduleEndDate ?? input.examDate;
+  const start = input.startDate ? input.startDate : appToday();
+  // The last study day is the day before the exam (the plan is gone from the
+  // start of exam day), and a schedule never runs longer than the furthest an
+  // exam can be set, whatever dates reach this function.
+  const scheduleEnd = [
+    input.scheduleEndDate ?? input.examDate,
+    addDays(input.examDate, -1),
+    addDays(start, MAX_EXAM_DAYS_AHEAD),
+  ].reduce((a, b) => (b.getTime() < a.getTime() ? b : a));
   const totalDays = Math.max(1, diffInDays(input.examDate, start));
   const calendar = buildCalendar(
     start,

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { SessionCard, SessionItem } from '@/components/session/SessionCard';
 import { api, ApiError } from '@/lib/api-client';
+import { fromDateString, todayKey } from '@/lib/utils/date-utils';
 import { DailyTodoPanel } from '@/components/todo/DailyTodoPanel';
 import { ExamOverNotice } from '@/components/exam/ExamOverNotice';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
@@ -26,10 +27,6 @@ interface StudentDetail {
 
 interface PlanResponse {
   weeks: { days: { date: string; sessions: SessionItem[] }[] }[];
-}
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export default function TodayPage(props: { params: Promise<{ id: string }> }) {
@@ -156,10 +153,11 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
           </PageTitle>
 
           <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
-            {new Date().toLocaleDateString('en-US', {
+            {fromDateString(todayKey()).toLocaleDateString('en-US', {
               weekday: 'long',
               month: 'long',
               day: 'numeric',
+              timeZone: 'UTC',
             })}
           </p>
         </section>

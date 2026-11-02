@@ -6,6 +6,7 @@ import { api } from '@/lib/api-client';
 import { reportStrings } from '@/lib/reports/strings';
 import type { TodoStats } from '@/lib/types/todo';
 import type { BillingInfo } from '@/lib/billing/pricing';
+import { daysUntil, todayKey } from '@/lib/utils/date-utils';
 
 export interface StudentSummary {
   id: string;
@@ -32,15 +33,7 @@ function initials(name: string) {
     .join('');
 }
 
-function getDaysUntil(date: string) {
-  const target = new Date(date);
-  const now = new Date();
-
-  target.setHours(0, 0, 0, 0);
-  now.setHours(0, 0, 0, 0);
-
-  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
+const getDaysUntil = daysUntil;
 
 // Small inline icons: no additional icon dependency required.
 
@@ -249,9 +242,7 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
 
   const examToday = daysUntilExam === 0;
 
-  const examOver = s.nextExam
-    ? new Date(`${s.nextExam.examDate}T00:00:00.000Z`).getTime() <= Date.now()
-    : false;
+  const examOver = s.nextExam ? s.nextExam.examDate <= todayKey() : false;
 
   const completion = stats
     ? Math.min(100, Math.max(0, stats.todayCompletionRate))

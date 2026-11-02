@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   getUserFromRequest,
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { gradeGroupFromGradeText } from '@/lib/utils/grade-group';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import {
+  CATEGORY_ORDER,
   StudentQuizQuestion,
   QuizAttemptAnswer,
 } from '@/lib/types/daily-challenge';
@@ -27,6 +28,20 @@ async function loadOwnedStudent(studentId: string, parentId: string) {
     )
     .limit(1);
   return student ?? null;
+}
+
+/** The questions a quiz links to (only those, not the whole question bank). */
+async function questionsOf(links: { questionId: string }[]) {
+  if (links.length === 0) return [];
+  return db
+    .select()
+    .from(schema.questions)
+    .where(
+      inArray(
+        schema.questions.id,
+        links.map((l) => l.questionId),
+      ),
+    );
 }
 
 export const GET = withErrorHandling(
@@ -51,7 +66,7 @@ export const GET = withErrorHandling(
       });
     }
 
-    const today = toDateString(todayUTC());
+    const today = toDateString(appToday());
     const [quiz] = await db
       .select()
       .from(schema.dailyQuizzes)
@@ -89,7 +104,7 @@ export const GET = withErrorHandling(
       .from(schema.dailyQuizQuestions)
       .where(eq(schema.dailyQuizQuestions.dailyQuizId, quiz.id))
       .orderBy(asc(schema.dailyQuizQuestions.order));
-    const questionRows = await db.select().from(schema.questions);
+    const questionRows = await questionsOf(links);
     const questionById = new Map(questionRows.map((q) => [q.id, q]));
 
     if (existingAttempt) {
@@ -134,7 +149,10 @@ const submitSchema = z.object({
         selectedAnswer: z.string().min(1).max(1000),
       }),
     )
-    .length(5),
+    // One per question; the quiz's own question count is checked below, so
+    // quizzes published with fewer categories can still be answered.
+    .min(1)
+    .max(CATEGORY_ORDER.length),
 });
 
 export const POST = withErrorHandling(
@@ -176,7 +194,7 @@ export const POST = withErrorHandling(
         { status: 404 },
       );
 
-    const today = toDateString(todayUTC());
+    const today = toDateString(appToday());
     if (quiz.date !== today) {
       return NextResponse.json(
         { error: "This quiz is no longer today's challenge" },
@@ -218,7 +236,7 @@ export const POST = withErrorHandling(
       );
     }
 
-    const questionRows = await db.select().from(schema.questions);
+    const questionRows = await questionsOf(links);
     const questionById = new Map(questionRows.map((q) => [q.id, q]));
 
     // Scoring happens here, server-side, using the correctAnswer values that

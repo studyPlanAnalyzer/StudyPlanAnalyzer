@@ -515,6 +515,8 @@ export const studyPlans = pgTable(
   },
   (t) => ({
     studentIdIdx: index('study_plans_student_id_idx').on(t.studentId),
+    // One plan per exam: generating again is a regenerate, never a second plan.
+    examIdUnique: uniqueIndex('study_plans_exam_id_unique').on(t.examId),
   }),
 );
 
@@ -733,7 +735,7 @@ export const quizAttempts = pgTable(
     dailyQuizId: uuid('daily_quiz_id')
       .notNull()
       .references(() => dailyQuizzes.id, { onDelete: 'cascade' }),
-    score: integer('score').notNull(), // 0-3
+    score: integer('score').notNull(), // 0 to totalQuestions
     totalQuestions: integer('total_questions').default(3).notNull(),
     answers: json('answers')
       .$type<

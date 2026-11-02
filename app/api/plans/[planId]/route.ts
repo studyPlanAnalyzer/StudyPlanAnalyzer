@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
-import { fromDateString, weekNumberFromStart } from '@/lib/utils/date-utils';
+import { appDay, fromDateString, weekNumberFromStart } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { isExamOver } from '@/lib/plan-expiry';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
@@ -97,7 +97,7 @@ export const GET = withErrorHandling(
     const planStart =
       sessionRows.length > 0
         ? fromDateString(sessionRows[0].scheduledDate)
-        : fromDateString(plan.generatedAt.toISOString().slice(0, 10));
+        : appDay(plan.generatedAt);
 
     const weeksMap = new Map<number, typeof sessionRows>();
     for (const session of sessionRows) {

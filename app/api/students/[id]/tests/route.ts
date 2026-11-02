@@ -6,11 +6,12 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { saveMarks } from '@/lib/save-mark';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema } from '@/lib/validation';
 
 const bodySchema = z.object({
   examId: z.string().uuid().optional(),
   assessmentName: z.string().trim().min(1),
-  assessmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  assessmentDate: dateStringSchema,
   marks: z
     .array(
       z.object({

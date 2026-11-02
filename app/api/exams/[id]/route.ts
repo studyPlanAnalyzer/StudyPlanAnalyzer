@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
-import { toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema, examDateProblem } from '@/lib/validation';
+import { rebuildPlan } from '@/lib/plan-rebuild';
+
+export const maxDuration = 60;
+
+// A failure that must undo the whole save, with the status to report.
+class SaveError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 
 const updateExamSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  examDate: z.string().min(1).optional(), // YYYY-MM-DD
+  examDate: dateStringSchema.optional(),
   isPrimary: z.boolean().optional(),
 });
 
@@ -71,7 +85,7 @@ export const PUT = withErrorHandling(
       );
     }
 
-    const today = toDateString(todayUTC());
+    const today = toDateString(appToday());
 
     // An exam that is over stays over: its date can't be moved and it can't
     // be made the active exam again. The way forward is a new exam cycle or a
@@ -89,14 +103,13 @@ export const PUT = withErrorHandling(
       );
     }
 
-    // Every other place an exam date gets entered requires it to be in the
-    // future.
-    if (parsed.data.examDate && parsed.data.examDate <= today) {
-      return NextResponse.json(
-        { error: 'Exam date must be in the future' },
-        { status: 400 },
-      );
-    }
+    // The same date rule as every other place an exam date is entered.
+    const examDateError =
+      parsed.data.examDate !== undefined
+        ? examDateProblem(parsed.data.examDate)
+        : null;
+    if (examDateError)
+      return NextResponse.json({ error: examDateError }, { status: 400 });
 
     // Same "current cycle must be over" rule as POST /api/exams, only when
     // this PUT switches the primary exam to a *different* exam.
@@ -115,22 +128,54 @@ export const PUT = withErrorHandling(
       );
     }
 
-    // Retiring the old primary and saving this change happen together.
-    const exam = await db.transaction(async (tx) => {
-      if (parsed.data.isPrimary) {
-        await tx
-          .update(schema.exams)
-          .set({ isPrimary: false })
-          .where(eq(schema.exams.studentId, existing.studentId));
-      }
-      const [updated] = await tx
-        .update(schema.exams)
-        .set(parsed.data)
-        .where(eq(schema.exams.id, params.id))
-        .returning();
-      return updated;
-    });
+    const dateMoved =
+      parsed.data.examDate !== undefined &&
+      parsed.data.examDate !== existing.examDate;
 
-    return NextResponse.json({ exam });
+    // Retiring the old primary, saving this change and (when the date moved)
+    // rebuilding the exam's plan around the new date happen together: if the
+    // plan can't be rebuilt, nothing is saved.
+    try {
+      const exam = await db.transaction(async (tx) => {
+        if (parsed.data.isPrimary) {
+          await tx
+            .update(schema.exams)
+            .set({ isPrimary: false })
+            .where(eq(schema.exams.studentId, existing.studentId));
+        }
+        const [updated] = await tx
+          .update(schema.exams)
+          .set(parsed.data)
+          .where(eq(schema.exams.id, params.id))
+          .returning();
+
+        if (dateMoved) {
+          const [plan] = await tx
+            .select()
+            .from(schema.studyPlans)
+            .where(eq(schema.studyPlans.examId, existing.id))
+            .orderBy(desc(schema.studyPlans.generatedAt))
+            .limit(1);
+          if (plan) {
+            const result = await rebuildPlan({
+              plan,
+              student: owned[0].student,
+              fromDate: appToday(),
+              ex: tx,
+            });
+            if (!result.ok) throw new SaveError(result.error, result.status);
+          }
+        }
+        return updated;
+      });
+      return NextResponse.json({ exam });
+    } catch (err) {
+      if (err instanceof SaveError)
+        return NextResponse.json(
+          { error: `${err.message}. Nothing was saved.` },
+          { status: err.status },
+        );
+      throw err;
+    }
   },
 );

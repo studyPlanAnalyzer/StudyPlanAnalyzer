@@ -122,10 +122,10 @@ describe('report week (lib/reports/week.ts)', () => {
   test('a non-Sunday is refused as a week start', () => {
     assert.throws(() => weekStartingOn('2026-10-12'));
   });
-  test('a week has finished once its Saturday (UTC) is over', () => {
-    assert.equal(lastFinishedWeek(new Date('2026-10-17T23:59:59Z')).start, '2026-10-04');
-    assert.equal(lastFinishedWeek(new Date('2026-10-18T00:00:00Z')).start, '2026-10-11');
-    assert.equal(lastFinishedWeek(new Date('2026-10-24T23:00:00Z')).start, '2026-10-11');
+  test('a week has finished once its Saturday is over in Nepal (18:15 UTC)', () => {
+    assert.equal(lastFinishedWeek(new Date('2026-10-17T18:14:59Z')).start, '2026-10-04');
+    assert.equal(lastFinishedWeek(new Date('2026-10-17T18:15:00Z')).start, '2026-10-11');
+    assert.equal(lastFinishedWeek(new Date('2026-10-24T18:00:00Z')).start, '2026-10-11');
   });
 });
 
@@ -142,12 +142,17 @@ describe('study time', () => {
     }));
     assert.equal(r.studyTime.minutes, 80);
   });
-  test('counted by completedAt, at the UTC week boundary', () => {
+  test('counted by completedAt, at the week boundary in Nepal', () => {
     const r = buildWeeklyReport(input({
       sessions: [
-        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T23:59:59.000Z', durationMinutes: 10 }),
-        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-18T00:00:00.000Z', durationMinutes: 99 }),
-        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-11T00:00:00.000Z', durationMinutes: 5 }),
+        // Saturday 23:59:59 in Nepal: this week.
+        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:14:59.000Z', durationMinutes: 10 }),
+        // Sunday 00:00 in Nepal: next week.
+        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:15:00.000Z', durationMinutes: 99 }),
+        // Sunday 00:00 in Nepal, start of this week (still Saturday in UTC).
+        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:15:00.000Z', durationMinutes: 5 }),
+        // Saturday 23:59:59 in Nepal, end of last week.
+        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:14:59.000Z', durationMinutes: 7 }),
       ],
     }));
     assert.equal(r.studyTime.minutes, 15);

@@ -11,8 +11,9 @@ import {
   findNameClash,
   clashMessage,
 } from '@/lib/subject-name';
-import { fromDateString, toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema, examDateProblem } from '@/lib/validation';
 
 const level = z.enum(['low', 'medium', 'high']);
 
@@ -21,7 +22,7 @@ const bodySchema = z.object({
   grade: z.string().regex(/^([4-9]|10)$/, 'Grade must be 4 to 10'),
   exam: z.object({
     name: z.string().trim().min(1).max(200),
-    examDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    examDate: dateStringSchema,
   }),
   subjects: z
     .array(
@@ -83,12 +84,9 @@ export const POST = withErrorHandling(
     }
     const { grade, exam: examIn, subjects: newSubjects } = parsed.data;
 
-    if (fromDateString(examIn.examDate).getTime() <= Date.now()) {
-      return NextResponse.json(
-        { error: 'Exam date must be in the future' },
-        { status: 400 },
-      );
-    }
+    const examDateError = examDateProblem(examIn.examDate);
+    if (examDateError)
+      return NextResponse.json({ error: examDateError }, { status: 400 });
 
     // Each subject can only be listed once.
     const clash = findNameClash(
@@ -101,7 +99,7 @@ export const POST = withErrorHandling(
     const exam = await db.transaction(async (tx) => {
       // Only one exam is active at a time: a new session starts after the last
       // exam. exam_date is YYYY-MM-DD, so string comparison orders dates.
-      const today = toDateString(todayUTC());
+      const today = toDateString(appToday());
       const current = await tx
         .select({ examDate: schema.exams.examDate })
         .from(schema.exams)

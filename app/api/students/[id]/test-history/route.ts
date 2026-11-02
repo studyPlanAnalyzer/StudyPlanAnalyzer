@@ -11,8 +11,9 @@ import {
 import { expandManyToLeaves } from '@/lib/topic-leaves';
 import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { rebuildPlan } from '@/lib/plan-rebuild';
-import { todayUTC } from '@/lib/utils/date-utils';
+import { appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema } from '@/lib/validation';
 
 export const maxDuration = 60;
 
@@ -27,10 +28,7 @@ const bodySchema = z.object({
       z.object({
         id: uuid,
         assessmentName: z.string().trim().min(1).max(200).optional(),
-        assessmentDate: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional(),
+        assessmentDate: dateStringSchema.optional(),
       }),
     )
     .default([]),
@@ -317,7 +315,7 @@ export const POST = withErrorHandling(
           const result = await rebuildPlan({
             plan,
             student,
-            fromDate: todayUTC(),
+            fromDate: appToday(),
             ex: tx,
           });
           if (result.ok) planUpdated = true;

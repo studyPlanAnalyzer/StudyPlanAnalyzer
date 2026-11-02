@@ -1,4 +1,4 @@
-import { fromDateString } from '@/lib/utils/date-utils';
+import { todayKey } from '@/lib/utils/date-utils';
 
 /**
  * The exam a student's plan, settings and subjects screens work on:
@@ -18,9 +18,9 @@ export function pickExam<
   const byDate = [...exams].sort((a, b) =>
     a.examDate.localeCompare(b.examDate),
   );
-  const now = Date.now();
+  const today = todayKey();
   return (
-    byDate.find((e) => fromDateString(e.examDate).getTime() > now) ??
+    byDate.find((e) => e.examDate > today) ??
     byDate[byDate.length - 1]
   );
 }

@@ -3,7 +3,7 @@ import { db, schema } from "@/lib/db";
 import { and, asc, eq, isNull, or, lt, sql } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { REUSE_COOLDOWN_DAYS } from "@/lib/types/daily-challenge";
-import { addDays, toDateString, todayUTC } from "@/lib/utils/date-utils";
+import { addDays, toDateString, appToday } from "@/lib/utils/date-utils";
 import { withErrorHandling } from "@/lib/api/handler";
 
 const SHORTLIST_SIZE = 5;
@@ -19,7 +19,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     return NextResponse.json({ error: "gradeGroup and category are required" }, { status: 400 });
   }
 
-  const cooldownCutoff = toDateString(addDays(todayUTC(), -REUSE_COOLDOWN_DAYS));
+  const cooldownCutoff = toDateString(addDays(appToday(), -REUSE_COOLDOWN_DAYS));
 
   const eligible = await db
     .select()

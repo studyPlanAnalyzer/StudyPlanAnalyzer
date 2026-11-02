@@ -1,4 +1,4 @@
-import { addDays, todayUTC, toDateString } from './date-utils';
+import { addDays, appToday, toDateString } from './date-utils';
 
 export type Rating = 1 | 2 | 3 | 4; // 1=Again, 2=Hard, 3=Good, 4=Easy
 export type TopicStatus = 'new' | 'learning' | 'reviewing' | 'mastered';
@@ -62,7 +62,7 @@ export function updateTopicSpacedState(
     next.intervalDays = Math.min(next.intervalDays, maxIntervalDays);
   }
 
-  const reviewDate = todayUTC();
+  const reviewDate = appToday();
   next.lastReviewDate = toDateString(reviewDate);
   next.nextReviewDate = toDateString(addDays(reviewDate, next.intervalDays));
 

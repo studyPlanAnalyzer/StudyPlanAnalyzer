@@ -13,6 +13,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
+import { todayKey } from '@/lib/utils/date-utils';
 
 interface Subject {
   id: string;
@@ -61,9 +62,7 @@ interface TestMarkEntry {
   >;
 }
 
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const todayDateString = todayKey;
 
 // One mark this form will save. Declared so a subject-level mark (no topic)
 // and a topic-level mark have the same type.

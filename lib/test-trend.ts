@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { schema } from '@/lib/db';
-import { addDays, toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { addDays, toDateString, appToday } from '@/lib/utils/date-utils';
 import { adjustForTestTrend } from '@/lib/utils/spaced-repetition';
 import { blendedPercent } from '@/lib/utils/scoring';
 import type { Executor } from '@/lib/utils/topic-mastery';
@@ -62,7 +62,7 @@ export async function applyTestTrends(
     );
   const stateOf = new Map(states.map((st) => [st.topicId, { ...st }]));
 
-  const restartDate = toDateString(addDays(todayUTC(), 1));
+  const restartDate = toDateString(addDays(appToday(), 1));
   const updates = new Map<string, { ease: number; reset: boolean }>();
   const effects: (typeof schema.topicTestEffects.$inferInsert)[] = [];
 

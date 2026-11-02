@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { addDays, appToday, toDateString } from "@/lib/utils/date-utils";
 
+// Tomorrow in Nepal, the day students will see the quiz.
 function tomorrowDateString(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return toDateString(addDays(appToday(), 1));
 }
 
 export default function DailyQuizIndexPage() {

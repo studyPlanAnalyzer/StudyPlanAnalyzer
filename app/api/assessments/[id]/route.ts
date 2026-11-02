@@ -13,6 +13,7 @@ import {
 import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { dateStringSchema } from '@/lib/validation';
 
 async function loadOwnedAssessment(assessmentId: string, parentId: string) {
   const [row] = await db
@@ -54,10 +55,7 @@ async function marksWithTopics(ex: Executor, assessmentId: string) {
 
 const updateAssessmentSchema = z.object({
   assessmentName: z.string().min(1).max(200).optional(),
-  assessmentDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-    .optional(),
+  assessmentDate: dateStringSchema.optional(),
 });
 
 export const PUT = withErrorHandling(

@@ -5,7 +5,7 @@ import {
   getUserFromRequest,
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
-import { addDays, toDateString, todayUTC } from '@/lib/utils/date-utils';
+import { addDays, appDayStart, appToday } from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
@@ -39,7 +39,8 @@ export const GET = withErrorHandling(
     const denied = paymentRequiredResponse(student);
     if (denied) return denied;
 
-    const cutoff30 = addDays(todayUTC(), -30);
+    // Counted from midnight in Nepal, 30 and 7 days back.
+    const cutoff30 = appDayStart(addDays(appToday(), -30));
     const attempts = await db
       .select({
         score: schema.quizAttempts.score,
@@ -53,7 +54,7 @@ export const GET = withErrorHandling(
         ),
       );
 
-    const cutoff7 = addDays(todayUTC(), -7);
+    const cutoff7 = appDayStart(addDays(appToday(), -7));
     const last7 = attempts.filter((a) => a.completedAt >= cutoff7);
 
     return NextResponse.json({

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "study_plans_exam_id_unique" ON "study_plans" USING btree ("exam_id");
