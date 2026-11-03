@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { api, getErrorMessage } from '@/lib/api-client';
+import { formatInstantDateTime } from '@/lib/utils/date-utils';
 
 interface PaymentRow {
   id: string;
@@ -107,7 +108,7 @@ export default function AdminPaymentsPage() {
                 </p>
                 {p.submittedAt && (
                   <p className="text-xs text-[#8A8580]">
-                    Submitted {new Date(p.submittedAt).toLocaleString()}
+                    Submitted {formatInstantDateTime(p.submittedAt)}
                   </p>
                 )}
               </div>

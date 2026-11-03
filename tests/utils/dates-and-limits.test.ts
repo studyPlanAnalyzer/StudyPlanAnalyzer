@@ -6,6 +6,8 @@ import {
   appDayStart,
   appToday,
   daysUntil,
+  formatDay,
+  formatInstantDay,
   fromDateString,
   isRealDateString,
   toDateString,
@@ -18,6 +20,7 @@ import {
   studyDaysSchema,
 } from '@/lib/validation';
 import { isExamOver } from '@/lib/plan-expiry';
+import { addMonths } from '@/lib/billing/state';
 import { generateStudyPlan, type SubjectInput } from '@/lib/utils/plan-generator';
 
 const inDays = (n: number) => toDateString(addDays(appToday(), n));
@@ -124,5 +127,25 @@ describe('plan generator calendar', () => {
     });
     const last = r.sessions.at(-1)!.scheduledDate;
     assert.ok(last <= toDateString(addDays(start, 365)), last);
+  });
+});
+
+// These hold whatever time zone the machine runs in (the suite is also run
+// with TZ=America/Los_Angeles and TZ=Asia/Kathmandu).
+describe('dates read the same on every device and server', () => {
+  test('a calendar day is shown as that day', () => {
+    assert.equal(formatDay('2026-12-15', { day: 'numeric', month: 'short' }, 'en-US'), 'Dec 15');
+    assert.equal(formatDay('2026-01-01', { year: 'numeric' }, 'en-US'), '2026');
+  });
+  test('a stored moment is shown as its date in Nepal', () => {
+    // 19:00 UTC on 2 Nov is 00:45 on 3 Nov in Nepal.
+    assert.equal(formatInstantDay('2026-11-02T19:00:00Z', { day: 'numeric', month: 'short' }, 'en-US'), 'Nov 3');
+    assert.equal(formatInstantDay('2026-11-02T18:00:00Z', { day: 'numeric', month: 'short' }, 'en-US'), 'Nov 2');
+  });
+  test('paid periods add months as the calendar runs in Nepal', () => {
+    // 31 Jan 01:00 in Nepal (30 Jan 19:15 UTC) -> 28 Feb 01:00 in Nepal.
+    assert.equal(addMonths(new Date('2026-01-30T19:15:00Z'), 1).toISOString(), '2026-02-27T19:15:00.000Z');
+    assert.equal(addMonths(new Date('2026-01-31T10:00:00Z'), 1).toISOString(), '2026-02-28T10:00:00.000Z');
+    assert.equal(addMonths(new Date('2027-11-30T10:00:00Z'), 3).toISOString(), '2028-02-29T10:00:00.000Z');
   });
 });

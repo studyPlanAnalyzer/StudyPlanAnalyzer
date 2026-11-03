@@ -16,6 +16,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
 import { cardClass } from '@/components/ui/Card';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
+import { formatDay } from '@/lib/utils/date-utils';
 
 interface PlanResponse {
   plan: {
@@ -200,7 +201,7 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                 {data.exam && (
                   <p className="mt-4 max-w-xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                     Until {data.exam.name} on{' '}
-                    {new Date(data.exam.examDate).toLocaleDateString()}
+                    {formatDay(data.exam.examDate)}
                   </p>
                 )}
               </div>

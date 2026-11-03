@@ -9,6 +9,8 @@ import { isExamOver } from '@/lib/plan-expiry';
 import {
   holidayDayMinutesSchema,
   schoolDayMinutesSchema,
+  gradeSchema,
+  schoolNameSchema,
   studyDaysSchema,
 } from '@/lib/validation';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
@@ -126,24 +128,10 @@ export const GET = withErrorHandling(
 
 const updateStudentSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  grade: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}$/, 'Grade must be a number, e.g. 9')
-    .refine(
-      (g) => Number(g) >= 4 && Number(g) <= 10,
-      'Grade must be between 4 and 10',
-    )
-    .optional(),
+  grade: gradeSchema.optional(),
   // Optional in the request, but if sent it can't be empty or null,
   // so it can't be cleared after onboarding.
-  schoolName: z
-    .string()
-    .trim()
-    .min(3, 'School name is required')
-    .max(200)
-    .transform((s) => s.replace(/\s+/g, ' '))
-    .optional(),
+  schoolName: schoolNameSchema.optional(),
   studyDays: studyDaysSchema.optional(),
   schoolDayMinutes: schoolDayMinutesSchema.optional(),
   holidayDayMinutes: holidayDayMinutesSchema.optional(),

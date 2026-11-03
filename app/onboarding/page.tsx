@@ -225,6 +225,8 @@ export default function OnboardingPage() {
     if (step === 1) {
       if (!child.name.trim() || !child.schoolName.trim())
         return "Please enter the child's name and school name.";
+      if (child.schoolName.trim().length < 3)
+        return 'Enter the full school name (at least 3 characters).';
       const grade = Number(child.grade);
       if (!Number.isInteger(grade) || grade < 4 || grade > 10)
         return 'The application is optimized for students from grade 4 to 10.';

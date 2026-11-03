@@ -126,7 +126,11 @@ export const POST = withErrorHandling(
         )
         .limit(1),
       db
-        .select({ id: schema.subjects.id, name: schema.subjects.name })
+        .select({
+          id: schema.subjects.id,
+          name: schema.subjects.name,
+          isActive: schema.subjects.isActive,
+        })
         .from(schema.subjects)
         .where(eq(schema.subjects.studentId, params.id)),
       db
@@ -253,6 +257,26 @@ export const POST = withErrorHandling(
             .set(fields)
             .where(eq(schema.subjects.id, id));
         }
+        // A subject archived here leaves the calendar straight away, as it
+        // does from the subject's own archive button: its open sessions go,
+        // completed ones stay as history.
+        const archivedNow = subjectEdits
+          .filter(
+            (e) =>
+              e.isActive === false &&
+              !deletedSubjectIds.includes(e.id) &&
+              existingSubjects.find((s) => s.id === e.id)?.isActive,
+          )
+          .map((e) => e.id);
+        if (archivedNow.length > 0)
+          await tx
+            .delete(schema.studySessions)
+            .where(
+              and(
+                inArray(schema.studySessions.subjectId, archivedNow),
+                inArray(schema.studySessions.status, openStatuses),
+              ),
+            );
         // All topic edits in one statement.
         const liveTopicEdits = topicEdits.filter(
           (e) => !removedTopicIds.has(e.id),

@@ -7,7 +7,7 @@ import { subjectClashFor } from '@/lib/subject-name';
 import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
-import { todayKey } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { examDateProblem } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import { cardClass } from '@/components/ui/Card';
@@ -491,7 +491,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                         {activeExam.name}
                       </span>
                       &rdquo;, runs until{' '}
-                      {new Date(activeExam.examDate).toLocaleDateString()}, and
+                      {formatDay(activeExam.examDate)}, and
                       a new exam cycle can only start once it&apos;s over.
                     </p>
                   </NoticeCard>
@@ -521,7 +521,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                 >
                   <p>
                     It doesn&apos;t end until{' '}
-                    {new Date(activeExam.examDate).toLocaleDateString()}. A new
+                    {formatDay(activeExam.examDate)}. A new
                     exam cycle can only start once the current one is over —
                     otherwise the study plan has no clear exam to build toward.
                   </p>

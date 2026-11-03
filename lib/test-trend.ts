@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { schema } from '@/lib/db';
 import { addDays, toDateString, appToday } from '@/lib/utils/date-utils';
 import { adjustForTestTrend } from '@/lib/utils/spaced-repetition';
@@ -21,6 +21,9 @@ import type { Executor } from '@/lib/utils/topic-mastery';
 export async function applyTestTrends(
   ex: Executor,
   items: { markId: string; topicIds: string[] }[],
+  /** Judge each mark against the tests before it only, as if it were the
+   * newest (used to replay a topic's tests in date order). */
+  opts: { asOfMark?: boolean } = {},
 ) {
   const topicIds = Array.from(new Set(items.flatMap((i) => i.topicIds)));
   if (topicIds.length === 0) return;
@@ -68,7 +71,10 @@ export async function applyTestTrends(
 
   for (const { markId, topicIds: ids } of items) {
     for (const topicId of ids) {
-      const history = historyOf.get(topicId) ?? [];
+      const full = historyOf.get(topicId) ?? [];
+      const history = opts.asOfMark
+        ? full.slice(0, full.findIndex((r) => r.markId === markId) + 1)
+        : full;
       const last = history[history.length - 1];
       // Only a newest test, with an earlier one to compare against, counts.
       if (history.length < 2 || last.markId !== markId) continue;
@@ -136,6 +142,78 @@ export async function applyTestTrends(
     WHERE s.topic_id = v.id
   `);
   await ex.insert(schema.topicTestEffects).values(effects);
+}
+
+/**
+ * Redoes the trend effects on `topicIds` of every topic-scoped mark dated
+ * `fromDate` or later: they are undone, then applied again in date order,
+ * each compared only with the tests before it, exactly as if the tests had
+ * been logged in that order. Used when a test's date changes, which changes
+ * which test came after which; without it an earlier "newest" test keeps an
+ * effect it no longer deserves.
+ */
+export async function replayTestTrends(
+  ex: Executor,
+  topicIds: string[],
+  fromDate: string,
+) {
+  const unique = Array.from(new Set(topicIds));
+  if (unique.length === 0) return;
+
+  const rows = await ex
+    .select({
+      markId: schema.marks.id,
+      assessmentDate: schema.assessments.assessmentDate,
+      createdAt: schema.marks.createdAt,
+    })
+    .from(schema.markTopics)
+    .innerJoin(schema.marks, eq(schema.marks.id, schema.markTopics.markId))
+    .innerJoin(
+      schema.assessments,
+      eq(schema.assessments.id, schema.marks.assessmentId),
+    )
+    .where(
+      and(
+        inArray(schema.markTopics.topicId, unique),
+        gte(schema.assessments.assessmentDate, fromDate),
+      ),
+    );
+  const marks = Array.from(new Map(rows.map((r) => [r.markId, r])).values()).sort(
+    (a, b) =>
+      a.assessmentDate.localeCompare(b.assessmentDate) ||
+      a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+  if (marks.length === 0) return;
+
+  // Every topic each of those marks covers: undoing a mark undoes all of it.
+  const links = await ex
+    .select({
+      markId: schema.markTopics.markId,
+      topicId: schema.markTopics.topicId,
+    })
+    .from(schema.markTopics)
+    .where(
+      inArray(
+        schema.markTopics.markId,
+        marks.map((m) => m.markId),
+      ),
+    );
+
+  await revertTestEffects(
+    ex,
+    marks.map((m) => m.markId),
+  );
+  for (const m of marks)
+    await applyTestTrends(
+      ex,
+      [
+        {
+          markId: m.markId,
+          topicIds: links.filter((l) => l.markId === m.markId).map((l) => l.topicId),
+        },
+      ],
+      { asOfMark: true },
+    );
 }
 
 /** One mark's trend adjustment; see applyTestTrends. */

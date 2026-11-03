@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   getUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
 } from '@/lib/auth/middleware';
 import { CATEGORY_ORDER, QuestionCategory } from '@/lib/types/daily-challenge';
-import {
-  appToday,
-  isRealDateString,
-  toDateString,
-} from '@/lib/utils/date-utils';
+import { isRealDateString, todayKey } from '@/lib/utils/date-utils';
+import { recountQuestionUsage } from '@/lib/question-usage';
 import { withErrorHandling } from '@/lib/api/handler';
 
 const publishSchema = z.object({
@@ -30,8 +27,8 @@ const publishSchema = z.object({
 /**
  * Publishing is intentionally a full replace, not a patch: once published a
  * quiz is treated as locked (see the unpublish route), so the only way back
- * in here is unpublish -> republish, which always re-validates all 3
- * questions and always recomputes timesUsed/lastUsedAt cleanly.
+ * in here is unpublish -> republish, which always re-validates every
+ * question and recounts timesUsed/lastUsedAt from the published quizzes.
  */
 export const POST = withErrorHandling(
   async (req: NextRequest, props: { params: Promise<{ date: string }> }) => {
@@ -42,6 +39,12 @@ export const POST = withErrorHandling(
     if (!isRealDateString(params.date))
       return NextResponse.json(
         { error: 'Use a real date (YYYY-MM-DD)' },
+        { status: 400 },
+      );
+    // A quiz for a day that has passed would never be seen by a student.
+    if (params.date < todayKey())
+      return NextResponse.json(
+        { error: 'This day has passed. Publish quizzes for today or later.' },
         { status: 400 },
       );
 
@@ -131,6 +134,10 @@ export const POST = withErrorHandling(
 
       // Clear any stale links (e.g. left over from a prior unpublish) then
       // create fresh ones in the fixed category order.
+      const previous = await tx
+        .select({ questionId: schema.dailyQuizQuestions.questionId })
+        .from(schema.dailyQuizQuestions)
+        .where(eq(schema.dailyQuizQuestions.dailyQuizId, row.id));
       await tx
         .delete(schema.dailyQuizQuestions)
         .where(eq(schema.dailyQuizQuestions.dailyQuizId, row.id));
@@ -142,25 +149,17 @@ export const POST = withErrorHandling(
         })),
       );
 
-      await tx
-        .update(schema.questions)
-        .set({
-          timesUsed: sql`${schema.questions.timesUsed} + 1`,
-          lastUsedAt: toDateString(appToday()),
-          updatedAt: new Date(),
-        })
-        .where(
-          inArray(
-            schema.questions.id,
-            selections.map((s) => s.questionId),
-          ),
-        );
-
       const [published] = await tx
         .update(schema.dailyQuizzes)
         .set({ isPublished: true, updatedAt: new Date() })
         .where(eq(schema.dailyQuizzes.id, row.id))
         .returning();
+
+      // Questions now in the quiz, and any it no longer uses.
+      await recountQuestionUsage(tx, [
+        ...selections.map((s) => s.questionId),
+        ...previous.map((p) => p.questionId),
+      ]);
       return published;
     });
 

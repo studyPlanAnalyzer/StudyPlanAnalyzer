@@ -1,4 +1,5 @@
 import { ButtonLink } from '@/components/ui/Button';
+import { formatDay } from '@/lib/utils/date-utils';
 
 /**
  * Shown instead of a study plan once the exam it was built for is over (the
@@ -27,7 +28,7 @@ export function ExamOverNotice({
 
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[#65615D] sm:text-base">
             <span className="font-bold text-black">{examName}</span> was on{' '}
-            {new Date(examDate).toLocaleDateString()}, so its plan has been
+            {formatDay(examDate)}, so its plan has been
             cleared. Start the next exam cycle to get a new plan, or begin a new
             academic session if your child has moved on.
           </p>

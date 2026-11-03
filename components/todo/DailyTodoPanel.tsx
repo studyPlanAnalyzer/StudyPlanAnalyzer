@@ -7,7 +7,7 @@ import type { Todo, TodoStats } from '@/lib/types/todo';
 import { buttonClass } from '@/components/ui/Button';
 import { fieldClass } from '@/components/ui/Field';
 import { Notice } from '@/components/ui/Notice';
-import { todayKey } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 
 const STREAK_MESSAGES: [number, string][] = [
   [30, '🔥 A month straight. Unstoppable.'],
@@ -150,13 +150,7 @@ export function DailyTodoPanel({ studentId }: { studentId: string }) {
           <div className="mt-4 flex gap-1.5">
             {stats.last7Days.map((d) => {
               const pct = d.total > 0 ? d.completed / d.total : 0;
-              const label = new Date(`${d.date}T00:00:00Z`).toLocaleDateString(
-                'en-US',
-                {
-                  weekday: 'narrow',
-                  timeZone: 'UTC',
-                },
-              );
+              const label = formatDay(d.date, { weekday: 'narrow' }, 'en-US');
               return (
                 <div
                   key={d.date}

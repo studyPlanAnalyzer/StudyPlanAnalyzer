@@ -10,6 +10,7 @@ import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { PaymentFlow } from '@/components/billing/PaymentFlow';
 import type { BillingInfo } from '@/lib/billing/pricing';
+import { formatInstantDay } from '@/lib/utils/date-utils';
 
 interface BillingResponse {
   childName: string;
@@ -130,7 +131,7 @@ export default function StudentLayout(
         <div className="border-b border-amber-200 bg-[#fff5dc] px-5 py-3 text-center text-sm font-medium text-[#805500]">
           Payment due for {data?.childName}. The app will lock on{' '}
           {billing.graceEndsAt
-            ? new Date(billing.graceEndsAt).toLocaleDateString()
+            ? formatInstantDay(billing.graceEndsAt)
             : 'soon'}
           .{' '}
           <Link

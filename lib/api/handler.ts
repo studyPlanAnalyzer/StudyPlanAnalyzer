@@ -97,6 +97,19 @@ export function errorResponse(err: unknown) {
     );
   }
 
+  // A malformed id in the URL or query (e.g. /api/students/abc) can't name
+  // anything, so it is answered like any id that doesn't exist.
+  if (
+    chain.some(
+      (e) => e?.code === '22P02' && /\buuid\b/i.test(String(e?.message ?? '')),
+    )
+  ) {
+    return NextResponse.json(
+      { error: 'Not found.', code: 'NOT_FOUND' },
+      { status: 404 },
+    );
+  }
+
   if (chain.some((e) => e?.code === '23505')) {
     return NextResponse.json(
       { error: 'That already exists.', code: 'DUPLICATE' },

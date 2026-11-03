@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { withErrorHandling } from "@/lib/api/handler";
+import { recountQuestionUsage } from "@/lib/question-usage";
 
 const unpublishSchema = z.object({
   gradeGroup: z.enum(["GROUP_4_7", "GROUP_8_10"]),
@@ -38,10 +39,21 @@ export const POST = withErrorHandling(async (req: NextRequest, props: { params: 
     );
   }
 
-  await db
-    .update(schema.dailyQuizzes)
-    .set({ isPublished: false, updatedAt: new Date() })
-    .where(eq(schema.dailyQuizzes.id, quiz.id));
+  // The quiz no longer counts as a use of its questions.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.dailyQuizzes)
+      .set({ isPublished: false, updatedAt: new Date() })
+      .where(eq(schema.dailyQuizzes.id, quiz.id));
+    const links = await tx
+      .select({ questionId: schema.dailyQuizQuestions.questionId })
+      .from(schema.dailyQuizQuestions)
+      .where(eq(schema.dailyQuizQuestions.dailyQuizId, quiz.id));
+    await recountQuestionUsage(
+      tx,
+      links.map((l) => l.questionId),
+    );
+  });
 
   return NextResponse.json({ message: "Unpublished. You can now change the questions and republish." });
 });

@@ -5,6 +5,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { api, getErrorMessage } from '@/lib/api-client';
+import { formatInstantDay } from '@/lib/utils/date-utils';
 
 interface SchoolRow {
   id: string;
@@ -97,7 +98,7 @@ export default function AdminSchoolsPage() {
                 </p>
                 <p className="text-xs text-[#65615D]">
                   {s.paidUntil
-                    ? `Paid until ${new Date(s.paidUntil).toLocaleDateString()}`
+                    ? `Paid until ${formatInstantDay(s.paidUntil)}`
                     : 'Not paid yet: parents cannot use the code'}
                 </p>
               </div>
