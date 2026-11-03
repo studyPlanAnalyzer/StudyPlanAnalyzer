@@ -11,6 +11,7 @@ import { toDateString, appToday } from '@/lib/utils/date-utils';
 import {
   dateStringSchema,
   examDateProblem,
+  fullMarksSchema,
   gradeSchema,
   holidayDayMinutesSchema,
   schoolDayMinutesSchema,
@@ -43,7 +44,7 @@ const onboardingSchema = z.object({
       z
         .object({
           name: subjectNameSchema,
-          fullMarks: z.number().int().positive().default(100),
+          fullMarks: fullMarksSchema.default(100),
           examWeight: level,
           // Either real marks, or a gut-sense estimate when there are none.
           obtainedMarks: z.number().int().min(0).optional(),

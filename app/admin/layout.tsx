@@ -15,6 +15,7 @@ interface Me {
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/payments', label: 'Payments' },
+  { href: '/admin/deletions', label: 'Data deletion' },
   { href: '/admin/schools', label: 'Schools' },
   { href: '/admin/questions', label: 'Question bank' },
   { href: '/admin/daily-quiz', label: 'Daily quiz' },

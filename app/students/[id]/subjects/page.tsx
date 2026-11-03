@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
+import { MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
@@ -16,6 +17,12 @@ import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { AppHeader, headerLinkClass } from '@/components/ui/AppHeader';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Notice } from '@/components/ui/Notice';
+
+function fullMarksProblem(fullMarks: number): string | null {
+  return Number.isInteger(fullMarks) && fullMarks >= 1 && fullMarks <= MAX_FULL_MARKS
+    ? null
+    : `Full marks must be from 1 to ${MAX_FULL_MARKS}.`;
+}
 
 type ExamWeight = 'low' | 'medium' | 'high';
 
@@ -703,9 +710,10 @@ function SubjectCard({
 
   const renameClash =
     name.trim() !== subject.name ? subjectClashFor(name, otherNames) : null;
+  const fullMarksError = fullMarksProblem(fullMarks);
 
   function done() {
-    if (!name.trim() || renameClash) return;
+    if (!name.trim() || renameClash || fullMarksError) return;
     onEdit({ name: name.trim(), fullMarks, examWeight });
     setIsEditing(false);
   }
@@ -733,6 +741,7 @@ function SubjectCard({
               type="number"
               className={fieldOnColourClass}
               min={1}
+              max={MAX_FULL_MARKS}
               value={fullMarks}
               onChange={(e) => setFullMarks(Number(e.target.value))}
             />
@@ -752,6 +761,9 @@ function SubjectCard({
           <Button variant="white" onClick={cancel}>
             Cancel
           </Button>
+          {fullMarksError && (
+            <p className="mt-2 text-sm font-medium text-red-600">{fullMarksError}</p>
+          )}
           {renameClash && (
             <p className="w-full text-sm font-semibold text-red-700">
               {renameClash}
@@ -1112,7 +1124,7 @@ function AddSubjectCard({
 
   function add() {
     if (!name.trim()) return;
-    const clash = subjectClashFor(name, existingNames);
+    const clash = subjectClashFor(name, existingNames) ?? fullMarksProblem(fullMarks);
     if (clash) {
       setError(clash);
       return;
@@ -1153,6 +1165,7 @@ function AddSubjectCard({
             type="number"
             className={fieldClass}
             min={1}
+            max={MAX_FULL_MARKS}
             value={fullMarks}
             onChange={(e) => setFullMarks(Number(e.target.value))}
           />

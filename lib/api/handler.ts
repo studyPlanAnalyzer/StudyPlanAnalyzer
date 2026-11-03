@@ -73,8 +73,26 @@ export function logError(label: string, err: unknown) {
   console.error(label, JSON.stringify(summary));
 }
 
+/**
+ * A problem with the request that a check found partway through (often
+ * inside a transaction, which is rolled back): answered with its message and
+ * status instead of a 500.
+ */
+export class RequestError extends Error {
+  constructor(
+    message: string,
+    public status = 400,
+  ) {
+    super(message);
+  }
+}
+
 export function errorResponse(err: unknown) {
   const chain = errorChain(err);
+
+  if (err instanceof RequestError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
 
   if (err instanceof ZodError) {
     return NextResponse.json(

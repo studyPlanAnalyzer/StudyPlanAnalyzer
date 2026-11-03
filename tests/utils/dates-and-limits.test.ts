@@ -175,3 +175,14 @@ describe('billing state of a payment being checked', () => {
     assert.equal(billingStateOf(null, 'none', now), 'unpaid');
   });
 });
+
+describe('device labels', () => {
+  test('browser and device type from the User-Agent', async () => {
+    const { deviceLabel } = await import('@/lib/auth/device');
+    assert.equal(deviceLabel(null), 'Unknown device');
+    assert.equal(deviceLabel('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0'), 'Edge on Windows');
+    assert.equal(deviceLabel('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0 Mobile Safari/604.1'), 'Chrome on iPhone');
+    assert.equal(deviceLabel('Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 SamsungBrowser/23.0 Chrome/115.0 Mobile Safari/537.36'), 'Samsung Internet on Android');
+    assert.equal(deviceLabel('Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0'), 'Firefox on Linux');
+  });
+});

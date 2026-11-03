@@ -13,7 +13,7 @@ import {
 import { replayTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
-import { dateStringSchema } from '@/lib/validation';
+import { testDateSchema } from '@/lib/validation';
 
 async function loadOwnedAssessment(assessmentId: string, parentId: string) {
   const [row] = await db
@@ -55,7 +55,7 @@ async function marksWithTopics(ex: Executor, assessmentId: string) {
 
 const updateAssessmentSchema = z.object({
   assessmentName: z.string().min(1).max(200).optional(),
-  assessmentDate: dateStringSchema.optional(),
+  assessmentDate: testDateSchema.optional(),
 });
 
 export const PUT = withErrorHandling(

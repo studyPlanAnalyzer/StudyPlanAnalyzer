@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { and, gte, lte, sql, type AnyColumn } from "drizzle-orm";
+import { and, eq, gte, lte, sql, type AnyColumn } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { addDays, appDayStart, appToday, toDateString } from "@/lib/utils/date-utils";
 import { withErrorHandling } from "@/lib/api/handler";
 import { PENDING_OVERDUE_HOURS } from "@/lib/billing/config";
+import { DELETION_DEADLINE_HOURS } from "@/lib/account-deletion-config";
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
   const user = await getUserFromRequest(req);
@@ -15,6 +16,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // number is counted in the database, not by loading the rows.
   const now = new Date();
   const overdueBefore = new Date(now.getTime() - PENDING_OVERDUE_HOURS * 3_600_000);
+  const deletionOverdueBefore = new Date(now.getTime() - DELETION_DEADLINE_HOURS * 3_600_000);
   const today = appToday();
   const startOfDay = appDayStart(today);
   const sevenDaysAgo = appDayStart(addDays(today, -7));
@@ -28,7 +30,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // DAU/WAU/MAU are based on lastLoginAt, which is set on every successful
   // login (and at signup). This is a real, if simple, activity signal —
   // note it only reflects login events, not in-app engagement depth.
-  const [[users], [students], [sessions], [attempts], [payments], [access]] = await Promise.all([
+  const [[users], [students], [sessions], [attempts], [payments], [access], [deletions]] = await Promise.all([
     db
       .select({
         total: sql<number>`count(*)::int`,
@@ -80,6 +82,14 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
         paid: sql<number>`count(*) filter (where ${schema.students.paidUntil} > ${now.toISOString()} or ${schema.students.paymentStatus} = 'pending')::int`,
       })
       .from(schema.students),
+    // Account deletion requests waiting, and those past the 24-hour promise.
+    db
+      .select({
+        waiting: sql<number>`count(*)::int`,
+        overdue: sql<number>`count(*) filter (where ${schema.deletionRequests.requestedAt} < ${deletionOverdueBefore.toISOString()})::int`,
+      })
+      .from(schema.deletionRequests)
+      .where(eq(schema.deletionRequests.status, 'pending')),
   ]);
   const totalUsers = users.total;
   const newUsersThisWeek = users.newThisWeek;
@@ -121,6 +131,10 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       verifiedThisMonth: payments.verifiedThisMonth,
       revenueThisMonthRs: payments.revenueThisMonthRs,
       paidChildren: access.paid,
+    },
+    deletionRequests: {
+      waiting: deletions.waiting,
+      overdue: deletions.overdue,
     },
   });
 });

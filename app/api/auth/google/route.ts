@@ -79,6 +79,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   const user = await upsertGoogleUser(identity);
   const res = NextResponse.json({ user });
-  await startSession(res, { id: user.id, isAdmin: user.isAdmin });
+  await startSession(
+    res,
+    { id: user.id, isAdmin: user.isAdmin },
+    req.headers.get('user-agent'),
+  );
   return res;
 });

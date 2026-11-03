@@ -40,7 +40,7 @@ interface PaymentRow {
   parentName: string | null;
   childName: string | null;
   schoolName: string | null;
-  parentEmail: string;
+  parentEmail: string | null; // null: the account was deleted
   submittedAt: string | null;
 }
 
@@ -128,7 +128,7 @@ export default function AdminPaymentsPage() {
                   Remark code: <span className="font-mono">{p.remarkCode}</span>
                 </p>
                 <p>
-                  Parent: {p.parentName ?? '—'} ({p.parentEmail}) · Child:{' '}
+                  Parent: {p.parentName ?? '—'} ({p.parentEmail ?? 'account deleted'}) · Child:{' '}
                   {p.childName ?? '—'} · School: {p.schoolName ?? '—'}
                 </p>
                 {p.submittedAt && (

@@ -6,18 +6,21 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { saveMarks } from '@/lib/save-mark';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
-import { dateStringSchema } from '@/lib/validation';
+import {
+  fullMarksSchema,
+  testDateSchema,
+} from '@/lib/validation';
 
 const bodySchema = z.object({
   examId: z.string().uuid().optional(),
   assessmentName: z.string().trim().min(1).max(200),
-  assessmentDate: dateStringSchema,
+  assessmentDate: testDateSchema,
   marks: z
     .array(
       z.object({
         subjectId: z.string().uuid(),
         obtainedMarks: z.number().int().min(0),
-        fullMarks: z.number().int().positive(),
+        fullMarks: fullMarksSchema,
         confidenceLevel: z.enum(['low', 'medium', 'high']).optional(),
         topicIds: z.array(z.string().uuid()).default([]),
       }),

@@ -25,7 +25,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       accountName: schema.users.name,
     })
     .from(schema.payments)
-    .innerJoin(schema.users, eq(schema.users.id, schema.payments.userId));
+    // A left join: payments of a deleted account are kept (names removed).
+    .leftJoin(schema.users, eq(schema.users.id, schema.payments.userId));
 
   const rows =
     status === 'all'

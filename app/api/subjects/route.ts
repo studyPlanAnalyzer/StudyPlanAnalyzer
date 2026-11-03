@@ -10,11 +10,12 @@ import {
   clashMessage,
 } from '@/lib/subject-name';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { fullMarksSchema } from '@/lib/validation';
 
 const createSubjectSchema = z.object({
   studentId: z.string().uuid(),
   name: subjectNameSchema,
-  fullMarks: z.number().int().positive().optional().default(100),
+  fullMarks: fullMarksSchema.optional().default(100),
   examWeight: z.enum(['low', 'medium', 'high']).optional().default('medium'),
   orderIndex: z.number().int().optional().default(0),
 });

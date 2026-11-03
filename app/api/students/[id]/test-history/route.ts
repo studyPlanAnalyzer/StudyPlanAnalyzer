@@ -17,7 +17,11 @@ import {
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
-import { dateStringSchema } from '@/lib/validation';
+import { checkMarksheets } from '@/lib/marksheet';
+import {
+  fullMarksSchema,
+  testDateSchema,
+} from '@/lib/validation';
 
 export const maxDuration = 60;
 
@@ -32,7 +36,7 @@ const bodySchema = z.object({
       z.object({
         id: uuid,
         assessmentName: z.string().trim().min(1).max(200).optional(),
-        assessmentDate: dateStringSchema.optional(),
+        assessmentDate: testDateSchema.optional(),
       }),
     )
     .default([]),
@@ -41,7 +45,7 @@ const bodySchema = z.object({
       z.object({
         id: uuid,
         obtainedMarks: z.number().int().min(0),
-        fullMarks: z.number().int().positive(),
+        fullMarks: fullMarksSchema,
         confidenceLevel: z.enum(['low', 'medium', 'high']).nullable(),
         topicIds: z.array(uuid),
       }),
@@ -284,6 +288,13 @@ export const POST = withErrorHandling(
           if (links.length > 0)
             await tx.insert(schema.markTopics).values(links);
         }
+
+        // An edited mark can't end up covering what another mark in its test
+        // already covers.
+        await checkMarksheets(
+          tx,
+          keptMarkEdits.map((e) => markById.get(e.id)!),
+        );
 
         // A test left with no marks has no purpose: remove it too.
         const affectedAssessments = new Set(

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { TopicScopeSelector } from '@/components/session/TopicScopeSelector';
 import { api, ApiError } from '@/lib/api-client';
+import { MAX_FULL_MARKS } from '@/lib/validation';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { AppHeader, BackLink } from '@/components/ui/AppHeader';
 import { Notice } from '@/components/ui/Notice';
@@ -17,7 +18,7 @@ import { buttonClass } from '@/components/ui/Button';
 import { Tag } from '@/components/ui/Tag';
 import { Field, Select } from '@/components/ui/Field';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
-import { formatDay } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 
 type Confidence = 'low' | 'medium' | 'high';
 
@@ -488,8 +489,11 @@ function TestCard({
   const wholeTestGone =
     isDeleted || (test.marks.length > 0 && keptMarks.length === 0);
 
+  const dateError =
+    date && date > todayKey() ? "A test can't be dated in the future." : undefined;
+
   function stage() {
-    if (!name.trim() || !date) return;
+    if (!name.trim() || !date || dateError) return;
     const same =
       name.trim() === test.assessmentName && date === test.assessmentDate;
     onStageTest(
@@ -544,7 +548,9 @@ function TestCard({
             <Input
               label="Test date"
               type="date"
+              max={todayKey()}
               value={date}
+              error={dateError}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
@@ -703,6 +709,10 @@ function MarkItem({
       );
       return;
     }
+    if (f > MAX_FULL_MARKS) {
+      setFormError(`Full marks can be at most ${MAX_FULL_MARKS}.`);
+      return;
+    }
     setFormError(null);
     const unchanged =
       o === mark.obtainedMarks &&
@@ -766,6 +776,7 @@ function MarkItem({
             type="number"
             className="w-24"
             min={1}
+            max={MAX_FULL_MARKS}
             value={full}
             onChange={(e) => setFull(e.target.value)}
           />

@@ -16,6 +16,7 @@ import {
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import { deleteTopics } from '@/lib/topic-delete';
 import { revertTopicTrends } from '@/lib/test-trend';
+import { fullMarksSchema } from '@/lib/validation';
 
 export const maxDuration = 60;
 
@@ -32,7 +33,7 @@ const curriculumSchema = z.object({
     .array(
       z.object({
         name: subjectNameSchema,
-        fullMarks: z.number().int().positive().default(100),
+        fullMarks: fullMarksSchema.default(100),
         examWeight: z.enum(['low', 'medium', 'high']),
         topics: z.array(name).default([]),
       }),
@@ -45,7 +46,7 @@ const curriculumSchema = z.object({
       z.object({
         id: z.string().uuid(),
         name: subjectNameSchema.optional(),
-        fullMarks: z.number().int().positive().optional(),
+        fullMarks: fullMarksSchema.optional(),
         examWeight: weight.optional(),
         isActive: z.boolean().optional(),
       }),

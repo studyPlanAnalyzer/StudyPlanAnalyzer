@@ -120,6 +120,13 @@
       "when": 1793604585848,
       "tag": "0016_one_plan_per_exam",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793688874441,
+      "tag": "0017_account_devices_and_deletion",
+      "breakpoints": true
     }
   ]
 }

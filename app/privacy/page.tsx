@@ -8,7 +8,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 const OPERATOR = 'StudyPlan Analyzer';
 const CONTACT_EMAIL = 'studyplananalyzer@gmail.com';
 const APP_NAME = 'StudyPlan Analyzer';
-const LAST_UPDATED = '1 November 2026';
+const LAST_UPDATED = '3 November 2026';
 
 export const metadata: Metadata = {
   title: `Privacy Policy – ${APP_NAME}`,
@@ -186,13 +186,20 @@ export default function PrivacyPage() {
         form.
       </p>
       <p className="mt-2">
-        When we delete your account at your request, everything linked to it is
-        deleted: your profile, all your children and their study information,
-        all payment records and all sign-in records.
+        You can ask us to delete your account on your Account page, telling us
+        why. We carry it out within 24 hours, and you can cancel until then.
+        Everything linked to your account is deleted: your profile, all your
+        children and their study information, and all sign-in records. Payment
+        records are kept for our accounts with your name, your children&rsquo;s
+        names and the school name removed (the amount, dates and transaction ID
+        remain). We keep the reason you gave and the dates of the request, but
+        not your email.
       </p>
       <p className="mt-2">
         Sign-in records are deleted when you log out. Expired ones are removed
-        the next time you sign in.
+        the next time you sign in. For each sign-in we store the browser and
+        device type it came from, so your Account page can list where you are
+        signed in.
       </p>
 
       <h2 className="mt-8 text-xl font-extrabold tracking-tight">7. Your choices</h2>
@@ -202,8 +209,10 @@ export default function PrivacyPage() {
           tests, marks, subjects, topics and to-dos, and delete a child.
         </li>
         <li>
-          To see your information, or to delete your whole account, write to us
-          at the address below. There is no button for deleting an account.
+          On your Account page you can see every device you are signed in on
+          and sign any of them out, and ask us to delete your whole account
+          (see section 6). To see your information, write to us at the address
+          below.
         </li>
         <li>
           You can also remove the app&rsquo;s access from your Google account

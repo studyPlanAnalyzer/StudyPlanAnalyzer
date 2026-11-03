@@ -7,6 +7,7 @@ import {
   type Executor,
 } from '@/lib/utils/topic-mastery';
 import { applyTestTrends } from '@/lib/test-trend';
+import { checkMarksheets } from '@/lib/marksheet';
 
 export type NewMark = {
   assessmentId: string;
@@ -19,7 +20,7 @@ export type NewMark = {
 
 /**
  * Everything saving a set of marks involves, in a FIXED number of queries (at
- * most 7) however many marks there are: the marks, their topic links, the
+ * most 8) however many marks there are: the marks, their topic links, the
  * subject-estimate cleanup, the mastery update and the SM-2 trend adjustment.
  * Call it inside a transaction so all of it is saved together or not at all.
  */
@@ -80,6 +81,12 @@ export async function saveMarks(tx: Executor, newMarks: NewMark[]) {
         .filter((x) => x.topicIds.length > 0),
     );
   }
+
+  // One mark per subject or per topic in a test, never two for the same thing.
+  await checkMarksheets(
+    tx,
+    prepared.map((p) => p.row),
+  );
 
   return prepared.map((p, i) => ({
     mark: markById.get(p.row.id)!,

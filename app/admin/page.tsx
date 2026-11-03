@@ -18,6 +18,7 @@ interface Metrics {
     revenueThisMonthRs: number;
     paidChildren: number;
   };
+  deletionRequests: { waiting: number; overdue: number };
 }
 
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -102,6 +103,21 @@ export default function AdminDashboardPage() {
               <MetricCard label="Verified this month" value={metrics.billing.verifiedThisMonth} />
               <MetricCard label="Revenue this month" value={`Rs ${metrics.billing.revenueThisMonthRs.toLocaleString('en-IN')}`} sublabel="Verified QR payments" />
               <MetricCard label="Children with access" value={metrics.billing.paidChildren} sublabel="Paid, or payment being checked" />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Data deletion requests</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MetricCard
+                label="Waiting"
+                value={metrics.deletionRequests.waiting}
+                sublabel={
+                  metrics.deletionRequests.overdue > 0
+                    ? `${metrics.deletionRequests.overdue} past the 24-hour promise`
+                    : 'Carry out within 24 hours'
+                }
+              />
             </div>
           </section>
         </div>

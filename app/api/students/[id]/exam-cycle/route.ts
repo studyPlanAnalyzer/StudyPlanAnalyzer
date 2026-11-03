@@ -14,7 +14,11 @@ import {
 import { saveMarks, type NewMark } from '@/lib/save-mark';
 import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
-import { dateStringSchema, examDateProblem } from '@/lib/validation';
+import {
+  dateStringSchema,
+  examDateProblem,
+  fullMarksSchema,
+} from '@/lib/validation';
 
 const level = z.enum(['low', 'medium', 'high']);
 const name = z.string().trim().min(1).max(200);
@@ -28,7 +32,7 @@ const bodySchema = z.object({
       z.object({
         subjectId: z.string().uuid(),
         obtainedMarks: z.number().int().min(0),
-        fullMarks: z.number().int().positive(),
+        fullMarks: fullMarksSchema,
         confidenceLevel: level.optional(),
         topicIds: z.array(z.string().uuid()).default([]),
       }),
@@ -39,7 +43,7 @@ const bodySchema = z.object({
     .array(
       z.object({
         name: subjectNameSchema,
-        fullMarks: z.number().int().positive().default(100),
+        fullMarks: fullMarksSchema.default(100),
         examWeight: level,
         obtainedMarks: z.number().int().min(0),
         confidenceLevel: level.optional(),
