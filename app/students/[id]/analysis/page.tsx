@@ -10,7 +10,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { DailyChallengeStatsCard } from '@/components/daily-challenge/DailyChallengeStatsCard';
 import { BufferWeekChoiceModal } from '@/components/plan/BufferWeekChoiceModal';
 import { hasBufferRunway } from '@/components/plan/BufferWeekToggle';
-import { todayKey } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { Modal } from '@/components/ui/Modal';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { AppHeader, BackLink } from '@/components/ui/AppHeader';
@@ -553,9 +553,7 @@ export default function AnalysisPage(props: {
                     <p className="text-sm font-medium leading-6 text-black sm:text-base">
                       <strong className="font-bold">{primaryExam.name}</strong>{' '}
                       was on{' '}
-                      {new Date(primaryExam.examDate).toLocaleDateString(
-                        'en-GB',
-                      )}{' '}
+                      {formatDay(primaryExam.examDate, {}, 'en-GB')}{' '}
                       — that&apos;s already passed, so its study plan has been
                       cleared. Start the next exam cycle, or a new academic
                       session, to get a new plan.
@@ -856,7 +854,7 @@ export default function AnalysisPage(props: {
       {/* BUFFER WEEK MODAL */}
       {showBufferChoice && pendingExam && (
         <BufferWeekChoiceModal
-          examDateLabel={new Date(pendingExam.examDate).toLocaleDateString()}
+          examDateLabel={formatDay(pendingExam.examDate)}
           minimumRunwayOk={hasBufferRunway(pendingExam.examDate)}
           onChoose={handleBufferChoice}
           onCancel={() => setShowBufferChoice(false)}

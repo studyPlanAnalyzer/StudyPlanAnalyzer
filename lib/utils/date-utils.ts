@@ -8,7 +8,7 @@
  * and "the exam is over" all roll over at midnight in Nepal. */
 
 export const APP_TIME_ZONE = 'Asia/Kathmandu';
-const APP_UTC_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+export const APP_UTC_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
 
 export function startOfDayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -93,6 +93,36 @@ export function enumerateDates(start: Date, end: Date): Date[] {
 /** Returns the ISO week number (1-based, relative to `start`) that `date` falls into. */
 export function weekNumberFromStart(date: Date, start: Date): number {
   return Math.floor(diffInDays(date, start) / 7) + 1;
+}
+
+/** A "YYYY-MM-DD" day as text: the same day on every device, whatever its
+ * time zone (a bare `new Date('2026-12-15')` shows Dec 14 west of UTC). */
+export function formatDay(
+  dateStr: string,
+  options: Intl.DateTimeFormatOptions = {},
+  locale?: string,
+): string {
+  return fromDateString(dateStr).toLocaleDateString(locale, {
+    ...options,
+    timeZone: 'UTC',
+  });
+}
+
+/** A stored moment (e.g. paid-until) as the date it is in Nepal, on every device. */
+export function formatInstantDay(
+  instant: string | Date,
+  options: Intl.DateTimeFormatOptions = {},
+  locale?: string,
+): string {
+  return new Date(instant).toLocaleDateString(locale, {
+    ...options,
+    timeZone: APP_TIME_ZONE,
+  });
+}
+
+/** A stored moment as date and time in Nepal, on every device. */
+export function formatInstantDateTime(instant: string | Date, locale?: string): string {
+  return new Date(instant).toLocaleString(locale, { timeZone: APP_TIME_ZONE });
 }
 
 export function formatHumanDate(date: Date): string {

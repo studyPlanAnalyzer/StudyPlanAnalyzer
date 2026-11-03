@@ -6,7 +6,7 @@ import { api } from '@/lib/api-client';
 import { reportStrings } from '@/lib/reports/strings';
 import type { TodoStats } from '@/lib/types/todo';
 import type { BillingInfo } from '@/lib/billing/pricing';
-import { daysUntil, todayKey } from '@/lib/utils/date-utils';
+import { daysUntil, formatDay, formatInstantDay, todayKey } from '@/lib/utils/date-utils';
 
 export interface StudentSummary {
   id: string;
@@ -257,7 +257,7 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
       : billing.state === 'grace'
         ? `Payment due. The app locks on ${
             billing.graceEndsAt
-              ? new Date(billing.graceEndsAt).toLocaleDateString()
+              ? formatInstantDay(billing.graceEndsAt)
               : 'soon'
           }.`
         : billing.paymentStatus === 'rejected'
@@ -391,7 +391,7 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
                 </p>
 
                 <p className="mt-1 text-sm font-medium text-black/80">
-                  {new Date(s.nextExam.examDate).toLocaleDateString(undefined, {
+                  {formatDay(s.nextExam.examDate, {
                     day: 'numeric',
                     month: 'short',
                     year: 'numeric',

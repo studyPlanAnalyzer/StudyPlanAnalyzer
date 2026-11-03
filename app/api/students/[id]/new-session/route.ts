@@ -13,13 +13,17 @@ import {
 } from '@/lib/subject-name';
 import { toDateString, appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
-import { dateStringSchema, examDateProblem } from '@/lib/validation';
+import {
+  dateStringSchema,
+  examDateProblem,
+  gradeSchema,
+} from '@/lib/validation';
 
 const level = z.enum(['low', 'medium', 'high']);
 
 const bodySchema = z.object({
   // The new year usually means a new grade.
-  grade: z.string().regex(/^([4-9]|10)$/, 'Grade must be 4 to 10'),
+  grade: gradeSchema,
   exam: z.object({
     name: z.string().trim().min(1).max(200),
     examDate: dateStringSchema,

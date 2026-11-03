@@ -12,25 +12,15 @@ import { billingInfoFor } from '@/lib/billing/pricing';
 import {
   holidayDayMinutesSchema,
   schoolDayMinutesSchema,
+  gradeSchema,
+  schoolNameSchema,
   studyDaysSchema,
 } from '@/lib/validation';
 
 const createStudentSchema = z.object({
   name: z.string().min(1).max(200),
-  grade: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}$/, 'Grade must be a number, e.g. 9')
-    .refine(
-      (g) => Number(g) >= 4 && Number(g) <= 10,
-      'Grade must be between 4 and 10',
-    ),
-  schoolName: z
-    .string()
-    .trim()
-    .min(3, 'School name is required')
-    .max(200)
-    .transform((s) => s.replace(/\s+/g, ' ')),
+  grade: gradeSchema,
+  schoolName: schoolNameSchema,
   studyDays: studyDaysSchema.default(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun']),
   schoolDayMinutes: schoolDayMinutesSchema.default(45),
   holidayDayMinutes: holidayDayMinutesSchema.default(90),

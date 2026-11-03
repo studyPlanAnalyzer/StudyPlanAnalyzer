@@ -26,6 +26,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { buttonClass } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
+import { formatDay } from '@/lib/utils/date-utils';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -461,9 +462,7 @@ export default function StudentSettingsPage(
             if (!primaryExam) return null;
             return (
               <BufferWeekChoiceModal
-                examDateLabel={new Date(
-                  primaryExam.examDate,
-                ).toLocaleDateString()}
+                examDateLabel={formatDay(primaryExam.examDate)}
                 minimumRunwayOk={hasBufferRunway(primaryExam.examDate)}
                 onChoose={(useBufferWeek) =>
                   handleSaveAndRegenerate(useBufferWeek)

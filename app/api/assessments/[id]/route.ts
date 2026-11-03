@@ -10,7 +10,7 @@ import {
   recomputeTopicMastery,
   type Executor,
 } from '@/lib/utils/topic-mastery';
-import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
+import { replayTestTrends, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import { dateStringSchema } from '@/lib/validation';
@@ -88,26 +88,22 @@ export const PUT = withErrorHandling(
       parsed.data.assessmentDate !== existing.assessmentDate;
 
     const assessment = await db.transaction(async (tx) => {
-      // The date decides which test counts as the latest, so a date change
-      // undoes this test's effect, recalculates mastery, then applies it again.
-      const marks = dateChanged ? await marksWithTopics(tx, params.id) : [];
-      await revertTestEffects(
-        tx,
-        marks.map((m) => m.markId),
-      );
-
       const [updated] = await tx
         .update(schema.assessments)
         .set(parsed.data)
         .where(eq(schema.assessments.id, params.id))
         .returning();
 
+      // The date decides the order of the topic's tests, so mastery is
+      // recalculated and every trend effect from the earlier of the two dates
+      // on is redone in the new order.
       if (dateChanged) {
-        await recomputeTopicMastery(
-          marks.flatMap((m) => m.topicIds),
-          tx,
+        const topicIds = (await marksWithTopics(tx, params.id)).flatMap(
+          (m) => m.topicIds,
         );
-        await applyTestTrends(tx, marks);
+        await recomputeTopicMastery(topicIds, tx);
+        const from = [existing.assessmentDate, parsed.data.assessmentDate!].sort()[0];
+        await replayTestTrends(tx, topicIds, from);
       }
       return updated;
     });

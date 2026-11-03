@@ -103,6 +103,19 @@ export const PUT = withErrorHandling(
       );
     }
 
+    // The current exam can't just be switched off: the child would be left
+    // with no current exam and the app would quietly pick another one. It is
+    // replaced by starting a new exam cycle (or by making another exam primary).
+    if (parsed.data.isPrimary === false && existing.isPrimary) {
+      return NextResponse.json(
+        {
+          error:
+            "This is the child's current exam. To replace it, start a new exam cycle instead.",
+        },
+        { status: 400 },
+      );
+    }
+
     // The same date rule as every other place an exam date is entered.
     const examDateError =
       parsed.data.examDate !== undefined

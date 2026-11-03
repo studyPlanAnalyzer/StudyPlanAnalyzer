@@ -9,7 +9,11 @@ import {
   type Executor,
 } from '@/lib/utils/topic-mastery';
 import { expandManyToLeaves } from '@/lib/topic-leaves';
-import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
+import {
+  applyTestTrends,
+  replayTestTrends,
+  revertTestEffects,
+} from '@/lib/test-trend';
 import { rebuildPlan } from '@/lib/plan-rebuild';
 import { appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
@@ -307,6 +311,19 @@ export const POST = withErrorHandling(
             topicIds,
           })),
         );
+
+        // A moved test changes the order of its topics' tests: redo every
+        // trend effect on them from the earliest old or new date, in order.
+        if (dateChanged.size > 0) {
+          const movedTopics = Array.from(currentTopics)
+            .filter(([markId]) => dateChanged.has(markById.get(markId)!.assessmentId))
+            .flatMap(([, topicIds]) => topicIds);
+          const from = keptAssessmentEdits
+            .filter((e) => dateChanged.has(e.id))
+            .flatMap((e) => [e.assessmentDate!, assessmentById.get(e.id)!.assessmentDate])
+            .sort()[0];
+          await replayTestTrends(tx, movedTopics, from);
+        }
 
         // Bring the plan in line inside the same transaction. A finished exam has
         // no plan left to rebuild, which is not a failure; anything else is, and

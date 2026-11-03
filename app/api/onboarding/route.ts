@@ -11,18 +11,25 @@ import { toDateString, appToday } from '@/lib/utils/date-utils';
 import {
   dateStringSchema,
   examDateProblem,
+  gradeSchema,
   holidayDayMinutesSchema,
   schoolDayMinutesSchema,
+  schoolNameSchema,
   studyDaysSchema,
 } from '@/lib/validation';
+import {
+  clashMessage,
+  findNameClash,
+  subjectNameSchema,
+} from '@/lib/subject-name';
 
 const level = z.enum(['low', 'medium', 'high']);
 
 const onboardingSchema = z.object({
   student: z.object({
     name: z.string().min(1).max(200),
-    grade: z.string().regex(/^([4-9]|10)$/, 'Grade must be 4 to 10'),
-    schoolName: z.string().min(1).max(200),
+    grade: gradeSchema,
+    schoolName: schoolNameSchema,
     studyDays: studyDaysSchema,
     schoolDayMinutes: schoolDayMinutesSchema,
     holidayDayMinutes: holidayDayMinutesSchema,
@@ -35,7 +42,7 @@ const onboardingSchema = z.object({
     .array(
       z
         .object({
-          name: z.string().min(1).max(200),
+          name: subjectNameSchema,
           fullMarks: z.number().int().positive().default(100),
           examWeight: level,
           // Either real marks, or a gut-sense estimate when there are none.
@@ -87,18 +94,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (examDateError)
     return NextResponse.json({ error: examDateError }, { status: 400 });
 
-  const seen = new Set<string>();
-  for (const s of subjectsIn) {
-    const key = s.name.trim().toLowerCase();
-    if (seen.has(key))
-      return NextResponse.json(
-        {
-          error: `${s.name} is added twice. Each subject can only be listed once.`,
-        },
-        { status: 400 },
-      );
-    seen.add(key);
-  }
+  // Same rule as every other route: "Maths" and "Mathematics" are one subject.
+  const clash = findNameClash(
+    [],
+    subjectsIn.map((s) => s.name),
+  );
+  if (clash)
+    return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
 
   const studentId = await db.transaction(async (tx) => {
     const [student] = await tx

@@ -60,3 +60,22 @@ export const holidayDayMinutesSchema = z
     `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes`,
   )
   .max(MAX_DAILY_MINUTES, `A day can have at most ${MAX_DAILY_MINUTES} minutes`);
+
+/** Grade 4 to 10, stored without leading zeros ("09" becomes "9"). */
+export const gradeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,2}$/, 'Grade must be a number, e.g. 9')
+  .refine(
+    (g) => Number(g) >= 4 && Number(g) <= 10,
+    'Grade must be between 4 and 10',
+  )
+  .transform((g) => String(Number(g)));
+
+/** School name: at least 3 characters, inner runs of spaces collapsed. */
+export const schoolNameSchema = z
+  .string()
+  .trim()
+  .min(3, 'School name is required')
+  .max(200)
+  .transform((s) => s.replace(/\s+/g, ' '));

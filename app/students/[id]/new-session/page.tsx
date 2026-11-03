@@ -14,7 +14,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
-import { todayKey } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { examDateProblem } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 
@@ -338,7 +338,7 @@ export default function NewSessionPage(props: {
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-black sm:text-base">
                       It doesn&apos;t end until{' '}
-                      {new Date(activeExam.examDate).toLocaleDateString()}. A
+                      {formatDay(activeExam.examDate)}. A
                       new session can only start once the current exam is over.
                     </p>
                     <div className="mt-4 flex gap-2">

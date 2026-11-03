@@ -1,4 +1,5 @@
 import { GRACE_DAYS, isBillingEnabled } from './config';
+import { APP_UTC_OFFSET_MS } from '@/lib/utils/date-utils';
 
 /**
  * active  - paid; everything works.
@@ -56,9 +57,13 @@ export function isDue(state: BillingState): boolean {
   return state === 'grace' || state === 'locked' || state === 'unpaid';
 }
 
-/** Adds calendar months in UTC, keeping the day (or the month's last day). */
+/**
+ * Adds calendar months as they run in Nepal, keeping the day (or the month's
+ * last day) and the time of day: paid on 31 January at 01:00 in Nepal runs to
+ * 28/29 February at 01:00 there, whatever the server's time zone.
+ */
 export function addMonths(from: Date, months: number): Date {
-  const d = new Date(from.getTime());
+  const d = new Date(from.getTime() + APP_UTC_OFFSET_MS);
   const day = d.getUTCDate();
   d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth() + months);
@@ -66,5 +71,5 @@ export function addMonths(from: Date, months: number): Date {
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
   ).getUTCDate();
   d.setUTCDate(Math.min(day, lastDay));
-  return d;
+  return new Date(d.getTime() - APP_UTC_OFFSET_MS);
 }

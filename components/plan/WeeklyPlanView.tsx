@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass } from '@/components/ui/Button';
-import { todayKey } from '@/lib/utils/date-utils';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
 
 export interface PlanSession {
   id: string;
@@ -48,11 +48,11 @@ const statusLabel: Record<PlanSession['status'], string> = {
 };
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatDay(
+    dateStr,
+    { weekday: 'long', month: 'short', day: 'numeric' },
+    'en-US',
+  );
 }
 
 export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
