@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { and, asc, eq, isNull, or, lt, sql } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
@@ -8,16 +9,24 @@ import { withErrorHandling } from "@/lib/api/handler";
 
 const SHORTLIST_SIZE = 5;
 
+const querySchema = z.object({
+  gradeGroup: z.enum(schema.gradeGroupEnum.enumValues),
+  category: z.enum(schema.questionCategoryEnum.enumValues),
+});
+
 export const GET = withErrorHandling(async (req: NextRequest) => {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();
 
-  const gradeGroup = req.nextUrl.searchParams.get("gradeGroup");
-  const category = req.nextUrl.searchParams.get("category");
-  if (!gradeGroup || !category) {
-    return NextResponse.json({ error: "gradeGroup and category are required" }, { status: 400 });
+  const parsed = querySchema.safeParse({
+    gradeGroup: req.nextUrl.searchParams.get("gradeGroup"),
+    category: req.nextUrl.searchParams.get("category"),
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Choose a valid gradeGroup and category" }, { status: 400 });
   }
+  const { gradeGroup, category } = parsed.data;
 
   const cooldownCutoff = toDateString(addDays(appToday(), -REUSE_COOLDOWN_DAYS));
 
@@ -26,8 +35,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     .from(schema.questions)
     .where(
       and(
-        eq(schema.questions.gradeGroup, gradeGroup as "GROUP_4_7" | "GROUP_8_10"),
-        eq(schema.questions.category, category as "IQ_LOGIC" | "SCIENCE" | "GENERAL_KNOWLEDGE"),
+        eq(schema.questions.gradeGroup, gradeGroup),
+        eq(schema.questions.category, category),
         eq(schema.questions.status, "APPROVED"),
         or(isNull(schema.questions.lastUsedAt), lt(schema.questions.lastUsedAt, cooldownCutoff))
       )

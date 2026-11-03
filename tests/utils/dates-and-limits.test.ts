@@ -149,3 +149,29 @@ describe('dates read the same on every device and server', () => {
     assert.equal(addMonths(new Date('2027-11-30T10:00:00Z'), 3).toISOString(), '2028-02-29T10:00:00.000Z');
   });
 });
+
+describe('topic suggestions', () => {
+  test('only from 3 characters on', async () => {
+    const { suggestTopicsFor } = await import('@/lib/common-topics');
+    assert.deepEqual(suggestTopicsFor(''), []);
+    assert.deepEqual(suggestTopicsFor('a'), []);
+    assert.deepEqual(suggestTopicsFor('ma'), []);
+    assert.equal(suggestTopicsFor('Mathematics').length, 7);
+    assert.equal(suggestTopicsFor('maths').length, 7);
+    assert.equal(suggestTopicsFor('Nepali').length, 3);
+  });
+});
+
+describe('billing state of a payment being checked', () => {
+  test('pending stays usable whatever its date; a paid period still gets grace, then locks', async () => {
+    const { billingStateOf, canUse } = await import('@/lib/billing/state');
+    const now = new Date('2026-11-10T00:00:00Z');
+    const daysAgo = (n: number) => new Date(now.getTime() - n * 864e5);
+    assert.equal(billingStateOf(daysAgo(30), 'pending', now), 'pending');
+    assert.equal(billingStateOf(null, 'pending', now), 'pending');
+    assert.equal(canUse(billingStateOf(daysAgo(30), 'pending', now)), true);
+    assert.equal(billingStateOf(daysAgo(1), 'verified', now), 'grace');
+    assert.equal(billingStateOf(daysAgo(3), 'verified', now), 'locked');
+    assert.equal(billingStateOf(null, 'none', now), 'unpaid');
+  });
+});

@@ -15,6 +15,7 @@ import {
 } from '@/lib/subject-name';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import { deleteTopics } from '@/lib/topic-delete';
+import { revertTopicTrends } from '@/lib/test-trend';
 
 export const maxDuration = 60;
 
@@ -309,8 +310,9 @@ export const POST = withErrorHandling(
         if (newSubjectRows.length > 0)
           await tx.insert(schema.subjects).values(newSubjectRows);
 
-        // A topic that gains sub-topics is no longer scheduled itself, so a test
-        // mark scoped to it goes back to counting for the whole subject.
+        // A topic that gains sub-topics is judged through them from now on: its
+        // test marks stay linked to it as history (they don't become
+        // whole-subject marks) and the trend adjustments they made are undone.
         const parentsGainingChildren = Array.from(
           new Set(
             newTopics.flatMap((t) =>
@@ -318,10 +320,7 @@ export const POST = withErrorHandling(
             ),
           ),
         );
-        if (parentsGainingChildren.length > 0)
-          await tx
-            .delete(schema.markTopics)
-            .where(inArray(schema.markTopics.topicId, parentsGainingChildren));
+        await revertTopicTrends(tx, parentsGainingChildren);
 
         // Every new topic and sub-topic, of new and existing subjects alike, in two
         // statements in total.

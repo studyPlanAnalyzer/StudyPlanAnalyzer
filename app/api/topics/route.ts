@@ -8,6 +8,7 @@ import {
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { revertTopicTrends } from '@/lib/test-trend';
 
 async function assertOwnsSubject(subjectId: string, parentId: string) {
   const [row] = await db
@@ -86,30 +87,33 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         { status: 400 },
       );
     }
-    // The topic stops being scheduled itself, so a test mark scoped to it
-    // goes back to counting for the whole subject.
-    await db
-      .delete(schema.markTopics)
-      .where(eq(schema.markTopics.topicId, parentTopicId));
   }
 
-  const inserted = await db
-    .insert(schema.topics)
-    .values(
-      parsed.data.topics.map((t) => ({
-        subjectId: parsed.data.subjectId,
-        parentTopicId: parentTopicId ?? null,
-        name: t.name,
-        difficultyRating: t.difficultyRating,
-        estimatedMastery: t.estimatedMastery ?? null,
-      })),
-    )
-    .returning();
+  // One transaction: a topic is never left without its spaced-repetition
+  // state, and a parent never half-way through gaining sub-topics.
+  const inserted = await db.transaction(async (tx) => {
+    // A topic with sub-topics is judged through them from now on. Its own
+    // test marks stay linked to it as history (they don't turn into
+    // whole-subject marks), and the trend adjustments they made to it are
+    // taken back so nothing stale is left if it later loses its sub-topics.
+    if (parentTopicId) await revertTopicTrends(tx, [parentTopicId]);
 
-  // Initialize spaced-repetition state for every new topic.
-  if (inserted.length > 0) {
-    await db.insert(schema.topicSpacedState).values(
-      inserted.map((topic) => ({
+    const rows = await tx
+      .insert(schema.topics)
+      .values(
+        parsed.data.topics.map((t) => ({
+          subjectId: parsed.data.subjectId,
+          parentTopicId: parentTopicId ?? null,
+          name: t.name,
+          difficultyRating: t.difficultyRating,
+          estimatedMastery: t.estimatedMastery ?? null,
+        })),
+      )
+      .returning();
+
+    // Initialize spaced-repetition state for every new topic.
+    await tx.insert(schema.topicSpacedState).values(
+      rows.map((topic) => ({
         topicId: topic.id,
         intervalDays: 0,
         easeFactor: '2.5',
@@ -117,7 +121,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         status: 'new' as const,
       })),
     );
-  }
+    return rows;
+  });
 
   return NextResponse.json({ topics: inserted }, { status: 201 });
 });

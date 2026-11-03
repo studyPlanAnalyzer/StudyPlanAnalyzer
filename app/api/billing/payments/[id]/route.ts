@@ -4,7 +4,6 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
-import { PENDING_ACCESS_HOURS } from '@/lib/billing/config';
 import { billingStateOf, isDue } from '@/lib/billing/state';
 
 class Conflict extends Error {}
@@ -77,7 +76,7 @@ export const PUT = withErrorHandling(
     const studentId = payment.studentId;
 
     try {
-      const paidUntil = await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         const [student] = await tx
           .select({
             paidUntil: schema.students.paidUntil,
@@ -119,19 +118,15 @@ export const PUT = withErrorHandling(
           })
           .where(eq(schema.payments.id, payment.id));
 
-        const until = new Date(
-          now.getTime() + PENDING_ACCESS_HOURS * 60 * 60 * 1000,
-        );
+        // The paid-until date is left as it was: 'pending' alone keeps the
+        // child usable until the payment is verified (a new period) or
+        // rejected (this date applies again).
         await tx
           .update(schema.students)
-          .set({ paidUntil: until, paymentStatus: 'pending', updatedAt: now })
+          .set({ paymentStatus: 'pending', updatedAt: now })
           .where(eq(schema.students.id, studentId));
-        return until;
       });
-      return NextResponse.json({
-        status: 'pending',
-        paidUntil: paidUntil.toISOString(),
-      });
+      return NextResponse.json({ status: 'pending' });
     } catch (err: any) {
       if (err instanceof Conflict)
         return NextResponse.json({ error: err.message }, { status: 409 });

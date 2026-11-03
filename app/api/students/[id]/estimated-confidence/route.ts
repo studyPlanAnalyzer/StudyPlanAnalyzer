@@ -67,7 +67,8 @@ export const GET = withErrorHandling(
     ]);
     return NextResponse.json({
       estimates: Object.fromEntries(estimates),
-      // Subjects an estimate can still be set for (no marks of any kind).
+      // Subjects an estimate can still be set for: no whole-subject marks.
+      // Topic-scoped marks don't count; the other topics still rely on it.
       eligibleSubjectIds: subjectIds.filter((id) => !withMarks.has(id)),
     });
   },

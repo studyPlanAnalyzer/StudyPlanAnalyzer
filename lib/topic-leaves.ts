@@ -12,6 +12,13 @@ export function leafTopics<
   return topics.filter((t) => !parentIds.has(t.id));
 }
 
+/** Whether two lists name the same topics (order and repeats don't matter). */
+export function sameTopicIds(a: string[], b: string[]): boolean {
+  const sa = new Set(a);
+  const sb = new Set(b);
+  return sa.size === sb.size && Array.from(sa).every((id) => sb.has(id));
+}
+
 /** Replaces any topic that has sub-topics with those sub-topics. */
 export async function expandToLeaves(
   subjectId: string,

@@ -1,379 +1,251 @@
 # StudyPlan Analyzer
 
 Turn your child's exam results into a clear study plan until the next exam.
-Upload marks, see weak topics, get a day-by-day plan that adapts automatically.
+Log marks, see weak subjects and topics, and get a day-by-day plan that adapts
+as the child studies.
 
-Built for parents in Nepal and similar markets who want clarity on their
-child's academic performance and a realistic, research-backed study schedule.
+Built for parents in Nepal (grades 4–10).
 
 ## Tech stack
 
-- **Framework:** Next.js 14 (App Router), TypeScript
+- **Framework:** Next.js 16 (App Router), React 19, TypeScript
 - **Styling:** Tailwind CSS v4
-- **Database:** Neon Postgres (serverless)
-- **ORM:** Drizzle ORM
-- **Auth:** JWT in httpOnly cookies (`jsonwebtoken` + `bcryptjs`)
-- **Validation:** Zod on every API route
+- **Database:** Postgres (Neon), through `pg` and Drizzle ORM
+- **Sign-in:** Google only (Google Identity Services), with the app's own
+  short-lived access token and rotating refresh token in httpOnly cookies
+- **Validation:** Zod on every API route (shared rules in `lib/validation.ts`)
+- **Hosting:** Vercel
 
 ## Project structure
 
 ```
-/app
-  /api            API route handlers (auth, students, exams, subjects,
-                  assessments, marks, topics, analysis, plans, sessions)
-  /(auth)         Login / signup pages
-  /(dashboard)    Dashboard page
-  /students/[id]  Analysis, plan, today, week, settings pages
-  /onboarding     6-step onboarding flow
-  page.tsx        Landing page
-/lib
-  /db             Drizzle schema + connection
-  /auth           JWT utilities + getUserFromRequest middleware
-  /utils          Spaced-repetition engine, plan generator, date helpers
-/components
-  /ui             Button, Input, Card, Badge, Skeleton, EmptyState
-  /onboarding     Step indicator
-  /plan           Weekly plan view
-  /session        Session completion card
-middleware.ts     Route-protection middleware (checks cookie presence)
+app/
+  api/              API routes (one folder per resource)
+  (auth)/login      Sign-in ("Continue with Google"); /signup redirects here
+  (dashboard)/      Parent dashboard
+  onboarding/       First-time setup of a child
+  students/[id]/    A child's pages: analysis, plan, today, tests, subjects,
+                    settings, new exam cycle, new academic session, reports, pay
+  admin/            Admin pages: payments, schools, question bank, daily quiz,
+                    analytics, weekly report preview
+lib/
+  auth/             Google token checks, sessions, cookies, request auth
+  billing/          Prices, billing states, the payment guard
+  db/               Drizzle schema and connection
+  reports/          Weekly reports (built on demand)
+  utils/            Plan generator, spaced repetition, dates, scoring
+  validation.ts     Shared request rules (dates, study days, minutes, grade…)
+components/         UI
+proxy.ts            CORS/CSRF checks for the API; sends signed-out visitors to /login
+drizzle/            SQL migrations
+tests/              Automated tests (node:test via tsx)
+scripts/            Plan generator regression script
 ```
 
-## 1. Set up Neon Postgres
+## Setup
 
-1. Create a free project at [neon.tech](https://neon.tech).
-2. In the Neon dashboard, copy the **pooled connection string** (it looks like
-   `postgresql://user:password@ep-xxxx.neon.tech/neondb?sslmode=require`).
+### 1. Database (Neon)
 
-## 2. Configure environment variables
+Create a Neon project. Neon gives two connection strings:
+
+- **Pooled** (hostname contains `-pooler`): use this for the app
+  (`DATABASE_URL` in `.env` and on Vercel).
+- **Direct** (no `-pooler`): use this for running migrations.
+
+Use `sslmode=verify-full` in both.
+
+### 2. Environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+| Variable | Needed | What it is |
+|---|---|---|
+| `DATABASE_URL` | yes | Pooled Neon connection string |
+| `JWT_SECRET` | yes | Signs access tokens. At least 256 bits: `openssl rand -base64 32`. Production refuses the example value. |
+| `GOOGLE_CLIENT_ID` | yes | OAuth client ID (Google Cloud Console → Credentials, type "Web application"). The server checks every Google ID token against it. |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | yes | The same value, for the sign-in button |
+| `ADMIN_EMAILS` | for admins | Comma-separated Google emails that are admins (case-insensitive). Checked on every request: removing an email takes effect immediately. |
+| `NEXT_PUBLIC_APP_NAME` | no | Display name |
+| `BILLING_ENABLED` | no | `false` switches billing off (every child usable) for development |
+| `ALLOWED_ORIGINS` | no | Other origins allowed to call the API with credentials |
+| `DB_SSL_MODE` | no | `disable` only for a local Postgres without TLS |
+| `AUTH_COOKIE_INSECURE` | no | Development only: `true` if your browser refuses Secure cookies on `http://localhost` |
 
-```
-DATABASE_URL="postgresql://user:password@host/neondb?sslmode=require"
-JWT_SECRET="generate-a-long-random-string"
-NEXT_PUBLIC_APP_NAME="StudyPlan Analyzer"
-```
-
-Generate a strong `JWT_SECRET` with:
-
-```bash
-openssl rand -base64 32
-```
-
-**Never** commit `.env` or reuse the placeholder secret in production.
-
-## 3. Install dependencies and run migrations
+### 3. Install and migrate
 
 ```bash
 npm install
-npx drizzle-kit generate   # creates SQL migration files in /drizzle
-npx drizzle-kit migrate    # applies them to your Neon database
+DATABASE_URL="<direct connection string>" npm run db:migrate
 ```
 
-## 4. Run the app
+After changing `lib/db/schema.ts`, create a migration with
+`npm run db:generate` and commit the files it writes in `drizzle/`.
+
+### 4. Run
 
 ```bash
-npm run dev
+TZ=UTC npm run dev
 ```
 
-Visit `http://localhost:3000`.
+Open http://localhost:3000. `TZ=UTC` makes your machine store timestamps the
+way the server does in production (Vercel runs in UTC). Without it, a machine
+set to Nepal time stores Nepal wall-clock times, which can shift report weeks
+in local testing.
 
-## End-to-end flow
+## Dates and time
 
-1. **Sign up** at `/signup` — creates a parent account, sets the `auth-token`
-   httpOnly cookie.
-2. **Onboarding** (`/onboarding`) — add a child, set study availability, the
-   next exam, subjects, marks, and topics in six steps.
-3. **Analysis** (`/students/[id]/analysis`) — see subject strengths, trends,
-   and the top 3 priority topics. Click **Generate plan**.
-4. **Plan** (`/students/[id]/plan`) — a week-by-week schedule of learn,
-   practice, review, and mock sessions.
-5. **Today** (`/students/[id]/today`) — complete today's sessions, rate them
-   Again/Hard/Good/Easy, optionally record accuracy. This feeds the
-   spaced-repetition engine and reschedules that topic's future reviews.
-6. **Week summary** (`/students/[id]/week/[n]`) — planned vs. completed,
-   subject-wise progress, next week's preview, and a **Regenerate plan**
-   button.
-7. **Settings** (`/students/[id]/settings`) — adjust study days, daily
-   minutes, or the exam date, then regenerate the plan around the new
-   constraints.
+- **Every "today" is the day in Nepal** (Asia/Kathmandu, UTC+5:45): today's
+  sessions, the daily challenge, to-dos and streaks, missed-session catch-up,
+  "the exam is over", report weeks. The server and every browser agree,
+  whatever their own time zone. All of it goes through `lib/utils/date-utils.ts`
+  (`appToday`, `todayKey`, `appDay`, `appDayStart`, `daysUntil`).
+- Dates use the Gregorian calendar (not Bikram Sambat).
+- Calendar dates are shown with `formatDay` and stored moments (paid until,
+  submitted at) with `formatInstantDay`/`formatInstantDateTime`, so every
+  device shows the same date.
+- Dates in requests must be real days (`2027-02-30` is refused).
 
-## How the study plan is generated
+## Rules and limits
 
-`lib/utils/plan-generator.ts` implements the scheduling engine:
+| What | Rule |
+|---|---|
+| Grade | 4 to 10 |
+| School name | At least 3 characters |
+| Exam date | After today and at most 1 year ahead |
+| Study days | `Sun`…`Sat` (duplicates are removed) |
+| Daily study minutes | School days 45–120, weekends/holidays 90–120 (Mon–Fri are school days) |
+| Subjects | No two subjects may be the same subject: "Math", "Maths" and "Mathematics" are one (`lib/subject-name.ts`) |
+| Exams | One current (primary) exam per child. A new exam cycle or academic session starts only after it is over. |
+| Plans | One plan per exam (enforced by the database) |
 
-1. **Available time** — walks every day from today to the exam date, keeping
-   only days in the student's `studyDays`, and sums school-day vs.
-   holiday-day minutes.
-2. **Subject priority** — `weakness (100 - latest%) × examWeight multiplier
-   (0.8 / 1.0 / 1.5) × trendFactor` (1.3 if declining ≥3 points, 0.85 if
-   improving ≥3 points, else 1.0).
-3. **Topic priority** — `subjectPriority × (difficultyRating / 3) ×
-   masteryDiscount`.
-4. **Tiering** — topics are ranked by priority and split so the top ~60% get
-   the "weak" treatment, the next ~25% "medium", and the rest "strong",
-   mirroring the 60/25/15 time budget.
-5. **Session templates** — each tier has its own learn + spaced-review
-   cadence (weak: reviews at +1/+3/+7/+14 days; medium: +2/+7; strong: +5),
-   inspired by spaced-repetition research.
-6. **Calendar placement** — sessions are placed greedily in priority order,
-   respecting each day's minute cap and a 2-hard-topics-per-day limit. If the
-   calendar runs out of room, the lowest-priority ("strong") topics are the
-   ones that lose sessions.
+## Main flows
 
-`lib/utils/spaced-repetition.ts` implements the per-topic SM-2–style update
-that runs every time a session is marked complete, adjusting the ease
-factor, interval, and next review date based on the 1–4 rating and optional
-accuracy score.
+1. **Sign in** with Google at `/login`. The first sign-in creates the account.
+2. **Onboarding** (`/onboarding`): the child, study days and minutes, the next
+   exam, subjects, the latest marks (or an estimated confidence per subject if
+   there are no exams yet), and topics.
+3. **Payment** (`/students/[id]/pay`): see Billing below.
+4. **Analysis**: subject strengths, trends and the top priority topics, then
+   **Generate plan** (optionally keeping the last 7 days before the exam free).
+5. **Plan / Today**: complete sessions and rate them Again/Hard/Good/Easy. The
+   rating updates the topic's spaced-repetition state, and the plan is rebuilt
+   once the day's required sessions are done.
+6. **Log a test / Tests**: record marks for the whole subject or for specific
+   topics, with a confidence level; edit or delete them later.
+7. **Subjects**: add, rename, archive or delete subjects, topics and
+   sub-topics. Saving rebuilds the plan.
+8. **Settings**: study days, minutes and the exam date. Saving rebuilds the plan.
+9. **New exam cycle** (after the exam): the new exam plus the marksheet.
+   **New academic session**: starts over with new subjects.
+10. **Weekly reports**: one per active week, made when the parent opens the app.
 
-## API reference
+## How plans are built
 
-All endpoints are under `/api`. Protected endpoints require the `auth-token`
-httpOnly cookie (set automatically by login/signup) and return `401` if
-missing or invalid.
+`lib/utils/plan-generator.ts`:
 
-### Auth
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/auth/signup` | Create account, set cookie |
-| POST | `/api/auth/login` | Verify credentials, set cookie |
-| POST | `/api/auth/logout` | Clear cookie |
-| GET | `/api/auth/me` | Current user, or 401 |
+- **Subject priority** = weakness (100 − a blend of the last 3 whole-subject
+  marks, bigger tests counting more) × exam weight (0.8 / 1.0 / 1.5) × trend
+  (1.3 after a drop of 3+ points, 0.85 after a rise of 3+), with a boost when
+  the latest confidence was low. A subject with no marks uses its estimated
+  confidence (low 35%, medium 50%, high 85%).
+- **Topics are judged at the lowest level**: sub-topics where a topic has them,
+  otherwise the topic. A topic with its own marks is scored from them (and its
+  own confidence); one without uses the subject's priority plus its difficulty.
+- **Tiers** (weak < 50% ≤ medium < 75% ≤ strong) set session lengths.
+- New topics get a learn session and one review the next study day; topics
+  already being reviewed get one review on their due date. SM-2
+  (`lib/utils/spaced-repetition.ts`) decides later dates, capped by the time
+  left before the exam.
+- Sessions are placed within each day's minutes, at most two hard topics a day,
+  never on the exam day. Topics that can't fit are listed on the Plan page.
+- Plans use marks from the current exam cycle only; Analysis shows all history.
 
-### Students
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/students` | Create a child |
-| GET | `/api/students` | List the parent's children |
-| GET | `/api/students/[id]` | Full detail: subjects, exams, assessments, topics, latest plan |
-| PUT | `/api/students/[id]` | Update study preferences |
+**Topic tests and the review schedule** (`lib/test-trend.ts`): a topic's newest
+test is compared with its earlier ones; a drop makes its reviews more frequent
+(and a drop of 20+ points restarts them), a rise relaxes them a little. Moving a
+test's date redoes these in the new order.
 
-### Exams
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/exams` | Create an exam |
-| GET | `/api/exams?studentId=` | List exams for a student |
-| PUT | `/api/exams/[id]` | Update an exam's name/date |
+**Topics with sub-topics**: when a topic gets its first sub-topic, its old test
+marks stay linked to it as history and its adjustments are undone; the
+sub-topics are judged on their own. If all its sub-topics are deleted, its old
+marks count for it again. Deleting a topic deletes the marks that covered only
+that topic.
 
-### Subjects, assessments, marks, topics
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/subjects` | Create a subject |
-| GET | `/api/subjects?studentId=` | List subjects |
-| POST | `/api/assessments` | Create an assessment (exam instance) |
-| GET | `/api/assessments?studentId=` | List assessments |
-| POST | `/api/marks` | Record marks for a subject in an assessment |
-| POST | `/api/topics` | Bulk-create topics for a subject (initializes spaced-repetition state) |
-| GET | `/api/topics?subjectId=` | List topics with spaced state |
-| PUT | `/api/topics/[id]` | Update a topic's difficulty/mastery |
+## Billing
 
-### Analysis
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/analysis/[studentId]` | Subject percentages, strength levels, trends, topic priorities |
+`lib/billing/`. Payment is manual:
 
-### Plans & sessions
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/plans/generate` | Generate a full plan for a student + exam |
-| GET | `/api/plans/[planId]` | Plan detail, sessions grouped by week/day |
-| POST | `/api/plans/[planId]/regenerate` | Keep completed sessions, reschedule the rest |
-| PUT | `/api/sessions/[id]` | Mark a session completed/partly_completed/skipped; triggers spaced-repetition update |
+- **QR**: the parent picks Monthly (Rs 250 first child, Rs 200 each other) or
+  Term, 3 months (Rs 600 / Rs 500), pays the QR in `public/payment-qr.png` with
+  the shown remark code, and submits the transaction ID. The child stays
+  usable until an admin verifies or rejects it at `/admin/payments`, however
+  long that takes; meanwhile the parent can't start another payment. The
+  queue marks payments waiting over 24 hours, and over 48 hours as overdue
+  (also counted on the admin dashboard). A rejected payment puts the child
+  back as it was before.
+- **School code**: an admin creates a school at `/admin/schools` and extends
+  its paid period; parents enter the school's reference code.
+- After a paid period ends the child still works for 2 grace days, then locks.
+  Locked children get `402 PAYMENT_REQUIRED` from every data route.
 
-## Deploying to Vercel
+## Daily Brain Challenge
 
-1. Push this repository to GitHub/GitLab/Bitbucket.
-2. In [Vercel](https://vercel.com), **Import Project** from your repo.
-3. Under **Environment Variables**, add `DATABASE_URL`, `JWT_SECRET`, and
-   `NEXT_PUBLIC_APP_NAME` (same values as your `.env`).
-4. Deploy. Vercel runs `npm install` and `next build` automatically.
-5. Run migrations against your production database once, from your local
-   machine (pointed at the production `DATABASE_URL`):
-   ```bash
-   npx drizzle-kit migrate
-   ```
-6. Because Neon is serverless HTTP-based, no connection pooling
-   configuration is needed for Vercel's serverless functions.
+A daily quiz with one question from each of five categories (IQ & logic,
+science, general knowledge, technology & AI, mathematics) for each grade group
+(4–7 and 8–10).
 
-## Notes
+1. **Import** questions at `/admin/questions` as JSON or CSV with columns
+   `category, gradeGroup, difficulty, questionText, option1, option2, option3,
+   option4, correctAnswer, explanation`. `category` is one of `IQ_LOGIC`,
+   `SCIENCE`, `GENERAL_KNOWLEDGE`, `TECH_AI`, `MATHEMATICS`; `gradeGroup` is
+   `GROUP_4_7` or `GROUP_8_10`; `correctAnswer` must match one option exactly.
+   Imports arrive as PENDING. `sample-questions.json` has 9 examples covering
+   the first three categories.
+2. **Approve** them (one by one or in bulk).
+3. **Publish** at `/admin/daily-quiz` (opens tomorrow's date; today or later
+   only): pick one approved question per category, per grade group.
+4. To change a published quiz, **unpublish** it first (only possible before any
+   student has attempted it). The options and answer of a question in a
+   published quiz can't be edited; its wording can.
 
-- Passwords are hashed with bcrypt (10 salt rounds); JWTs are stored only in
-  httpOnly cookies, never in `localStorage`.
-- All API input is validated with Zod; all database access goes through
-  Drizzle's parameterized query builder.
-- The UI is built mobile-first and structured for future Nepali translation
-  (`preferredLanguage` field on the user, `'en' | 'ne'`), though only English
-  copy ships today.
+Each question's "times used" and "last used" are counted from the published
+quizzes it is in; a question rests 7 days after its quiz date before it is
+suggested again.
 
-## Daily Brain Challenge (add-on module)
+## Admins
 
-A daily, low-stakes 3-question quiz (1 IQ & Logic, 1 Science, 1 General
-Knowledge) for students in Grades 4–10, built as a habit-forming game — not
-an exam, and never framed as measuring intelligence.
+There is no sign-up for admins: list their Google emails in `ADMIN_EMAILS` (on
+Vercel too). Admin pages show "Admins only" to everyone else, and every
+`/api/admin/*` route answers 403.
 
-### Migration
-
-This module adds an `isAdmin` column to `users` and four new tables
-(`questions`, `daily_quizzes`, `daily_quiz_questions`, `quiz_attempts`).
-After pulling this code, run:
+## Tests
 
 ```bash
-npx drizzle-kit generate
-npx drizzle-kit migrate
+npm test                     # everything; database tests are skipped without a test database
+npm run test:plan-generator  # plan generator scenarios
 ```
 
-### Making yourself an admin
-
-There's deliberately no self-serve UI for this. Run once, against your Neon
-database (via the Neon SQL console or `psql`):
-
-```sql
-UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
-```
-
-Admin pages (`/admin/questions`, `/admin/daily-quiz`, `/admin/analytics`)
-check `isAdmin` on load and show an "Admins only" screen otherwise.
-
-### Question import format
-
-Questions are drafted **offline** (e.g. asking Claude/Cursor to generate a
-batch in this shape) and imported via `/admin/questions` → **Import
-questions**, either as pasted JSON or an uploaded CSV with matching column
-headers:
-
-```
-category, gradeGroup, difficulty, questionText, option1, option2, option3, option4, correctAnswer, explanation
-```
-
-- `category`: `IQ_LOGIC` | `SCIENCE` | `GENERAL_KNOWLEDGE`
-- `gradeGroup`: `GROUP_4_7` | `GROUP_8_10`
-- `difficulty`: `easy` | `medium` | `hard` (optional, defaults to `medium`)
-- `correctAnswer` must exactly match one of `option1`–`option4`
-- `explanation` is optional
-
-Every imported row lands as `status = PENDING` — nothing is visible to
-students, or even selectable for a daily quiz, until an admin approves it.
-See `sample-questions.json` in the project root for a ready-to-import
-example batch (9 questions spanning both grade groups and all 3 categories).
-
-### Day-to-day workflow
-
-1. Import a batch of candidate questions (JSON/CSV) at `/admin/questions`.
-2. Approve/edit/reject them individually or in bulk.
-3. Go to `/admin/daily-quiz` (redirects to tomorrow's date) and pick one
-   approved question per category for each grade group, then **Publish**.
-4. Published quizzes are locked — to change one, **Unpublish** first (this
-   is blocked once any student has already attempted it), edit the
-   selection, and republish.
-5. Parents see a child's Daily Brain Challenge at
-   `/students/[id]/daily-challenge` (linked from the Dashboard, Plan page
-   nav, and Analysis page) once that child's grade falls in 4–10. One
-   attempt per student per day; correct answers are withheld until after
-   submission and computed server-side.
-6. `/admin/analytics` shows daily participation counts and average scores
-   per grade group; a small stats card on each student's Analysis page shows
-   their own 7-day/30-day completion count and average score.
-
-## Plan generation engine — design notes (major revision)
-
-The scheduling engine (`lib/utils/plan-generator.ts`) and its callers
-(`/api/plans/generate`, `/api/plans/[planId]/regenerate`) were substantially
-reworked after a code review surfaced a severe bug and several structural
-issues. This section documents what changed and why, plus what's
-deliberately deferred.
-
-### Migration required
-
-One column was added: `study_plans.unscheduled_topic_ids`. Run:
+Database tests need a disposable Postgres database whose name contains `test`
+(it is wiped and rebuilt from the migrations on every run):
 
 ```bash
-npx drizzle-kit generate
-npx drizzle-kit migrate
+createdb studyplan_test
+TZ=UTC TEST_DATABASE_URL=postgresql://localhost:5432/studyplan_test npm test
 ```
 
-### What changed
+## Deploying (Vercel)
 
-1. **Topics with real review history are now scheduled from their actual
-   spaced-repetition state, not replayed through a static template.**
-   Previously, regenerating a plan excluded any topic with *any* completed
-   session from future scheduling — meaning the moment a student finished
-   just the "learn" step, all of that topic's remaining spaced reviews were
-   silently deleted and never rebuilt. Now, a topic with review history
-   (`topic_spaced_state.repetitionCount > 0`) is scheduled a single "next
-   due review" session anchored to its real `nextReviewDate`, while a
-   never-studied topic still gets the full learn + spaced-review chain.
+1. Import the repository in Vercel and set the environment variables above
+   (pooled `DATABASE_URL`, `JWT_SECRET`, both Google client IDs,
+   `ADMIN_EMAILS`).
+2. Before deploying code that adds a migration, run it against production with
+   the direct connection string:
+   `DATABASE_URL="<direct production string>" npm run db:migrate`.
+3. Pushing to `main` deploys; pull requests get preview deployments.
 
-2. **Tiering (weak/medium/strong) is now based on absolute performance, not
-   forced rank.** Previously every plan always carved off the top 60% of
-   topics by rank as "weak," regardless of how the student was actually
-   doing — a 95%-average student's plan still forced 60% of topics into the
-   most intensive tier. Tiers are now assigned from the subject's real
-   percent score, using the same weak/medium/strong thresholds as the
-   Analysis page, with small nudges for unusually hard or already-mastered
-   individual topics.
-
-3. **The plan's reported weak/medium/strong split is now computed from what
-   was actually scheduled**, not a hardcoded 60/25/15 shown regardless of
-   outcome.
-
-4. **A topic that genuinely can't fit anywhere on the calendar is now
-   surfaced on the Plan page** as an honest warning, instead of silently
-   vanishing with no explanation.
-
-5. **A single small class test no longer swings a subject's priority as
-   hard as a full term exam.** The baseline weakness score blends the last
-   up to 3 marks, weighted by how comprehensive each one was and mildly by
-   recency — a /10 quiz no longer counts the same as a /100 exam. Trend
-   direction (declining/improving) still compares the two most recent raw
-   marks, since a genuine recent move is meaningful even from a small test.
-
-6. **Marks used for plan generation are now scoped to the current exam
-   cycle** (or untagged legacy marks), so a confidence tag or trend swing
-   from a already-concluded exam cycle can't keep driving today's plan. The
-   Analysis page's historical view is intentionally unaffected — it still
-   shows the full cross-cycle history.
-
-7. **First-time plan generation now excludes already-mastered topics too**
-   (previously only `regenerate` did this), so starting a new exam cycle
-   doesn't re-teach material the student mastered last term.
-
-8. **Idempotency guard on generate**: calling generate twice for the same
-   exam now returns a 409 pointing at regenerate, instead of silently
-   creating a duplicate plan.
-
-9. **Settings' exam-date edit now requires a future date**, matching every
-   other exam-date entry point in the app.
-
-### Regression tests
-
-`scripts/test-plan-generator.ts` exercises the generator directly (no
-database needed) against the exact scenarios above — in particular, the
-in-progress-topic bug and the tiering bug. Run with:
-
-```bash
-npm run test:plan-generator
-```
-
-This adds one new dev dependency, `tsx`, to run the TypeScript test file
-directly.
-
-### Known, deliberately deferred issues
-
-- **No database transactions.** Multi-step delete/insert/update sequences
-  in generate/regenerate aren't wrapped in a transaction. The Neon HTTP
-  driver's transaction support is limited and couldn't be verified against
-  a live database in this environment, so no transaction wrapper was added
-  rather than shipping one unverified. A crash mid-sequence could leave a
-  plan half-rebuilt; this is a known risk, not a fixed one.
-- **No history view for past exam cycles' plans.** Old plans aren't deleted
-  when a new cycle starts (by design — the data isn't lost), but there's no
-  UI to browse them. This is a missing feature, not a bug.
-- **"Learn within first 3 days"** isn't separately enforced as a hard rule.
-  In practice, the highest-priority topics are processed first and claim
-  the earliest available slots, which achieves the same outcome for the
-  topics that matter most; a strict 3-day cutoff risked causing *more*
-  silently-unscheduled topics for marginal benefit.
+The app is meant to run on Vercel: sign-in and refresh rate limits use the
+client IP from `x-real-ip`, which Vercel sets itself. Elsewhere, put the app
+behind a proxy that sets that header (or `x-forwarded-for`) and strips any value
+a client sends.

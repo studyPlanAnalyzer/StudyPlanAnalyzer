@@ -144,7 +144,7 @@ export default function StudentLayout(
       )}
       {billing?.state === 'pending' && (
         <div className="border-b border-black/5 bg-[#EEF0FF] px-5 py-3 text-center text-sm font-medium text-black">
-          Your payment will be verified within 24 hours.
+          We&apos;re checking your payment, usually within 24 hours. The app stays open while we check.
         </div>
       )}
       {children}

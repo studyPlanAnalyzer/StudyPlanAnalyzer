@@ -253,16 +253,33 @@ export const POST = withErrorHandling(
       };
     });
 
-    const [attempt] = await db
-      .insert(schema.quizAttempts)
-      .values({
-        studentId: student.id,
-        dailyQuizId,
-        score,
-        totalQuestions: links.length,
-        answers: gradedAnswers,
-      })
-      .returning();
+    // Saved while holding a shared lock on the quiz, rechecking it is still
+    // published: an admin unpublishing at the same moment either waits for
+    // this attempt (and then sees it) or finishes first (and this is refused).
+    const attempt = await db.transaction(async (tx) => {
+      const [live] = await tx
+        .select({ isPublished: schema.dailyQuizzes.isPublished })
+        .from(schema.dailyQuizzes)
+        .where(eq(schema.dailyQuizzes.id, dailyQuizId))
+        .for('share');
+      if (!live?.isPublished) return null;
+      const [saved] = await tx
+        .insert(schema.quizAttempts)
+        .values({
+          studentId: student.id,
+          dailyQuizId,
+          score,
+          totalQuestions: links.length,
+          answers: gradedAnswers,
+        })
+        .returning();
+      return saved;
+    });
+    if (!attempt)
+      return NextResponse.json(
+        { error: 'Quiz not found or not published' },
+        { status: 404 },
+      );
 
     const fullQuestions = links
       .sort((a, b) => a.order - b.order)

@@ -8,7 +8,7 @@ import {
   recomputeTopicMastery,
   type Executor,
 } from '@/lib/utils/topic-mastery';
-import { expandManyToLeaves } from '@/lib/topic-leaves';
+import { expandManyToLeaves, sameTopicIds } from '@/lib/topic-leaves';
 import {
   applyTestTrends,
   replayTestTrends,
@@ -252,11 +252,21 @@ export const POST = withErrorHandling(
             .set(fields)
             .where(eq(schema.marks.id, id));
         }
-        if (keptMarkEdits.length > 0) {
-          // Every edited mark's topic links are replaced with three queries in
-          // total, not three per mark.
+        // Links are only replaced for marks whose topics were changed: a mark
+        // kept as history on a topic that has since gained sub-topics stays
+        // on that topic when only its score or confidence is corrected.
+        const linksBefore = await linkedTopics(
+          tx,
+          keptMarkEdits.map((e) => e.id),
+        );
+        const relink = keptMarkEdits.filter(
+          (e) => !sameTopicIds(e.topicIds, linksBefore.get(e.id) ?? []),
+        );
+        if (relink.length > 0) {
+          // Every re-linked mark's topic links are replaced with three queries
+          // in total, not three per mark.
           const leafLists = await expandManyToLeaves(
-            keptMarkEdits.map((e) => ({
+            relink.map((e) => ({
               subjectId: markById.get(e.id)!.subjectId,
               topicIds: e.topicIds,
             })),
@@ -265,10 +275,10 @@ export const POST = withErrorHandling(
           await tx.delete(schema.markTopics).where(
             inArray(
               schema.markTopics.markId,
-              keptMarkEdits.map((e) => e.id),
+              relink.map((e) => e.id),
             ),
           );
-          const links = keptMarkEdits.flatMap((e, i) =>
+          const links = relink.flatMap((e, i) =>
             leafLists[i].map((topicId) => ({ markId: e.id, topicId })),
           );
           if (links.length > 0)

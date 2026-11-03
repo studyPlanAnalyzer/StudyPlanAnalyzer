@@ -4,10 +4,15 @@ import {
   recomputeTopicMastery,
   type Executor,
 } from '@/lib/utils/topic-mastery';
-import { applyTestTrends, revertTestEffects } from '@/lib/test-trend';
+import {
+  applyTestTrends,
+  replayTestTrends,
+  revertTestEffects,
+} from '@/lib/test-trend';
 
 /**
  * Deletes topics, their sub-topics, and everything that existed only for them.
+ * A topic left with no sub-topics counts from its own (history) marks again.
  * Call inside a transaction.
  *
  * - Planned and skipped sessions for them are removed; completed sessions stay
@@ -28,6 +33,18 @@ export async function deleteTopics(ex: Executor, topicIds: string[]) {
     .where(inArray(schema.topics.parentTopicId, topicIds));
   const removed = new Set([...topicIds, ...children.map((c) => c.id)]);
   const removedIds = Array.from(removed);
+  // Parents (kept) of sub-topics being removed: one may be left with none.
+  const parentRows = await ex
+    .select({ parentId: schema.topics.parentTopicId })
+    .from(schema.topics)
+    .where(inArray(schema.topics.id, removedIds));
+  const parentIds = Array.from(
+    new Set(
+      parentRows
+        .map((r) => r.parentId)
+        .filter((id): id is string => !!id && !removed.has(id)),
+    ),
+  );
 
   // Every link of every mark that touches a removed topic.
   const touching = ex
@@ -101,5 +118,24 @@ export async function deleteTopics(ex: Executor, topicIds: string[]) {
       ex,
     );
     await applyTestTrends(ex, partialMarks);
+  }
+
+  // A topic whose last sub-topic went is judged itself again: the test marks
+  // it kept as history count for it once more (mastery, then each mark's
+  // trend adjustment in date order).
+  if (parentIds.length > 0) {
+    const stillParents = new Set(
+      (
+        await ex
+          .select({ parentId: schema.topics.parentTopicId })
+          .from(schema.topics)
+          .where(inArray(schema.topics.parentTopicId, parentIds))
+      ).map((r) => r.parentId),
+    );
+    const leavesAgain = parentIds.filter((id) => !stillParents.has(id));
+    if (leavesAgain.length > 0) {
+      await recomputeTopicMastery(leavesAgain, ex);
+      await replayTestTrends(ex, leavesAgain, '0001-01-01');
+    }
   }
 }

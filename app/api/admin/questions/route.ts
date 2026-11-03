@@ -28,38 +28,44 @@ const createQuestionSchema = z.object({
   source: z.enum(['ai', 'manual']).optional().default('manual'),
 });
 
+const listFiltersSchema = z.object({
+  gradeGroup: z.enum(schema.gradeGroupEnum.enumValues).optional(),
+  category: z.enum(schema.questionCategoryEnum.enumValues).optional(),
+  status: z.enum(schema.questionStatusEnum.enumValues).optional(),
+  search: z.string().max(200).optional(),
+});
+
 export const GET = withErrorHandling(async (req: NextRequest) => {
   const user = await getUserFromRequest(req);
   if (!user) return unauthorizedResponse();
   if (!user.isAdmin) return forbiddenResponse();
 
   const params = req.nextUrl.searchParams;
-  const gradeGroup = params.get('gradeGroup');
-  const category = params.get('category');
-  const status = params.get('status');
-  const search = params.get('search');
+  const filters = listFiltersSchema.safeParse({
+    gradeGroup: params.get('gradeGroup') || undefined,
+    category: params.get('category') || undefined,
+    status: params.get('status') || undefined,
+    search: params.get('search') || undefined,
+  });
+  if (!filters.success)
+    return NextResponse.json(
+      { error: 'Unknown filter value', details: filters.error.flatten() },
+      { status: 400 },
+    );
+  const { gradeGroup, category, status, search } = filters.data;
 
   const conditions: SQL[] = [];
-  if (gradeGroup)
-    conditions.push(
-      eq(schema.questions.gradeGroup, gradeGroup as 'GROUP_4_7' | 'GROUP_8_10'),
-    );
-  if (category)
-    conditions.push(
-      eq(
-        schema.questions.category,
-        category as 'IQ_LOGIC' | 'SCIENCE' | 'GENERAL_KNOWLEDGE',
-      ),
-    );
-  if (status)
-    conditions.push(
-      eq(
-        schema.questions.status,
-        status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'ARCHIVED',
-      ),
-    );
+  if (gradeGroup) conditions.push(eq(schema.questions.gradeGroup, gradeGroup));
+  if (category) conditions.push(eq(schema.questions.category, category));
+  if (status) conditions.push(eq(schema.questions.status, status));
+  // % and _ are typed text here, not wildcards.
   if (search)
-    conditions.push(ilike(schema.questions.questionText, `%${search}%`));
+    conditions.push(
+      ilike(
+        schema.questions.questionText,
+        `%${search.replace(/[%_\\]/g, (c) => `\\${c}`)}%`,
+      ),
+    );
 
   const rows = await db
     .select()

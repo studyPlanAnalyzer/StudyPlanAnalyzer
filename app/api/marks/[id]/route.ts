@@ -7,7 +7,7 @@ import {
   recomputeTopicMastery,
   type Executor,
 } from '@/lib/utils/topic-mastery';
-import { expandToLeaves } from '@/lib/topic-leaves';
+import { expandToLeaves, sameTopicIds } from '@/lib/topic-leaves';
 import { applyTestTrend, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
@@ -124,7 +124,9 @@ export const PUT = withErrorHandling(
       }
 
       let currentTopicIds = previousTopicIds;
-      if (topicIds) {
+      // Only when the topics actually change: a mark kept as history on a
+      // topic that has since gained sub-topics stays on that topic.
+      if (topicIds && !sameTopicIds(topicIds, previousTopicIds)) {
         currentTopicIds = await expandToLeaves(
           existing.subjectId,
           topicIds,
