@@ -11,6 +11,7 @@ import {
 } from '@/lib/subject-name';
 import type { Executor } from '@/lib/utils/topic-mastery';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { fullMarksSchema } from '@/lib/validation';
 
 async function loadOwnedSubject(subjectId: string, parentId: string) {
   const [row] = await db
@@ -46,7 +47,7 @@ async function removeOpenSessionsForSubject(ex: Executor, subjectId: string) {
 
 const updateSubjectSchema = z.object({
   name: subjectNameSchema.optional(),
-  fullMarks: z.number().int().positive().optional(),
+  fullMarks: fullMarksSchema.optional(),
   examWeight: z.enum(['low', 'medium', 'high']).optional(),
   orderIndex: z.number().int().optional(),
   // false = archived: kept for marks history, but skipped by plan generation.

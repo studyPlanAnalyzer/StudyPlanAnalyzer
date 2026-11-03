@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
-import { examDateProblem } from '@/lib/validation';
+import { examDateProblem, MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import { cardClass } from '@/components/ui/Card';
 import { buttonClass } from '@/components/ui/Button';
@@ -339,6 +339,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
       if (m.fullMarks.trim() === '' || !Number.isInteger(full) || full < 0)
         return `Enter the full marks for ${entryPath(m)} (enter 0 if it isn't in this exam).`;
       if (full === 0) continue;
+      if (full > MAX_FULL_MARKS)
+        return `Full marks for ${entryPath(m)} can be at most ${MAX_FULL_MARKS}.`;
       const val = Number(m.obtainedMarks);
       if (
         m.obtainedMarks.trim() === '' ||
@@ -355,6 +357,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
         ...newSubjects.filter((o) => o !== s).map((o) => o.name),
       ]);
       if (clash) return clash;
+      if (!Number.isInteger(s.fullMarks) || s.fullMarks < 1 || s.fullMarks > MAX_FULL_MARKS)
+        return `Full marks for ${s.name} must be from 1 to ${MAX_FULL_MARKS}.`;
       const val = Number(s.obtainedMarks);
       if (
         s.obtainedMarks === '' ||
@@ -632,6 +636,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                           label="Out of"
                                           type="number"
                                           min={0}
+                                          max={MAX_FULL_MARKS}
                                           className="w-24"
                                           value={m.fullMarks}
                                           onChange={(e) =>
@@ -736,6 +741,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                               label="Full marks"
                               type="number"
                               className="w-28"
+                              min={1}
+                              max={MAX_FULL_MARKS}
                               value={s.fullMarks}
                               onChange={(e) =>
                                 updateNewSubject(i, {

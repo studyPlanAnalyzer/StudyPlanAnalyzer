@@ -7,7 +7,7 @@ import {
   unauthorizedResponse,
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from "@/lib/api/handler";
-import { dateStringSchema } from '@/lib/validation';
+import { testDateSchema } from '@/lib/validation';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 /** The student with its billing fields, if it belongs to this parent. */
@@ -32,7 +32,7 @@ async function loadOwnedStudent(studentId: string, parentId: string) {
 const createAssessmentSchema = z.object({
   studentId: z.string().uuid(),
   examId: z.string().uuid().optional(),
-  assessmentDate: dateStringSchema,
+  assessmentDate: testDateSchema,
   assessmentName: z.string().min(1).max(200),
 });
 

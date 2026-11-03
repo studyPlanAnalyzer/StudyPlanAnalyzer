@@ -59,7 +59,12 @@ function setSessionCookies(
  * and the access, refresh and signed-in cookies. The user's expired sessions
  * are cleared out at the same time so the table doesn't grow without bound.
  */
-export async function startSession(res: NextResponse, user: SessionUser) {
+export async function startSession(
+  res: NextResponse,
+  user: SessionUser,
+  /** The browser's User-Agent, shown on the Account page's device list. */
+  userAgent: string | null = null,
+) {
   const refresh = newRefreshToken();
   const sessionId = await db.transaction(async (tx) => {
     await tx
@@ -72,7 +77,11 @@ export async function startSession(res: NextResponse, user: SessionUser) {
       );
     const [session] = await tx
       .insert(schema.userSessions)
-      .values({ userId: user.id, expiresAt: refresh.expiresAt })
+      .values({
+        userId: user.id,
+        expiresAt: refresh.expiresAt,
+        userAgent: userAgent ? userAgent.slice(0, 300) : null,
+      })
       .returning({ id: schema.userSessions.id });
     await tx.insert(schema.refreshTokens).values({
       sessionId: session.id,

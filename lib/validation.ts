@@ -79,3 +79,18 @@ export const schoolNameSchema = z
   .min(3, 'School name is required')
   .max(200)
   .transform((s) => s.replace(/\s+/g, ' '));
+
+export const MAX_FULL_MARKS = 100;
+
+/** A subject's or a test's "out of": a whole number from 1 to 100. */
+export const fullMarksSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(MAX_FULL_MARKS, `Full marks can be at most ${MAX_FULL_MARKS}`);
+
+/** The day a test was taken: a real day, today (Nepal) or earlier. */
+export const testDateSchema = dateStringSchema.refine(
+  (d) => d <= todayKey(),
+  "A test can't be dated in the future",
+);

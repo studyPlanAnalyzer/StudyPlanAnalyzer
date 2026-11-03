@@ -119,6 +119,9 @@ in local testing.
 | Subjects | No two subjects may be the same subject: "Math", "Maths" and "Mathematics" are one (`lib/subject-name.ts`) |
 | Exams | One current (primary) exam per child. A new exam cycle or academic session starts only after it is over. |
 | Plans | One plan per exam (enforced by the database) |
+| Full marks | At most 100 (subjects and tests) |
+| Test dates | Today or earlier (Nepal time), never in the future |
+| Marks in one test | Per subject, either one whole-subject mark or one mark per topic (no topic twice), never both. A second result goes in another test. |
 
 ## Main flows
 
@@ -213,6 +216,20 @@ science, general knowledge, technology & AI, mathematics) for each grade group
 Each question's "times used" and "last used" are counted from the published
 quizzes it is in; a question rests 7 days after its quiz date before it is
 suggested again.
+
+## Account
+
+`/account` (linked from the dashboard):
+
+- **Signed-in devices**: every live session with its browser and device type
+  (from the User-Agent at sign-in) and sign-in time. The parent can sign out
+  any device, or all others; that device is signed out on its next request.
+- **Delete my account and data**: the parent gives a reason and can cancel
+  while it waits. An admin carries it out at `/admin/deletions` within 24
+  hours (or declines it with a note the parent sees). Deleting removes the
+  account, all children and their data, and all sign-ins. Payment records are
+  kept for the accounts with the parent, child and school names removed. The
+  request itself keeps only the reason and dates.
 
 ## Admins
 

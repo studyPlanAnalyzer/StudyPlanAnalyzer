@@ -14,7 +14,7 @@ import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
-import { examDateProblem } from '@/lib/validation';
+import { examDateProblem, MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
 import {
   MIN_SCHOOL_DAY_MINUTES,
@@ -265,6 +265,8 @@ export default function OnboardingPage() {
           subjects.filter((_, j) => j < i).map((o) => o.name),
         );
         if (clash) return clash;
+        if (!Number.isInteger(s.fullMarks) || s.fullMarks < 1 || s.fullMarks > MAX_FULL_MARKS)
+          return `Full marks for ${s.name} must be from 1 to ${MAX_FULL_MARKS}.`;
       }
     }
     if (step === 5) {
@@ -581,6 +583,8 @@ export default function OnboardingPage() {
                       label="Full marks"
                       type="number"
                       className="w-28"
+                      min={1}
+                      max={MAX_FULL_MARKS}
                       value={s.fullMarks}
                       onChange={(e) =>
                         updateSubject(i, { fullMarks: Number(e.target.value) })

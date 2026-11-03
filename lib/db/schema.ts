@@ -59,6 +59,9 @@ export const userSessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     expiresAt: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    // The browser's User-Agent at sign-in, so the parent can tell their
+    // signed-in devices apart (Account page). Null for older sessions.
+    userAgent: text('user_agent'),
   },
   (t) => ({
     userIdIdx: index('user_sessions_user_id_idx').on(t.userId),
@@ -148,9 +151,11 @@ export const payments = pgTable(
   'payments',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    // Null once the parent's account is deleted: the payment record is kept
+    // (amount, dates, transaction id) with the names removed.
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     // Kept (as null) if the child is deleted, so the record survives.
     studentId: uuid('student_id').references(() => students.id, {
       onDelete: 'set null',
@@ -865,5 +870,38 @@ export const weeklyReportChecks = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.studentId, t.weekStart] }),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// deletion_requests (a parent asking for their account and data to be deleted)
+//
+// The parent asks, with a reason; an admin checks it and deletes everything
+// within 24 hours (payment records are kept with names removed). After that
+// the row keeps only the reason and dates: userId and email are cleared.
+// ---------------------------------------------------------------------------
+export const deletionRequests = pgTable(
+  'deletion_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    // For the admin while the request is open; cleared once it is done.
+    email: text('email'),
+    reason: text('reason').notNull(),
+    // 'pending' | 'completed' | 'cancelled' | 'declined'
+    status: text('status').default('pending').notNull(),
+    adminNote: text('admin_note'),
+    requestedAt: timestamp('requested_at').defaultNow().notNull(),
+    handledAt: timestamp('handled_at'),
+    handledBy: uuid('handled_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (t) => ({
+    // At most one open request per account.
+    onePendingPerUser: uniqueIndex('deletion_requests_one_pending_per_user')
+      .on(t.userId)
+      .where(sql`status = 'pending'`),
+    statusIdx: index('deletion_requests_status_idx').on(t.status),
   }),
 );

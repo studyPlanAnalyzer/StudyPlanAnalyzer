@@ -175,6 +175,10 @@ export default function DashboardPage() {
           </Link>
         )}
 
+        <Link href="/account" className={headerLinkClass}>
+          Account
+        </Link>
+
         <button type="button" onClick={handleLogout} className={headerPillClass}>
           <LogoutIcon />
           <span>Log out</span>

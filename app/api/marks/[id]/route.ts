@@ -11,6 +11,8 @@ import { expandToLeaves, sameTopicIds } from '@/lib/topic-leaves';
 import { applyTestTrend, revertTestEffects } from '@/lib/test-trend';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { checkMarksheets } from '@/lib/marksheet';
+import { fullMarksSchema } from '@/lib/validation';
 
 async function loadOwnedMark(markId: string, parentId: string) {
   const [row] = await db
@@ -41,7 +43,7 @@ async function linkedTopicIds(ex: Executor, markId: string): Promise<string[]> {
 
 const updateMarkSchema = z.object({
   obtainedMarks: z.number().int().min(0).optional(),
-  fullMarks: z.number().int().positive().optional(),
+  fullMarks: fullMarksSchema.optional(),
   confidenceLevel: z.enum(['low', 'medium', 'high']).nullable().optional(),
   // Replaces the mark's topic scope. [] makes it a whole-subject mark again.
   topicIds: z.array(z.string().uuid()).optional(),
@@ -151,6 +153,7 @@ export const PUT = withErrorHandling(
         tx,
       );
       await applyTestTrend(tx, currentTopicIds, params.id);
+      await checkMarksheets(tx, [existing]);
 
       const mark =
         updatedMark ??

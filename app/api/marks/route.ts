@@ -6,12 +6,13 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { saveMark } from '@/lib/save-mark';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { fullMarksSchema } from '@/lib/validation';
 
 const createMarkSchema = z.object({
   assessmentId: z.string().uuid(),
   subjectId: z.string().uuid(),
   obtainedMarks: z.number().int().min(0),
-  fullMarks: z.number().int().positive(),
+  fullMarks: fullMarksSchema,
   confidenceLevel: z.enum(['low', 'medium', 'high']).optional(),
   topicIds: z.array(z.string().uuid()).optional().default([]),
 });

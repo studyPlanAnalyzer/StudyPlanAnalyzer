@@ -12,7 +12,13 @@ import { accessCookie, signedInCookie } from "@/lib/auth/cookies";
 // Pages: signed-out visitors are sent to /login. This is a UX convenience,
 // not the security boundary: every API route verifies the access token and
 // its live session itself (lib/auth/middleware.ts).
-const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/students", "/admin"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/onboarding",
+  "/students",
+  "/admin",
+  "/account",
+];
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function allowedOrigins(req: NextRequest): Set<string> {
@@ -94,5 +100,6 @@ export const config = {
     "/onboarding/:path*",
     "/students/:path*",
     "/admin/:path*",
+    "/account/:path*",
   ],
 };

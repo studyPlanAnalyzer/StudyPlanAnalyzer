@@ -13,6 +13,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
+import { MAX_FULL_MARKS } from '@/lib/validation';
 import { todayKey } from '@/lib/utils/date-utils';
 
 interface Subject {
@@ -236,6 +237,7 @@ export default function AddTestMarksPage(
     if (!testName.trim())
       return 'Give this test a name, e.g. "Algebra unit test".';
     if (!testDate) return 'Enter the date this test happened.';
+    if (testDate > todayKey()) return "A test can't be dated in the future.";
     const filled = entries();
     if (filled.length === 0) return 'Enter marks for at least one subject.';
     for (const e of filled) {
@@ -243,6 +245,8 @@ export default function AddTestMarksPage(
       const obtained = Number(e.obtained);
       if (Number.isNaN(full) || full <= 0)
         return `Enter a valid "out of" total for ${e.label}.`;
+      if (full > MAX_FULL_MARKS)
+        return `"Out of" for ${e.label} can be at most ${MAX_FULL_MARKS}.`;
       if (Number.isNaN(obtained) || obtained < 0 || obtained > full) {
         return `Enter valid marks for ${e.label} (0–${full}).`;
       }
@@ -367,6 +371,7 @@ export default function AddTestMarksPage(
                   <Field label="Test date" className="min-w-0">
                     <input
                       type="date"
+                      max={todayKey()}
                       value={testDate}
                       onChange={(e) => setTestDate(e.target.value)}
                       className={fieldClass}
@@ -429,6 +434,7 @@ export default function AddTestMarksPage(
                       <input
                         type="number"
                         min="1"
+                        max={MAX_FULL_MARKS}
                         aria-label={`Out of, for ${t.name}`}
                         value={m.topicMarks[t.id]?.full ?? m.fullMarks}
                         onChange={(e) =>
@@ -489,6 +495,7 @@ export default function AddTestMarksPage(
                             <input
                               type="number"
                               min="1"
+                              max={MAX_FULL_MARKS}
                               aria-label={`Out of marks for ${m.name}`}
                               value={m.fullMarks}
                               onChange={(e) =>
