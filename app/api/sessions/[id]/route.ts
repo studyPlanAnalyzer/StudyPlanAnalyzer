@@ -164,12 +164,14 @@ export const PUT = withErrorHandling(
       if (!current) return null;
 
       // Completing a session that is already done changes nothing: no second
-      // review is logged and the ladder isn't advanced twice.
-      if (
-        isCompletion &&
-        (current.status === 'completed' || current.status === 'partly_completed')
-      )
+      // review is logged and the ladder isn't advanced twice. And a done
+      // session can't be put back to planned or skipped: its review already
+      // moved the topic's schedule, which that wouldn't undo.
+      const isFinished =
+        current.status === 'completed' || current.status === 'partly_completed';
+      if (isFinished && isCompletion)
         return { session: current, changed: false };
+      if (isFinished) return { refused: true as const };
 
       const [saved] = await tx
         .update(schema.studySessions)
@@ -232,6 +234,11 @@ export const PUT = withErrorHandling(
     });
     if (!outcome)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if ('refused' in outcome)
+      return NextResponse.json(
+        { error: "This session is already done, so it can't be changed back." },
+        { status: 409 },
+      );
     if (!outcome.changed)
       return NextResponse.json({ session: outcome.session, planUpdated: false });
     const updatedSession = outcome.session;

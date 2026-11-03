@@ -253,7 +253,7 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
   const paymentMessage = !billing
     ? null
     : billing.state === 'pending'
-      ? 'Payment will be verified within 24 hours.'
+      ? 'Payment being checked (usually within 24 hours). The app stays open.'
       : billing.state === 'grace'
         ? `Payment due. The app locks on ${
             billing.graceEndsAt

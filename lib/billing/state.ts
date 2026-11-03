@@ -4,7 +4,8 @@ import { APP_UTC_OFFSET_MS } from '@/lib/utils/date-utils';
 /**
  * active  - paid; everything works.
  * pending - the parent says they have paid and an admin hasn't checked yet;
- *           everything works for now.
+ *           everything works until an admin verifies or rejects it, however
+ *           long that takes (an admin's delay never locks a child).
  * grace   - a paid period ended less than GRACE_DAYS ago; still works, but
  *           payment is due.
  * locked  - nothing works until it is paid (and verified).
@@ -38,12 +39,15 @@ export function billingStateOf(
   now: Date = new Date(),
 ): BillingState {
   if (!isBillingEnabled()) return 'active';
+  // A submitted payment keeps the child usable until an admin verifies it (a
+  // new paid period) or rejects it (back to how it was before), so a slow
+  // check never locks the child or pushes the parent into paying twice. A
+  // fake transaction id is stopped by the rejection, and each id can only be
+  // used once.
+  if (paymentStatus === 'pending') return 'pending';
   if (!paidUntil) return 'unpaid';
-  if (now.getTime() < paidUntil.getTime())
-    return paymentStatus === 'pending' ? 'pending' : 'active';
-  // Past the date. A payment that was never checked in time is locked at
-  // once; a normal paid period gets its grace days.
-  if (paymentStatus === 'pending') return 'locked';
+  if (now.getTime() < paidUntil.getTime()) return 'active';
+  // Past the date: a paid period gets its grace days, then locks.
   return now.getTime() < graceEndsAt(paidUntil).getTime() ? 'grace' : 'locked';
 }
 

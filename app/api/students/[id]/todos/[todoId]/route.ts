@@ -67,14 +67,17 @@ export const DELETE = withErrorHandling(
     });
     if (denied) return denied;
 
-    await db
+    const deleted = await db
       .delete(schema.todos)
       .where(
         and(
           eq(schema.todos.id, params.todoId),
           eq(schema.todos.studentId, params.id),
         ),
-      );
+      )
+      .returning({ id: schema.todos.id });
+    if (deleted.length === 0)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     return NextResponse.json({ success: true });
   },

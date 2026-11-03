@@ -5,6 +5,29 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { api, getErrorMessage } from '@/lib/api-client';
 import { formatInstantDateTime } from '@/lib/utils/date-utils';
+import { Badge } from '@/components/ui/Badge';
+import {
+  PENDING_OVERDUE_HOURS,
+  PENDING_SLOW_HOURS,
+} from '@/lib/billing/config';
+
+// How long a payment has been waiting to be checked. The child stays usable
+// meanwhile, so nothing locks: this is only so none sits here forgotten.
+function WaitingBadge({ submittedAt }: { submittedAt: string }) {
+  const hours = (Date.now() - new Date(submittedAt).getTime()) / 3_600_000;
+  const days = Math.floor(hours / 24);
+  const waited =
+    hours < 1
+      ? 'under an hour'
+      : hours < 24
+        ? `${Math.floor(hours)} hour${Math.floor(hours) === 1 ? '' : 's'}`
+        : `${days} day${days === 1 ? '' : 's'}`;
+  if (hours >= PENDING_OVERDUE_HOURS)
+    return <Badge tone="weak">Overdue · waiting {waited}</Badge>;
+  if (hours >= PENDING_SLOW_HOURS)
+    return <Badge tone="medium">Waiting {waited}</Badge>;
+  return <Badge>Waiting {waited}</Badge>;
+}
 
 interface PaymentRow {
   id: string;
@@ -42,7 +65,9 @@ export default function AdminPaymentsPage() {
   async function act(id: string, action: 'verify' | 'reject') {
     if (
       action === 'reject' &&
-      !window.confirm('Reject this payment? The child will be locked.')
+      !window.confirm(
+        "Reject this payment? The child goes back to how it was before: locked if their paid period is over, and the parent is asked to pay again.",
+      )
     )
       return;
     setBusyId(id);
@@ -110,6 +135,11 @@ export default function AdminPaymentsPage() {
                   <p className="text-xs text-[#8A8580]">
                     Submitted {formatInstantDateTime(p.submittedAt)}
                   </p>
+                )}
+                {p.status === 'pending' && p.submittedAt && (
+                  <div className="mt-2">
+                    <WaitingBadge submittedAt={p.submittedAt} />
+                  </div>
                 )}
               </div>
               {p.status === 'pending' && (

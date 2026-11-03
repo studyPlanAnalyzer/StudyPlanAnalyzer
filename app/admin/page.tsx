@@ -11,7 +11,13 @@ interface Metrics {
   activity: { dau: number; wau: number; mau: number };
   studyPlanEngagement: { sessionsScheduledLast7Days: number; sessionsCompletedLast7Days: number; completionRate: number };
   dailyBrainChallenge: { attemptsToday: number; attemptsThisWeek: number };
-  billing: { tracked: boolean; note: string };
+  billing: {
+    paymentsWaiting: number;
+    paymentsOverdue: number;
+    verifiedThisMonth: number;
+    revenueThisMonthRs: number;
+    paidChildren: number;
+  };
 }
 
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -82,11 +88,21 @@ export default function AdminDashboardPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Subscriptions &amp; revenue</h2>
-            <Notice tone="warning">
-              <p className="font-medium">Not yet tracked</p>
-              <p className="mt-1">{metrics.billing.note}</p>
-            </Notice>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#65615D]">Payments</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                label="Waiting to be checked"
+                value={metrics.billing.paymentsWaiting}
+                sublabel={
+                  metrics.billing.paymentsOverdue > 0
+                    ? `${metrics.billing.paymentsOverdue} overdue (over 48 hours)`
+                    : 'QR payments to verify'
+                }
+              />
+              <MetricCard label="Verified this month" value={metrics.billing.verifiedThisMonth} />
+              <MetricCard label="Revenue this month" value={`Rs ${metrics.billing.revenueThisMonthRs.toLocaleString('en-IN')}`} sublabel="Verified QR payments" />
+              <MetricCard label="Children with access" value={metrics.billing.paidChildren} sublabel="Paid, or payment being checked" />
+            </div>
           </section>
         </div>
       )}

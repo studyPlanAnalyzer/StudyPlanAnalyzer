@@ -4,6 +4,7 @@ import { and, gte, lte, sql, type AnyColumn } from "drizzle-orm";
 import { getUserFromRequest, unauthorizedResponse, forbiddenResponse } from "@/lib/auth/middleware";
 import { addDays, appDayStart, appToday, toDateString } from "@/lib/utils/date-utils";
 import { withErrorHandling } from "@/lib/api/handler";
+import { PENDING_OVERDUE_HOURS } from "@/lib/billing/config";
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
   const user = await getUserFromRequest(req);
@@ -12,6 +13,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 
   // Day boundaries are midnights in Nepal, like the rest of the app. Every
   // number is counted in the database, not by loading the rows.
+  const now = new Date();
+  const overdueBefore = new Date(now.getTime() - PENDING_OVERDUE_HOURS * 3_600_000);
   const today = appToday();
   const startOfDay = appDayStart(today);
   const sevenDaysAgo = appDayStart(addDays(today, -7));
@@ -25,7 +28,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // DAU/WAU/MAU are based on lastLoginAt, which is set on every successful
   // login (and at signup). This is a real, if simple, activity signal —
   // note it only reflects login events, not in-app engagement depth.
-  const [[users], [students], [sessions], [attempts]] = await Promise.all([
+  const [[users], [students], [sessions], [attempts], [payments], [access]] = await Promise.all([
     db
       .select({
         total: sql<number>`count(*)::int`,
@@ -60,6 +63,23 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       })
       .from(schema.quizAttempts)
       .where(gte(schema.quizAttempts.completedAt, sevenDaysAgo)),
+    // Payments (QR, checked by an admin): waiting now, and verified this month
+    // (by the day it was verified, in Nepal).
+    db
+      .select({
+        pending: sql<number>`count(*) filter (where ${schema.payments.status} = 'pending')::int`,
+        overdue: sql<number>`count(*) filter (where ${schema.payments.status} = 'pending' and ${schema.payments.submittedAt} < ${overdueBefore.toISOString()})::int`,
+        verifiedThisMonth: sql<number>`count(*) filter (where ${schema.payments.status} = 'verified' and ${schema.payments.reviewedAt} >= ${startOfMonth.toISOString()})::int`,
+        revenueThisMonthRs: sql<number>`coalesce(sum(${schema.payments.amountRs}) filter (where ${schema.payments.status} = 'verified' and ${schema.payments.reviewedAt} >= ${startOfMonth.toISOString()}), 0)::int`,
+      })
+      .from(schema.payments),
+    // Children whose paid period (QR or school code) hasn't ended, or whose
+    // payment is being checked (usable until it is). Grace days aren't counted.
+    db
+      .select({
+        paid: sql<number>`count(*) filter (where ${schema.students.paidUntil} > ${now.toISOString()} or ${schema.students.paymentStatus} = 'pending')::int`,
+      })
+      .from(schema.students),
   ]);
   const totalUsers = users.total;
   const newUsersThisWeek = users.newThisWeek;
@@ -96,9 +116,11 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       attemptsThisWeek: attempts.thisWeek,
     },
     billing: {
-      tracked: false,
-      note:
-        "No payment/subscription system is wired up yet. Add a subscriptions table (plan, status, currentPeriodEnd) integrated with a payment gateway (e.g. eSewa/Khalti/Stripe) to populate paid-subscriber counts and revenue due here.",
+      paymentsWaiting: payments.pending,
+      paymentsOverdue: payments.overdue,
+      verifiedThisMonth: payments.verifiedThisMonth,
+      revenueThisMonthRs: payments.revenueThisMonthRs,
+      paidChildren: access.paid,
     },
   });
 });

@@ -32,11 +32,11 @@ export const PLAN_IDS = Object.keys(PLANS) as PlanId[];
 export const GRACE_DAYS = 2;
 
 /**
- * After a parent says they have paid, the child works straight away for this
- * long while an admin checks the payment (we tell them "within 24 hours").
- * If nobody has checked by then the child is locked until it is verified.
+ * Payments waiting to be checked longer than these are flagged to admins
+ * (we tell parents "within 24 hours"). The child stays usable either way.
  */
-export const PENDING_ACCESS_HOURS = 48;
+export const PENDING_SLOW_HOURS = 24;
+export const PENDING_OVERDUE_HOURS = 48;
 
 /** The payment QR image: put yours at public/payment-qr.png. */
 export const PAYMENT_QR_URL = '/payment-qr.png';

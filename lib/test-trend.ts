@@ -28,7 +28,7 @@ export async function applyTestTrends(
   const topicIds = Array.from(new Set(items.flatMap((i) => i.topicIds)));
   if (topicIds.length === 0) return;
 
-  const [rows, states] = await Promise.all([
+  const [rows, states, parents] = await Promise.all([
     ex
       .select({
         topicId: schema.markTopics.topicId,
@@ -49,7 +49,14 @@ export async function applyTestTrends(
       .select()
       .from(schema.topicSpacedState)
       .where(inArray(schema.topicSpacedState.topicId, topicIds)),
+    // Topics with sub-topics aren't judged themselves (their sub-topics are),
+    // so they never take a trend adjustment.
+    ex
+      .select({ id: schema.topics.parentTopicId })
+      .from(schema.topics)
+      .where(inArray(schema.topics.parentTopicId, topicIds)),
   ]);
+  const hasSubTopics = new Set(parents.map((p) => p.id));
 
   const historyOf = new Map<string, typeof rows>();
   for (const r of rows) {
@@ -71,6 +78,7 @@ export async function applyTestTrends(
 
   for (const { markId, topicIds: ids } of items) {
     for (const topicId of ids) {
+      if (hasSubTopics.has(topicId)) continue;
       const full = historyOf.get(topicId) ?? [];
       const history = opts.asOfMark
         ? full.slice(0, full.findIndex((r) => r.markId === markId) + 1)
@@ -235,14 +243,20 @@ export async function applyTestTrend(
 export async function revertTestEffects(
   ex: Executor,
   markIds: string | string[],
+  /** Only undo what the marks did to these topics (default: every topic). */
+  onlyTopicIds?: string[],
 ) {
   const ids = Array.isArray(markIds) ? markIds : [markIds];
-  if (ids.length === 0) return;
+  if (ids.length === 0 || onlyTopicIds?.length === 0) return;
+  const which = and(
+    inArray(schema.topicTestEffects.markId, ids),
+    onlyTopicIds ? inArray(schema.topicTestEffects.topicId, onlyTopicIds) : undefined,
+  );
 
   const effects = await ex
     .select()
     .from(schema.topicTestEffects)
-    .where(inArray(schema.topicTestEffects.markId, ids));
+    .where(which);
   if (effects.length === 0) return;
 
   const topicIds = Array.from(new Set(effects.map((e) => e.topicId)));
@@ -293,7 +307,24 @@ export async function revertTestEffects(
     WHERE s.topic_id = v.id
   `);
 
-  await ex
-    .delete(schema.topicTestEffects)
-    .where(inArray(schema.topicTestEffects.markId, ids));
+  await ex.delete(schema.topicTestEffects).where(which);
+}
+
+/**
+ * Takes back every trend adjustment on these topics, whichever marks made
+ * them. Used when a topic gets its first sub-topic and stops being judged
+ * itself: its marks stay linked to it as history, but nothing they did to it
+ * is left behind. (The same marks' effects on other topics are kept.)
+ */
+export async function revertTopicTrends(ex: Executor, topicIds: string[]) {
+  if (topicIds.length === 0) return;
+  const effects = await ex
+    .select({ markId: schema.topicTestEffects.markId })
+    .from(schema.topicTestEffects)
+    .where(inArray(schema.topicTestEffects.topicId, topicIds));
+  await revertTestEffects(
+    ex,
+    Array.from(new Set(effects.map((e) => e.markId))),
+    topicIds,
+  );
 }

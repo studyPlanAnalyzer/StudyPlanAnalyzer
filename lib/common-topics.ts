@@ -34,6 +34,8 @@ export const COMMON_TOPICS: Record<string, string[]> = {
 export function suggestTopicsFor(subjectName: string): string[] {
   const key = subjectName.trim().toLowerCase();
   if (COMMON_TOPICS[key]) return COMMON_TOPICS[key];
+  // Too short to guess from: "a" is inside "mathematics" but means nothing.
+  if (key.length < 3) return [];
   const partialMatch = Object.keys(COMMON_TOPICS).find(
     (k) => key.includes(k) || k.includes(key),
   );

@@ -226,7 +226,7 @@ export function PaymentFlow({
           <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-[#65615D] sm:text-base">
             {doneKind === 'school'
               ? `${info.childName} is covered through ${schoolResult ?? 'your school'}. You can start using the app now.`
-              : `Your payment will be verified within 24 hours. You can use the app for ${info.childName} in the meantime. If we can't verify it, the app will be locked and you'll need to pay again.`}
+              : `We'll check your payment, usually within 24 hours. ${info.childName} can use the app the whole time we're checking, and there's nothing more to pay. Only if we can't find the payment will we ask you to pay again.`}
           </p>
 
           <button

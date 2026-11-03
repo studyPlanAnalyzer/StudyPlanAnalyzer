@@ -10,7 +10,7 @@ import { dateStringSchema } from '@/lib/validation';
 
 const bodySchema = z.object({
   examId: z.string().uuid().optional(),
-  assessmentName: z.string().trim().min(1),
+  assessmentName: z.string().trim().min(1).max(200),
   assessmentDate: dateStringSchema,
   marks: z
     .array(
