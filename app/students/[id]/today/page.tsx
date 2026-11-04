@@ -98,7 +98,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
     load();
   }, [params.id, router, showToday]);
 
-  async function handleComplete(sessionId: string, rating: number) {
+  async function handleComplete(sessionId: string, rating?: number) {
     try {
       const res = (await api.put(`/api/sessions/${sessionId}`, {
         status: 'completed',

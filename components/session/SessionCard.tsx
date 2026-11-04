@@ -62,7 +62,7 @@ export function SessionCard({
   onSkip,
 }: {
   session: SessionItem;
-  onComplete: (rating: number) => Promise<void> | void;
+  onComplete: (rating?: number) => Promise<void> | void;
   onSkip: () => Promise<void> | void;
 }) {
   const [rating, setRating] = useState<number | null>(session.rating);
@@ -70,12 +70,13 @@ export function SessionCard({
   const isDone =
     session.status === 'completed' || session.status === 'partly_completed';
   const isSkipped = session.status === 'skipped';
+  const isOptional = session.isFiller === true;
 
   async function handleComplete() {
-    if (rating === null) return;
+    if (rating === null && !isOptional) return;
     setIsSaving(true);
     try {
-      await onComplete(rating);
+      await onComplete(isOptional ? undefined : (rating ?? undefined));
     } finally {
       setIsSaving(false);
     }
@@ -118,10 +119,9 @@ export function SessionCard({
         </p>
       )}
 
-      {session.isFiller && !isDone && !isSkipped && (
+      {isOptional && !isDone && !isSkipped && (
         <p className="mt-3 text-sm leading-6 text-black/70">
-          Flexible session: study this topic or any other topic you like, then
-          log what you studied.
+          Flexible session: study this topic or any other topic you like.
         </p>
       )}
 
@@ -147,36 +147,45 @@ export function SessionCard({
       {/* RATING + ACTIONS */}
       {!isDone && !isSkipped && (
         <div className="mt-6 rounded-[26px] bg-white/60 p-5 sm:p-6">
-          <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
-            How did it go?
-          </p>
+          {isOptional ? (
+            <p className="text-sm leading-6 text-black">
+              This is an optional session. There&apos;s nothing to rate, and it
+              won&apos;t change when topics come back for review.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
+                How did it go?
+              </p>
 
-          <div className="flex flex-wrap gap-2">
-            {RATINGS.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => setRating(r.value)}
-                aria-pressed={rating === r.value}
-                className={clsx(
-                  'inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95',
-                  r.tone,
-                  rating === r.value && 'ring-2 ring-black ring-offset-2',
-                )}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {RATINGS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRating(r.value)}
+                    aria-pressed={rating === r.value}
+                    className={clsx(
+                      'inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95',
+                      r.tone,
+                      rating === r.value && 'ring-2 ring-black ring-offset-2',
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={handleComplete}
-              disabled={rating === null || isSaving}
+              disabled={(rating === null && !isOptional) || isSaving}
               className={buttonClass('primary', 'lg')}
             >
-              {isSaving ? 'Saving…' : 'Mark completed'}
+              {isSaving ? 'Saving…' : isOptional ? 'Mark done' : 'Mark completed'}
             </button>
 
             <button

@@ -47,6 +47,31 @@ const statusLabel: Record<PlanSession['status'], string> = {
   skipped: 'Skipped',
 };
 
+const statusTone: Record<PlanSession['status'], string> = {
+  planned: 'bg-[#efeeec] text-[#666]',
+  completed: 'bg-[#a4e5c7] text-[#145c3d]',
+  partly_completed: 'bg-[#fce8b0] text-[#8a5b00]',
+  skipped: 'bg-[#fee2e2] text-[#b42318]',
+};
+
+/**
+ * The status badge. An optional session nobody did isn't a missed one, so it
+ * reads a neutral "Not done", not a red "Skipped". That includes one still
+ * "planned" on a past day: only the next rebuild marks those.
+ */
+export function sessionBadge(
+  s: Pick<PlanSession, 'status' | 'isFiller'>,
+  date: string,
+  today: string,
+) {
+  const notDone =
+    s.isFiller &&
+    (s.status === 'skipped' || (s.status === 'planned' && date < today));
+  return notDone
+    ? { label: 'Not done', className: statusTone.planned }
+    : { label: statusLabel[s.status], className: statusTone[s.status] };
+}
+
 function formatDate(dateStr: string) {
   return formatDay(
     dateStr,
@@ -137,7 +162,9 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                             href={`/students/${studentId}/today`}
                             className={buttonClass('yellow')}
                           >
-                            Rate today's session
+                            {s.isFiller
+                              ? "Open today's session"
+                              : "Rate today's session"}
                           </Link>
                         )}
 
@@ -148,16 +175,10 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
                       <span
                         className={clsx(
                           'whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold',
-                          s.status === 'completed' &&
-                            'bg-[#a4e5c7] text-[#145c3d]',
-                          s.status === 'partly_completed' &&
-                            'bg-[#fce8b0] text-[#8a5b00]',
-                          s.status === 'skipped' &&
-                            'bg-[#fee2e2] text-[#b42318]',
-                          s.status === 'planned' && 'bg-[#efeeec] text-[#666]',
+                          sessionBadge(s, day.date, today).className,
                         )}
                       >
-                        {statusLabel[s.status]}
+                        {sessionBadge(s, day.date, today).label}
                       </span>
                     </div>
                   </li>

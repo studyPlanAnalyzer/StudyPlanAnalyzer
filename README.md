@@ -139,7 +139,8 @@ asking them to update.
 3. **Payment** (`/students/[id]/pay`): see Billing below.
 4. **Analysis**: subject strengths, trends and the top priority topics, then
    **Generate plan** (optionally keeping the last 7 days before the exam free).
-5. **Plan / Today**: complete sessions and rate them Again/Hard/Good/Easy. The
+5. **Plan / Today**: complete required sessions and rate them Again/Hard/Good/Easy
+   (optional sessions are just marked done). The
    rating updates the topic's spaced-repetition state, and the plan is rebuilt
    once the day's required sessions are done.
 6. **Log a test / Tests**: record marks for the whole subject or for specific
@@ -170,6 +171,12 @@ asking them to update.
   left before the exam.
 - Sessions are placed within each day's minutes, at most two hard topics a day,
   never on the exam day. Topics that can't fit are listed on the Plan page.
+- **Optional sessions** fill any minutes left over, rotating through the topics,
+  so every study day until the exam has something on it. Only each topic's next
+  session is planned, so far-off days are mostly optional until reviews fall due
+  and required sessions take their place. They are not rated, never change a
+  topic's review schedule, and don't count in the plan's focus percentages or
+  in reports. One nobody did reads "Not done", not "Skipped".
 - Plans use marks from the current exam cycle only; Analysis shows all history.
 
 **Topic tests and the review schedule** (`lib/test-trend.ts`): a topic's newest

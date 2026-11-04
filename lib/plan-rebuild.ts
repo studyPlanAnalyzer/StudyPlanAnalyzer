@@ -28,7 +28,9 @@ export type RebuildResult =
  * before calling this.
  *
  * - Sessions dated before `fromDate` are history: completed ones are kept, and
- *   any still "planned" are marked skipped (they were never done).
+ *   any still "planned" from a day that is over are marked skipped (they were
+ *   never done). Today isn't over: a rebuild from tomorrow leaves today's
+ *   optional sessions open.
  * - Planned and skipped sessions dated `fromDate` or later are replaced.
  * - The plan row is locked for the swap, so two rebuilds at once can't leave
  *   duplicate sessions.
@@ -109,7 +111,7 @@ export async function rebuildPlan({
         and(
           eq(schema.studySessions.planId, plan.id),
           eq(schema.studySessions.status, 'planned'),
-          lt(schema.studySessions.scheduledDate, fromKey),
+          lt(schema.studySessions.scheduledDate, toDateString(appToday())),
         ),
       );
 

@@ -52,9 +52,10 @@ async function loadOwnedSession(sessionId: string, parentId: string) {
  * The topic's next SM-2 state after a rated session, or null when the session
  * wasn't due. Only a due session advances the real ladder: the topic's
  * first-ever review (no nextReviewDate yet), or one scheduled on/after the
- * stored due date. A leveling-pass "practice" session on a topic that isn't
- * due yet is still rated and logged, but must NOT count as a genuine spaced
- * repetition, otherwise a topic can rack up 5 "repetitions" within days.
+ * stored due date. A required session on a topic that isn't due yet (like a
+ * last look before the exam) is still rated and logged, but must NOT count as a
+ * genuine spaced repetition, otherwise a topic can rack up 5 "repetitions"
+ * within days.
  */
 function nextSpacedState(
   state: typeof schema.topicSpacedState.$inferSelect | undefined,
@@ -89,6 +90,9 @@ function nextSpacedState(
   return updateTopicSpacedState(currentState, rating, cap);
 }
 
+// Optional "free choice" sessions are placeholders for spare minutes, and the
+// child may study something else in them, so they have no rating and never
+// touch a topic's review schedule. Only required sessions do that.
 const updateSessionSchema = z.object({
   status: z.enum(['planned', 'completed', 'partly_completed', 'skipped']),
   rating: z.number().int().min(1).max(4).optional(),
@@ -115,11 +119,14 @@ export const PUT = withErrorHandling(
         { status: 400 },
       );
     }
-    const { status, rating } = parsed.data;
+    const { status } = parsed.data;
+    // Dropped here, not just hidden on the card: a page opened before optional
+    // sessions lost their rating can still send one.
+    const rating = existing.isFiller ? undefined : parsed.data.rating;
 
     const isCompletion =
       status === 'completed' || status === 'partly_completed';
-    if (isCompletion && rating === undefined) {
+    if (isCompletion && rating === undefined && !existing.isFiller) {
       return NextResponse.json(
         { error: 'rating is required when completing a session' },
         { status: 400 },
@@ -138,7 +145,8 @@ export const PUT = withErrorHandling(
       );
     }
 
-    // Only a rated session tied to a topic updates that topic's SM-2 state.
+    // Only a rated session tied to a topic updates that topic's SM-2 state, and
+    // optional sessions have no rating.
     const reviewTopicId =
       isCompletion && existing.topicId && rating !== undefined
         ? existing.topicId
@@ -246,7 +254,7 @@ export const PUT = withErrorHandling(
     // When the last required session of a day is dealt with (done or skipped),
     // rebuild the days ahead so they reflect the SM-2 state just updated. Doing
     // it once per day, not per session, keeps the plan from shifting mid-day.
-    // Optional "free choice" sessions never hold a day open.
+    // Optional sessions never hold a day open, and change nothing a rebuild uses.
     let planUpdated = false;
     if (
       status !== 'planned' &&
