@@ -32,6 +32,7 @@ lib/
   auth/             Google token checks, sessions, cookies, request auth
   billing/          Prices, billing states, the payment guard
   db/               Drizzle schema and connection
+  pwa/              The service worker's script and install-hint helpers
   reports/          Weekly reports (built on demand)
   utils/            Plan generator, spaced repetition, dates, scoring
   validation.ts     Shared request rules (dates, study days, minutes, grade…)
@@ -113,6 +114,26 @@ Safari 16.4 / iOS 16.4, Chrome 111, Edge 111, Firefox 111 or newer (the minimum
 for Next.js 16 and Tailwind v4). Older browsers can't parse the app's
 JavaScript, so `components/ui/OldBrowserNotice.tsx` shows them a plain notice
 asking them to update.
+
+## Installing the app (PWA)
+
+Parents can install the app: Android Chrome through the "Install app" button,
+iPhone Safari through Share, then Add to Home Screen. The manifest is
+`app/manifest.ts` and the service worker is served from `/sw.js`
+(`app/sw.js/route.ts`, script in `lib/pwa/service-worker.ts`), in production
+builds only.
+
+The worker never stores anything private. It keeps only the offline page
+(`public/offline.html`), the logo and Next.js's `/_next/static/` build files.
+Pages always come from the network, and `/api/` requests never touch it, so
+sign-in and token refresh work as they do in a browser.
+
+Each build stamps a new version into `/sw.js`, so every deploy installs a new
+worker, which then waits. It takes over when the app is closed, or when a parent
+taps Refresh in the update bar. Nothing reloads a page by itself, and no bar
+shows on a child's pages (`/students/...`).
+
+If the logo gets 192px or maskable versions, add them to `app/manifest.ts`.
 
 ## Rules and limits
 
