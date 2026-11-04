@@ -107,6 +107,13 @@ in local testing.
   device shows the same date.
 - Dates in requests must be real days (`2027-02-30` is refused).
 
+## Supported browsers
+
+Safari 16.4 / iOS 16.4, Chrome 111, Edge 111, Firefox 111 or newer (the minimum
+for Next.js 16 and Tailwind v4). Older browsers can't parse the app's
+JavaScript, so `components/ui/OldBrowserNotice.tsx` shows them a plain notice
+asking them to update.
+
 ## Rules and limits
 
 | What | Rule |

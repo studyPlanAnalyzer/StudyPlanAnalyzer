@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { OldBrowserNotice } from '@/components/ui/OldBrowserNotice';
 
 export const metadata: Metadata = {
   title: 'StudyPlan Analyzer',
@@ -14,7 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <OldBrowserNotice />
+        {children}
+      </body>
     </html>
   );
 }
