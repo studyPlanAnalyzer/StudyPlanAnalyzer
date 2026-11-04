@@ -2,7 +2,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SessionCard, type SessionItem } from '@/components/session/SessionCard';
+import {
+  OPTIONAL_NOTE,
+  requiredProgress,
+  SessionCard,
+  type SessionItem,
+} from '@/components/session/SessionCard';
 import { sessionBadge } from '@/components/plan/WeeklyPlanView';
 
 const session = (overrides: Partial<SessionItem> = {}) =>
@@ -35,11 +40,45 @@ describe('session card', () => {
     const html = render(session({ sessionType: 'practice', isFiller: true }));
     assert.doesNotMatch(html, /How did it go\?/);
     assert.doesNotMatch(html, /Again|Hard|Good|Easy/);
-    assert.match(html, /There&#x27;s nothing to rate/);
+    assert.match(html, /no rating needed/);
+    assert.match(html, /any other subject/);
+    assert.match(html, /isn&#x27;t part of the review schedule/);
+    assert.match(OPTIONAL_NOTE, /review schedule/);
     assert.match(html, /Mark done/);
-    assert.match(html, /Skip/);
+    assert.doesNotMatch(html, /Skip/, 'skipping an optional session does nothing');
+    assert.doesNotMatch(html, /without looking at notes/, 'that line is for required sessions');
     assert.doesNotMatch(html, /<button[^>]*\sdisabled=/, 'done needs no rating first');
     assert.doesNotMatch(html, /log what you studied/);
+  });
+});
+
+describe("today's progress", () => {
+  test('counts required sessions only', () => {
+    assert.deepEqual(
+      requiredProgress([
+        session({ status: 'completed' }),
+        session({ status: 'planned', isFiller: true, sessionType: 'practice' }),
+      ]),
+      { done: 1, total: 1 },
+    );
+  });
+
+  test('a finished optional session adds nothing, and partly done counts', () => {
+    assert.deepEqual(
+      requiredProgress([
+        session({ status: 'partly_completed' }),
+        session({ status: 'planned' }),
+        session({ status: 'completed', isFiller: true, sessionType: 'practice' }),
+      ]),
+      { done: 1, total: 2 },
+    );
+  });
+
+  test('a day with only optional sessions has nothing to count', () => {
+    assert.deepEqual(
+      requiredProgress([session({ isFiller: true, sessionType: 'practice' })]),
+      { done: 0, total: 0 },
+    );
   });
 });
 

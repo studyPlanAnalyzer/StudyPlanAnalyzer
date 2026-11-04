@@ -176,7 +176,8 @@ asking them to update.
   session is planned, so far-off days are mostly optional until reviews fall due
   and required sessions take their place. They are not rated, never change a
   topic's review schedule, and don't count in the plan's focus percentages or
-  in reports. One nobody did reads "Not done", not "Skipped".
+  in reports or Today's progress. They have Mark done but no Skip, and one
+  nobody did reads "Not done", not "Skipped".
 - Plans use marks from the current exam cycle only; Analysis shows all history.
 
 **Topic tests and the review schedule** (`lib/test-trend.ts`): a topic's newest

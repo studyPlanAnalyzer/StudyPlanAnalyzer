@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Badge } from '@/components/ui/Badge';
+import { Notice } from '@/components/ui/Notice';
 import { buttonClass } from '@/components/ui/Button';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 
@@ -88,6 +89,8 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
 
   if (!weeks.length) return null;
 
+  const hasOptional = current.days.some((d) => d.sessions.some((s) => s.isFiller));
+
   return (
     <div className="w-full">
       {/* Week navigation */}
@@ -107,6 +110,16 @@ export function WeeklyPlanView({ weeks }: { weeks: PlanWeek[] }) {
           </button>
         ))}
       </div>
+
+      {hasOptional && (
+        <Notice tone="info" className="mb-5">
+          <strong>Optional sessions</strong> fill spare time. No rating is
+          needed, and your child can study any subject they choose instead.
+          They aren&apos;t part of the review schedule, so they won&apos;t change
+          when topics come back for review. Required sessions may take their
+          place as review dates get closer.
+        </Notice>
+      )}
 
       {/* Weekly sessions */}
       {current && (

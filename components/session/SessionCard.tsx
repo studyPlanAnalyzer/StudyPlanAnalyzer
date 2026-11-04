@@ -17,6 +17,21 @@ export interface SessionItem {
   isFiller?: boolean;
 }
 
+/** What parents and children are told about optional sessions. */
+export const OPTIONAL_NOTE =
+  "Your child can study this topic or any other subject they choose. This session isn't part of the review schedule, so it won't change when topics come back for review.";
+
+/** Today's progress: required sessions only, so optional ones can't hold it back. */
+export function requiredProgress(sessions: SessionItem[]) {
+  const required = sessions.filter((s) => !s.isFiller);
+  return {
+    total: required.length,
+    done: required.filter(
+      (s) => s.status === 'completed' || s.status === 'partly_completed',
+    ).length,
+  };
+}
+
 const RATINGS: { value: 1 | 2 | 3 | 4; label: string; tone: string }[] = [
   {
     value: 1,
@@ -119,15 +134,11 @@ export function SessionCard({
         </p>
       )}
 
-      {isOptional && !isDone && !isSkipped && (
-        <p className="mt-3 text-sm leading-6 text-black/70">
-          Flexible session: study this topic or any other topic you like.
+      {!isOptional && (
+        <p className="mt-3 text-sm leading-6 text-black/80 sm:text-base">
+          {sessionInstructions[session.sessionType]}
         </p>
       )}
-
-      <p className="mt-3 text-sm leading-6 text-black/80 sm:text-base">
-        {sessionInstructions[session.sessionType]}
-      </p>
 
       {/* STATUS */}
       {isDone && (
@@ -148,10 +159,12 @@ export function SessionCard({
       {!isDone && !isSkipped && (
         <div className="mt-6 rounded-[26px] bg-white/60 p-5 sm:p-6">
           {isOptional ? (
-            <p className="text-sm leading-6 text-black">
-              This is an optional session. There&apos;s nothing to rate, and it
-              won&apos;t change when topics come back for review.
-            </p>
+            <>
+              <p className="text-sm font-bold text-black">
+                Optional session: no rating needed
+              </p>
+              <p className="mt-1 text-sm leading-6 text-black">{OPTIONAL_NOTE}</p>
+            </>
           ) : (
             <>
               <p className="mb-3 text-sm font-bold uppercase tracking-wide text-black">
@@ -188,13 +201,15 @@ export function SessionCard({
               {isSaving ? 'Saving…' : isOptional ? 'Mark done' : 'Mark completed'}
             </button>
 
-            <button
-              type="button"
-              onClick={() => onSkip()}
-              className={buttonClass('white', 'lg')}
-            >
-              Skip
-            </button>
+            {!isOptional && (
+              <button
+                type="button"
+                onClick={() => onSkip()}
+                className={buttonClass('white', 'lg')}
+              >
+                Skip
+              </button>
+            )}
           </div>
         </div>
       )}
