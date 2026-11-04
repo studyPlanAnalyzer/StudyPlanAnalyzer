@@ -4,7 +4,11 @@ import { useEffect, useState, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { SessionCard, SessionItem } from '@/components/session/SessionCard';
+import {
+  requiredProgress,
+  SessionCard,
+  SessionItem,
+} from '@/components/session/SessionCard';
 import { api, ApiError } from '@/lib/api-client';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { DailyTodoPanel } from '@/components/todo/DailyTodoPanel';
@@ -98,7 +102,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
     load();
   }, [params.id, router, showToday]);
 
-  async function handleComplete(sessionId: string, rating: number) {
+  async function handleComplete(sessionId: string, rating?: number) {
     try {
       const res = (await api.put(`/api/sessions/${sessionId}`, {
         status: 'completed',
@@ -123,10 +127,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
     }
   }
 
-  const completedCount =
-    sessions?.filter(
-      (s) => s.status === 'completed' || s.status === 'partly_completed',
-    ).length ?? 0;
+  const progress = requiredProgress(sessions ?? []);
 
   // Shown in the phone/tablet hamburger menu. Laptops keep "Back to full plan".
   const menuItems = [
@@ -225,29 +226,31 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
 
             {sessions !== null && sessions.length > 0 && (
               <>
-                {/* PROGRESS CARD */}
-                <div className="mb-6 rounded-[32px] bg-[#F7CC46] p-6 sm:p-8">
-                  <Tag className="px-5 py-2">Today&apos;s progress</Tag>
+                {/* PROGRESS CARD: not shown on a day with only optional sessions */}
+                {progress.total > 0 && (
+                  <div className="mb-6 rounded-[32px] bg-[#F7CC46] p-6 sm:p-8">
+                    <Tag className="px-5 py-2">Today&apos;s progress</Tag>
 
-                  <div className="mt-6 flex items-baseline gap-2">
-                    <p className="text-5xl font-extrabold tracking-tight sm:text-6xl">
-                      {completedCount}
-                    </p>
+                    <div className="mt-6 flex items-baseline gap-2">
+                      <p className="text-5xl font-extrabold tracking-tight sm:text-6xl">
+                        {progress.done}
+                      </p>
 
-                    <p className="text-lg font-bold text-black/60">
-                      of {sessions.length} sessions done
-                    </p>
+                      <p className="text-lg font-bold text-black/60">
+                        of {progress.total} required sessions done
+                      </p>
+                    </div>
+
+                    <div className="mt-5 h-2.5 w-full overflow-hidden rounded-full bg-white/50">
+                      <div
+                        className="h-full rounded-full bg-black/75 transition-all"
+                        style={{
+                          width: `${(progress.done / progress.total) * 100}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-
-                  <div className="mt-5 h-2.5 w-full overflow-hidden rounded-full bg-white/50">
-                    <div
-                      className="h-full rounded-full bg-black/75 transition-all"
-                      style={{
-                        width: `${(completedCount / sessions.length) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* SESSION CARDS */}
                 <div className="flex flex-col gap-4">

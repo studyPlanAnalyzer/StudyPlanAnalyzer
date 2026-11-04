@@ -450,8 +450,12 @@ export function generateStudyPlan(
 
   sessions.sort((a, b) => (a.scheduledDate < b.scheduledDate ? -1 : 1));
 
+  // The plan's focus: required sessions only. Optional ones just fill spare
+  // minutes, and all count as medium, which would skew the split.
   const minutesByTier: Record<Tier, number> = { weak: 0, medium: 0, strong: 0 };
-  for (const s of sessions) minutesByTier[s.tier] += s.durationMinutes;
+  for (const s of sessions) {
+    if (!s.isFiller) minutesByTier[s.tier] += s.durationMinutes;
+  }
   const totalScheduledMinutes =
     minutesByTier.weak + minutesByTier.medium + minutesByTier.strong;
   const pct = (n: number) =>

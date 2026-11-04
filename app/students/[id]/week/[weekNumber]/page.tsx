@@ -73,7 +73,7 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
 
   const allSessions = currentWeek?.days.flatMap((d) => d.sessions) ?? [];
   const completed = allSessions.filter((s) => s.status === "completed" || s.status === "partly_completed");
-  const skipped = allSessions.filter((s) => s.status === "skipped");
+  const skipped = allSessions.filter((s) => s.status === "skipped" && !s.isFiller);
   const planned = allSessions.filter((s) => s.status === "planned");
 
   const subjectGroups = new Map<string, { total: number; done: number }>();
