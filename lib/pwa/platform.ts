@@ -1,6 +1,8 @@
-// The app's cream page background and yellow accent.
+// The cream behind every page. The status and navigation bars match it, so the
+// phone's bars read as part of the page. A light colour, so Android draws dark
+// icons on them by itself.
 export const PWA_BACKGROUND = '#FAF9F6';
-export const PWA_THEME = '#F7CC46';
+export const PWA_THEME = PWA_BACKGROUND;
 
 /** Remembers that the install button or iPhone hint was dismissed. */
 export const INSTALL_DISMISSED_KEY = 'sp_install_dismissed';

@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 
 import manifest from '@/app/manifest';
 import { proxy } from '@/proxy';
-import { CAPTURE_INSTALL_PROMPT, isIosSafari } from '@/lib/pwa/platform';
+import { CAPTURE_INSTALL_PROMPT, isIosSafari, PWA_THEME } from '@/lib/pwa/platform';
 import { serviceWorkerScript, OFFLINE_URL } from '@/lib/pwa/service-worker';
 
 const ORIGIN = 'https://app.test';
@@ -151,6 +151,13 @@ describe('manifest', () => {
     assert.equal(m.start_url, '/dashboard');
     assert.equal(m.scope, '/');
     assert.equal(m.display, 'standalone');
+  });
+
+  test('the phone bars and splash use the cream page colour', () => {
+    const m = manifest();
+    assert.equal(m.theme_color, '#FAF9F6');
+    assert.equal(m.background_color, '#FAF9F6');
+    assert.equal(PWA_THEME, '#FAF9F6');
   });
 
   test('every icon is a real file', () => {

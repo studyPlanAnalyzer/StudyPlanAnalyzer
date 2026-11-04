@@ -13,7 +13,7 @@ import { Notice } from '@/components/ui/Notice';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
+import { NO_CHILD_HELPER, StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 import {
   StudentCard,
@@ -222,9 +222,12 @@ export default function DashboardPage() {
             title="Your learning journey starts here."
             description="Add your first child to start tracking study plans, exam results and daily learning habits."
             action={
-              <Link href="/onboarding" className={emptyStateActionClass}>
-                + Add your first child
-              </Link>
+              <>
+                <Link href="/onboarding" className={emptyStateActionClass}>
+                  + Add your first child
+                </Link>
+                <p className="mt-4 text-sm leading-6 text-[#65615D]">{NO_CHILD_HELPER}</p>
+              </>
             }
           />
         )}
@@ -246,7 +249,11 @@ export default function DashboardPage() {
         )}
       </PageMain>
 
-      <StudentBottomNav studentId={firstStudent?.id ?? null} active="home" />
+      <StudentBottomNav
+        studentId={firstStudent?.id ?? null}
+        active="home"
+        noChild={students?.length === 0}
+      />
 
       {/* DELETE CONFIRMATION MODAL */}
       {deleteTarget && (
