@@ -8,7 +8,9 @@
 // for scripts is needed by Next.js's inline bootstrap scripts unless every
 // page is rendered per request with a nonce; 'unsafe-eval' only in
 // development, for hot reloading. HSTS leaves subdomains alone so it can't
-// lock out any that aren't on HTTPS.
+// lock out any that aren't on HTTPS. worker-src and manifest-src only name
+// what default-src already allowed: the service worker and manifest at /sw.js
+// and /manifest.webmanifest.
 const isDev = process.env.NODE_ENV !== 'production';
 const GOOGLE_GSI = 'https://accounts.google.com/gsi/';
 const csp = [
@@ -22,6 +24,8 @@ const csp = [
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "object-src 'none'",
 ].join('; ');
 
@@ -43,6 +47,8 @@ const nextConfig = {
   // The app doesn't use next/image. Turning the optimizer off removes the
   // /_next/image endpoint, which has had several security advisories.
   images: { unoptimized: true },
+  // Changes with every build, so every deploy changes /sw.js (app/sw.js/route.ts).
+  env: { SW_BUILD_VERSION: String(Date.now()) },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
