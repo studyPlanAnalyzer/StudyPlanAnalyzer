@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { withDevToday } from '@/lib/dev-clock';
 
 const NETWORK_CODES = new Set([
   'ECONNREFUSED',
@@ -172,16 +173,19 @@ export function errorResponse(err: unknown) {
  * Wrap a route handler so any thrown error becomes a consistent JSON response:
  *   { error: string (safe for users), code: string, details?: unknown }
  *
- * Works with or without the second (params) argument.
+ * Works with or without the second (params) argument. On a preview
+ * deployment it also runs the handler in the dev clock's fake day for this
+ * browser (lib/dev-clock.ts); elsewhere that does nothing.
  */
 export function withErrorHandling<Args extends unknown[]>(
   handler: (...args: Args) => Promise<Response>,
 ) {
-  return async (...args: Args): Promise<Response> => {
-    try {
-      return await handler(...args);
-    } catch (err) {
-      return errorResponse(err);
-    }
-  };
+  return async (...args: Args): Promise<Response> =>
+    withDevToday(args[0], async () => {
+      try {
+        return await handler(...args);
+      } catch (err) {
+        return errorResponse(err);
+      }
+    });
 }

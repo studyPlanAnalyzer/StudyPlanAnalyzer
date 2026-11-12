@@ -15,11 +15,12 @@ export function startOfDayUTC(d: Date): Date {
 }
 
 /**
- * Development only: a fake "today" set with the dev clock (lib/dev-clock.ts,
- * components/dev/DevClock.tsx), so days can be stepped through by hand. The
- * server installs a reader for the .dev-today file; the browser gets the
- * value from an inline script in the root layout. Outside development (and
- * in tests and scripts, where NODE_ENV isn't "development") it is never read.
+ * A fake "today" set with the dev clock (lib/dev-clock.ts,
+ * components/dev/DevClock.tsx), so days can be stepped through by hand. Only
+ * the dev clock sets it, and only in development or on a preview deployment:
+ * the server installs a reader (lib/dev-clock.ts), and the browser gets the
+ * value from an inline script in the root layout. In production, tests and
+ * scripts it is never set.
  */
 export type DevTodaySource = string | null | (() => string | null);
 declare global {
@@ -28,8 +29,8 @@ declare global {
 }
 
 function devToday(): Date | null {
-  if (process.env.NODE_ENV !== 'development') return null;
   const source = globalThis.__devToday;
+  if (source == null) return null;
   const value = typeof source === 'function' ? source() : source;
   return value && isRealDateString(value) ? fromDateString(value) : null;
 }

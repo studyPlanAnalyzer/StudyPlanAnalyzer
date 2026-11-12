@@ -4,18 +4,20 @@ import { useState } from 'react';
 import { formatDay } from '@/lib/utils/date-utils';
 
 /**
- * Development-only floating panel for the dev clock (lib/dev-clock.ts): move
- * the app's "today" back and forth to test SM-2 reviews, plan rebuilds,
- * catch-up and exam expiry. Each change reloads the page so the server and
- * the browser both pick up the new day. The root layout renders this only in
- * development.
+ * Floating panel for the dev clock (lib/dev-clock.ts): move the app's "today"
+ * back and forth to test SM-2 reviews, plan rebuilds, revision days and exam
+ * expiry. Each change reloads the page so the server and the browser both
+ * pick up the new day. The root layout renders this only in development and
+ * on preview deployments (where the day is this browser's own).
  */
 export function DevClock({
   today,
   realToday,
+  perBrowser = false,
 }: {
   today: string;
   realToday: string;
+  perBrowser?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -66,7 +68,10 @@ export function DevClock({
           <p className="text-sm">
             Today: <b>{label}</b> {faked && <span className="text-red-600">(fake)</span>}
           </p>
-          <p className="mb-3 text-xs text-black/60">Real day: {realToday}</p>
+          <p className="mb-3 text-xs text-black/60">
+            Real day: {realToday}
+            {perBrowser && ' · this browser only'}
+          </p>
           <div className="mb-2 flex gap-1.5">
             <button type="button" disabled={busy} className={step} onClick={() => change({ shiftDays: -1 })}>
               −1 day
