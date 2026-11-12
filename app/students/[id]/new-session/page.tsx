@@ -16,10 +16,11 @@ import { Tag } from '@/components/ui/Tag';
 import { api, ApiError } from '@/lib/api-client';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { examDateProblem } from '@/lib/validation';
+import { academicYearText } from '@/lib/utils/academic-year';
 import { suggestTopicsFor } from '@/lib/common-topics';
+import { FIRST_EXAM_NAME } from '@/lib/exam-names';
 
 type Level = 'low' | 'medium' | 'high';
-type Estimate = Level | ''; // '' = not chosen yet
 
 interface StudentDetail {
   student: { id: string; name: string; grade?: string };
@@ -38,7 +39,6 @@ interface TopicForm {
 interface NewSubject {
   name: string;
   examWeight: Level;
-  estimate: Estimate;
   topics: TopicForm[];
 }
 
@@ -58,34 +58,6 @@ const CARD_COLORS = [
   'bg-[#9ED0F2]', // sky
 ];
 
-function EstimateSelect({
-  value,
-  onChange,
-  className = '',
-}: {
-  value: Estimate;
-  onChange: (value: Estimate) => void;
-  className?: string;
-}) {
-  return (
-    <Field label="Estimated confidence" className={className}>
-      <Select
-        onColour
-        className="w-full"
-        value={value}
-        onChange={(e) => onChange(e.target.value as Estimate)}
-      >
-        <option value="" disabled>
-          Select…
-        </option>
-        <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high">High</option>
-      </Select>
-    </Field>
-  );
-}
-
 const PANEL = `${cardClass} p-4 sm:p-8`;
 
 /* ------------------------------------------------------------------ */
@@ -98,7 +70,7 @@ export default function NewSessionPage(props: {
   const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
-  const [examName, setExamName] = useState('');
+  const [examName, setExamName] = useState<string>(FIRST_EXAM_NAME);
   const [examDate, setExamDate] = useState('');
   const [grade, setGrade] = useState('');
   // A new session replaces everything: the parent has to agree first.
@@ -108,35 +80,11 @@ export default function NewSessionPage(props: {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
 
-  // From onboarding ("no previous exams") the child isn't saved yet: the draft
-  // is kept in sessionStorage and everything is saved together on submit.
-  const isDraft = params.id === 'new';
-  const draftStudent = useRef<Record<string, unknown> | null>(null);
-
   // Index of the subject card that was just added, so the page can scroll to
   // it and focus its name field.
   const lastAdded = useRef<number | null>(null);
 
   useEffect(() => {
-    if (isDraft) {
-      try {
-        const raw = sessionStorage.getItem('newSessionDraft');
-        draftStudent.current = raw ? JSON.parse(raw).student : null;
-      } catch {
-        draftStudent.current = null;
-      }
-      if (!draftStudent.current) {
-        router.replace('/onboarding');
-        return;
-      }
-      setDetail({
-        student: { id: 'new', name: String(draftStudent.current.name) },
-        subjects: [],
-        topics: [],
-        exams: [],
-      });
-      return;
-    }
     api
       .get<StudentDetail>(`/api/students/${params.id}`)
       .then((data) => {
@@ -152,7 +100,7 @@ export default function NewSessionPage(props: {
         }
         setError("Couldn't load this student. Please try refreshing.");
       });
-  }, [params.id, router, isDraft]);
+  }, [params.id, router]);
 
   // After a subject is added, bring its card into view and focus the name
   // field, so the parent never has to hunt for it.
@@ -175,7 +123,6 @@ export default function NewSessionPage(props: {
       {
         name: '',
         examWeight: 'medium',
-        estimate: '',
         topics: [],
       },
     ]);
@@ -203,7 +150,7 @@ export default function NewSessionPage(props: {
 
   function validate(): string | null {
     const g = Number(grade);
-    if (!isDraft && (!Number.isInteger(g) || g < 4 || g > 10))
+    if (!Number.isInteger(g) || g < 4 || g > 10)
       return 'Enter the grade as a whole number from 4 to 10.';
     if (!examName.trim() || !examDate) return 'Enter the exam name and date.';
     const examDateError = examDateProblem(examDate);
@@ -219,10 +166,6 @@ export default function NewSessionPage(props: {
       );
       if (clash) return clash;
     }
-    // Every subject needs an estimate here, since there are no marks to go on.
-    for (const s of newSubjects) {
-      if (!s.estimate) return `Choose an estimated confidence for ${s.name}.`;
-    }
     return null;
   }
 
@@ -235,7 +178,6 @@ export default function NewSessionPage(props: {
     }
     // The new session replaces everything the child has: confirm once more.
     if (
-      !isDraft &&
       !window.confirm(
         `Start the new session? This permanently deletes all of ${detail?.student.name}'s current subjects, topics, test history and study plans, and replaces them with what you entered here. This can't be undone.`,
       )
@@ -246,40 +188,14 @@ export default function NewSessionPage(props: {
     setIsSubmitting(true);
 
     try {
-      if (isDraft) {
-        const { studentId } = await api.post<{ studentId: string }>(
-          '/api/onboarding',
-          {
-            student: draftStudent.current,
-            exam: { name: examName.trim(), examDate },
-            subjects: newSubjects.map((s) => ({
-              name: s.name.trim(),
-              examWeight: s.examWeight,
-              estimatedConfidence: s.estimate,
-              topics: s.topics
-                .filter((t) => t.selected && t.name.trim())
-                .map((t) => ({
-                  name: t.name.trim(),
-                  difficultyRating: t.difficultyRating,
-                })),
-            })),
-          },
-        );
-        sessionStorage.removeItem('newSessionDraft');
-        // A new child: the last step is the payment.
-        router.push(`/students/${studentId}/pay`);
-        return;
-      }
-
       // One request: the old session is cleared and the new exam, subjects,
-      // topics and estimates are saved, together or not at all.
+      // topics and study plan are saved, together or not at all.
       await api.post(`/api/students/${params.id}/new-session`, {
         grade: String(Number(grade)),
         exam: { name: examName.trim(), examDate },
         subjects: newSubjects.map((s) => ({
           name: s.name.trim(),
           examWeight: s.examWeight,
-          estimatedConfidence: s.estimate,
           topics: s.topics
             .filter((t) => t.selected && t.name.trim())
             .map((t) => ({
@@ -289,7 +205,7 @@ export default function NewSessionPage(props: {
         })),
       });
 
-      router.push(`/students/${params.id}/analysis`);
+      router.push(`/students/${params.id}/plan`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -308,10 +224,7 @@ export default function NewSessionPage(props: {
   return (
     <PageShell className="pb-16 sm:pb-8">
       <AppHeader>
-        <BackLink
-          href={isDraft ? '/onboarding' : `/students/${params.id}/analysis`}
-          label={isDraft ? 'Back to setup' : 'Back to analysis'}
-        />
+        <BackLink href={`/students/${params.id}/analysis`} label="Back to analysis" />
       </AppHeader>
 
       <PageMain>
@@ -353,7 +266,7 @@ export default function NewSessionPage(props: {
 
             // Starting a new session replaces everything: ask first. Nothing is
             // deleted until the form is finished and saved.
-            if (!isDraft && !confirmed) {
+            if (!confirmed) {
               return (
                 <div className={PANEL}>
                   <div className="rounded-[28px] border-2 border-dashed border-red-300 bg-red-50 p-4 sm:p-5">
@@ -399,15 +312,14 @@ export default function NewSessionPage(props: {
                   </PageTitle>
 
                   <p className="mt-4 max-w-xl text-sm leading-7 text-black sm:text-base lg:text-lg">
-                    For {detail.student.name}. Add the new year&apos;s subjects
-                    and topics. There are no marks yet, so give each subject a
-                    rough confidence. It is only used until the first real marks
-                    are added.
+                    For {detail.student.name}. Add the new year&apos;s subjects, and tick
+                    any topics already taught: they start over the next few days, 4 a day.
+                    From then on, add topics on the day they&apos;re taught.
                   </p>
                 </section>
 
                 <div className={PANEL}>
-                  {!isDraft && (
+                  {(
                     <div className="mb-5 rounded-[28px] border-2 border-dashed border-[#d6d4cd] bg-white p-4 sm:p-5">
                       <Tag>Grade</Tag>
                       <div className="mt-4">
@@ -434,12 +346,12 @@ export default function NewSessionPage(props: {
                       <Field label="Exam name" className="min-w-0">
                         <input
                           className={fieldClass}
-                          placeholder="e.g. First Term 2026"
+                          placeholder="First Terminal Examination"
                           value={examName}
                           onChange={(e) => setExamName(e.target.value)}
                         />
                       </Field>
-                      <Field label="Exam date" className="min-w-0">
+                      <Field label="Exam date" className="min-w-0" hint={academicYearText(examDate) ?? undefined}>
                         <input
                           type="date"
                           className={fieldClass}
@@ -497,7 +409,7 @@ export default function NewSessionPage(props: {
                                       (t) => ({
                                         name: t,
                                         difficultyRating: 2,
-                                        selected: true,
+                                        selected: false,
                                       }),
                                     ),
                                   })
@@ -523,11 +435,6 @@ export default function NewSessionPage(props: {
                                 <option value="high">High</option>
                               </Select>
                             </Field>
-                            <EstimateSelect
-                              className="w-full sm:w-[190px]"
-                              value={s.estimate}
-                              onChange={(v) => updateNew(i, { estimate: v })}
-                            />
                             <Button
                               variant="white"
                               onClick={() =>
@@ -548,7 +455,7 @@ export default function NewSessionPage(props: {
                           {s.name.trim() && (
                             <div className="mt-6 rounded-3xl bg-white/[0.55] p-3 sm:p-3.5">
                               <p className="mb-3 text-base font-bold text-black">
-                                Topics for {s.name}
+                                Topics for {s.name} already taught
                               </p>
                               <div className="flex flex-col gap-2">
                                 {s.topics.map((t, j) => (
@@ -605,9 +512,8 @@ export default function NewSessionPage(props: {
                                 ))}
                                 {s.topics.length === 0 && (
                                   <p className="text-sm font-semibold leading-6 text-black">
-                                    No topics yet — this subject won&apos;t get
-                                    any study sessions until you add at least
-                                    one.
+                                    Nothing taught yet? Add topics on the
+                                    Subjects page on the day they&apos;re taught.
                                   </p>
                                 )}
                               </div>
@@ -647,7 +553,7 @@ export default function NewSessionPage(props: {
                     onClick={handleSubmit}
                     isLoading={isSubmitting}
                   >
-                    Save and go to analysis
+                    Save and go to the plan
                   </Button>
                 </div>
               </>

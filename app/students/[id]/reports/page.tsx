@@ -18,7 +18,10 @@ interface ReportListItem {
   weekStart: string;
   weekEnd: string;
   headline: HeadlineKind;
-  studyMinutes: number;
+  /** Version 3 reports. */
+  topicsDone: number | null;
+  /** Version 2 reports. */
+  studyMinutes: number | null;
   builtLater: boolean;
   readAt: string | null;
 }
@@ -93,7 +96,9 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
                       </div>
                       <p className="mt-1 font-semibold leading-6">{s.headline(r.headline, data.student.name)}</p>
                       <p className="mt-1 text-sm text-[#65615D]">
-                        {s.label.studyTime}: {formatMinutes(r.studyMinutes)}
+                        {r.topicsDone !== null
+                          ? `${s.label.topicsDone}: ${r.topicsDone}`
+                          : `${s.label.studyTime}: ${formatMinutes(r.studyMinutes ?? 0)}`}
                         {r.builtLater && <span className="text-[#8A8580]"> · {s.view.builtLaterShort}</span>}
                       </p>
                     </Link>

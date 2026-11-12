@@ -6,7 +6,12 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { insertTopicRows } from '@/lib/topic-leaves';
 import { rebuildPlan } from '@/lib/plan-rebuild';
-import { appToday } from '@/lib/utils/date-utils';
+import { appToday, toDateString } from '@/lib/utils/date-utils';
+import { tomorrowKey } from '@/lib/utils/revision-days';
+import { pickExam } from '@/lib/exam-pick';
+import { academicYearOf } from '@/lib/utils/academic-year';
+import { isExamOver } from '@/lib/plan-expiry';
+import { createPlanForExam } from '@/lib/plan-create';
 import { withErrorHandling } from '@/lib/api/handler';
 import {
   subjectNameSchema,
@@ -24,6 +29,15 @@ class PlanRebuildError extends Error {}
 
 const name = z.string().min(1).max(200);
 const weight = z.enum(['low', 'medium', 'high']);
+// A topic studied for an earlier exam rather than taught now: which exam (one
+// of the child's own, or just a name for an exam from before they joined),
+// and optionally how well the child feels they know it. It is revised on
+// revision days, not scheduled by SM-2 (lib/revision.ts).
+const earlierSchema = z.object({
+  examId: z.string().uuid().optional(),
+  examName: z.string().trim().min(1).max(200),
+  selfRating: z.enum(['not_sure', 'ok', 'know_well']).optional(),
+});
 
 const curriculumSchema = z.object({
   // The plan to rebuild as part of the same save, if the child has one.
@@ -36,6 +50,8 @@ const curriculumSchema = z.object({
         fullMarks: fullMarksSchema.default(100),
         examWeight: z.enum(['low', 'medium', 'high']),
         topics: z.array(name).default([]),
+        // Set when its topics were studied for an earlier exam.
+        earlier: earlierSchema.optional(),
       }),
     )
     .default([]),
@@ -72,6 +88,7 @@ const curriculumSchema = z.object({
         parentTopicId: z.string().uuid().nullable().default(null),
         name,
         difficultyRating: z.number().int().min(1).max(5).default(2),
+        earlier: earlierSchema.optional(),
       }),
     )
     .default([]),
@@ -116,7 +133,7 @@ export const POST = withErrorHandling(
     // Student, subjects, topics and the plan are read together in ONE parallel
     // round (five queries in a row before). Nothing is saved unless the student
     // is this parent's.
-    const [students, existingSubjects, topicJoin, plans] = await Promise.all([
+    const [students, existingSubjects, topicJoin, plans, exams] = await Promise.all([
       db
         .select()
         .from(schema.students)
@@ -155,6 +172,7 @@ export const POST = withErrorHandling(
             )
             .limit(1)
         : Promise.resolve([]),
+      db.select().from(schema.exams).where(eq(schema.exams.studentId, params.id)),
     ]);
     const student = students[0];
     if (!student)
@@ -227,6 +245,27 @@ export const POST = withErrorHandling(
     const plan = plans[0];
     if (planId && !plan)
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+
+    // Topics taught now belong to the exam being prepared for, and get their
+    // learn session tomorrow. Earlier-exam topics name their exam: one of the
+    // child's own past exams of the same academic year, or one from before
+    // they joined.
+    const currentExam = pickExam(exams) ?? null;
+    const year = currentExam ? academicYearOf(currentExam.examDate) : null;
+    const earlierExamIds = new Set(
+      exams.filter((e) => e.id !== currentExam?.id && academicYearOf(e.examDate) === year).map((e) => e.id),
+    );
+    const earlierRequests = [
+      ...newTopics.flatMap((t) => (t.earlier ? [t.earlier] : [])),
+      ...newSubjects.flatMap((s) => (s.earlier ? [s.earlier] : [])),
+    ];
+    if (earlierRequests.some((e) => e.examId && !earlierExamIds.has(e.examId)))
+      return NextResponse.json({ error: "Choose one of this academic year's earlier exams for these topics" }, { status: 400 });
+    const tomorrow = tomorrowKey(toDateString(appToday()));
+    const tag = (earlier: z.infer<typeof earlierSchema> | undefined) =>
+      earlier
+        ? { examId: earlier.examId ?? null, examName: earlier.examName, selfRating: earlier.selfRating ?? null }
+        : { examId: currentExam?.id ?? null, examName: currentExam?.name ?? null, learnFrom: tomorrow };
 
     let planUpdated = false;
     try {
@@ -331,6 +370,7 @@ export const POST = withErrorHandling(
               subjectId: newSubjectRows[i].id,
               parentTopicId: null,
               name: n,
+              ...tag(s.earlier),
             })),
           ),
           ...newTopics.map((t) => ({
@@ -338,6 +378,7 @@ export const POST = withErrorHandling(
             parentTopicId: t.parentTopicId,
             name: t.name,
             difficultyRating: t.difficultyRating,
+            ...tag(t.earlier),
           })),
         ]);
 
@@ -354,6 +395,14 @@ export const POST = withErrorHandling(
           if (result.ok) planUpdated = true;
           else if (result.status !== 400)
             throw new PlanRebuildError(result.error);
+        } else if (currentExam && !isExamOver(currentExam.examDate)) {
+          // No plan yet for the exam being prepared for: it starts now.
+          const [existing] = await tx
+            .select({ id: schema.studyPlans.id })
+            .from(schema.studyPlans)
+            .where(eq(schema.studyPlans.examId, currentExam.id))
+            .limit(1);
+          if (!existing) planUpdated = !!(await createPlanForExam({ student, exam: currentExam, ex: tx }));
         }
       });
     } catch (err) {

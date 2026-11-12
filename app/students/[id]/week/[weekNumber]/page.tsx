@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader, BackLink } from "@/components/ui/AppHeader";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { cardClass } from "@/components/ui/Card";
 import { Notice } from "@/components/ui/Notice";
 import { PageMain, PageShell } from "@/components/ui/PageShell";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { api, ApiError } from "@/lib/api-client";
-import type { PlanWeek } from "@/components/plan/WeeklyPlanView";
+import type { PlanWeek } from "@/components/plan/types";
 
 interface StudentDetail {
   latestPlan: { id: string } | null;
@@ -27,10 +27,8 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
   const params = use(props.params);
   const router = useRouter();
   const weekNumber = Number(params.weekNumber);
-  const [planId, setPlanId] = useState<string | null>(null);
   const [weeks, setWeeks] = useState<PlanWeek[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -40,7 +38,6 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
           setWeeks([]);
           return;
         }
-        setPlanId(detail.latestPlan.id);
         const plan = await api.get<PlanResponse>(`/api/plans/${detail.latestPlan.id}`);
         setWeeks(plan.weeks);
       } catch (err) {
@@ -54,26 +51,13 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
     load();
   }, [params.id, router]);
 
-  async function handleRegenerate() {
-    if (!planId) return;
-    setIsRegenerating(true);
-    setError(null);
-    try {
-      await api.post(`/api/plans/${planId}/regenerate`);
-      router.push(`/students/${params.id}/plan?planId=${planId}`);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't regenerate the plan.");
-    } finally {
-      setIsRegenerating(false);
-    }
-  }
 
   const currentWeek = weeks?.find((w) => w.weekNumber === weekNumber) ?? null;
   const nextWeek = weeks?.find((w) => w.weekNumber === weekNumber + 1) ?? null;
 
   const allSessions = currentWeek?.days.flatMap((d) => d.sessions) ?? [];
   const completed = allSessions.filter((s) => s.status === "completed" || s.status === "partly_completed");
-  const skipped = allSessions.filter((s) => s.status === "skipped" && !s.isFiller);
+  const skipped = allSessions.filter((s) => s.status === "skipped");
   const planned = allSessions.filter((s) => s.status === "planned");
 
   const subjectGroups = new Map<string, { total: number; done: number }>();
@@ -96,9 +80,6 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
           <div className="min-w-0 flex-1">
             <PageTitle>Week {weekNumber} summary</PageTitle>
           </div>
-          <Button onClick={handleRegenerate} isLoading={isRegenerating} variant="secondary" size="lg" className="w-fit">
-            Regenerate plan
-          </Button>
         </section>
 
         {error && <Notice className="mb-6">{error}</Notice>}

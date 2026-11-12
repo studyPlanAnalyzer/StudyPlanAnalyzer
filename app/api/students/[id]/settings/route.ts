@@ -2,26 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { createPlanForExam } from '@/lib/plan-create';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import {
   dateStringSchema,
   examDateProblem,
-  holidayDayMinutesSchema,
-  schoolDayMinutesSchema,
-  studyDaysSchema,
 } from '@/lib/validation';
 import { pickExam } from '@/lib/exam-pick';
 import { isExamOver } from '@/lib/plan-expiry';
 import { rebuildPlan } from '@/lib/plan-rebuild';
-import { generateStudyPlan } from '@/lib/utils/plan-generator';
-import { loadSubjectInputs } from '@/lib/plan-inputs';
-import { addDays, fromDateString, appToday } from '@/lib/utils/date-utils';
+import { appToday } from '@/lib/utils/date-utils';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
 export const maxDuration = 60;
 
-const BUFFER_DAYS = 7;
 
 // A failure that must undo the whole save, with the status to report.
 class SaveError extends Error {
@@ -34,16 +29,16 @@ class SaveError extends Error {
 }
 
 const bodySchema = z.object({
-  studyDays: studyDaysSchema,
-  schoolDayMinutes: schoolDayMinutesSchema,
-  holidayDayMinutes: holidayDayMinutesSchema,
+  // Saturday is always a revision day; this says whether Sunday is one too.
+  sundayRevision: z.boolean(),
   examDate: dateStringSchema.optional(),
   // Buffer-week choice. Left out, the existing plan keeps its own setting.
   useBufferWeek: z.boolean().optional(),
 });
 
 /**
- * Saves the planning inputs (study days, daily minutes, exam date) and builds
+ * Saves the planning inputs (Sunday as a revision day, exam date, buffer
+ * week) and builds
  * or rebuilds the study plan from them, all in ONE transaction. If the plan
  * can't be built, nothing is saved.
  */
@@ -60,13 +55,7 @@ export const PUT = withErrorHandling(
         { status: 400 },
       );
     }
-    const {
-      studyDays,
-      schoolDayMinutes,
-      holidayDayMinutes,
-      examDate,
-      useBufferWeek,
-    } = parsed.data;
+    const { sundayRevision, examDate, useBufferWeek } = parsed.data;
 
     // The student, exams and plans are read together, before the transaction,
     // so it holds only writes. Nothing happens unless the student belongs to
@@ -125,9 +114,7 @@ export const PUT = withErrorHandling(
         const [updatedStudent] = await tx
           .update(schema.students)
           .set({
-            studyDays,
-            schoolDayMinutes,
-            holidayDayMinutes,
+            sundayRevision,
             updatedAt: new Date(),
           })
           .where(eq(schema.students.id, student.id))
@@ -164,58 +151,15 @@ export const PUT = withErrorHandling(
         if (!exam) return null;
 
         // No plan for this exam yet: build the first one.
-        const examDay = fromDateString(exam.examDate);
         if (isExamOver(exam.examDate))
           throw new SaveError('Exam date must be in the future', 400);
-        const endDate = useBufferWeek
-          ? addDays(examDay, -BUFFER_DAYS)
-          : examDay;
-        if (endDate.getTime() <= appToday().getTime())
-          throw new SaveError(
-            "Not enough time before the exam to leave a consolidation week. Choose 'use the full period' instead.",
-            400,
-          );
-        const subjects = await loadSubjectInputs(student.id, exam.id, tx);
-        if (subjects.reduce((n, s) => n + s.topics.length, 0) === 0)
-          throw new SaveError(
-            'Add subjects with topics before generating a plan',
-            400,
-          );
-        const result = generateStudyPlan({
-          examDate: examDay,
-          scheduleEndDate: endDate,
-          studyDays: updatedStudent.studyDays,
-          schoolDayMinutes: updatedStudent.schoolDayMinutes,
-          holidayDayMinutes: updatedStudent.holidayDayMinutes,
-          subjects,
+        const created = await createPlanForExam({
+          student: updatedStudent,
+          exam,
+          useBufferWeek: useBufferWeek ?? false,
+          ex: tx,
         });
-        const [created] = await tx
-          .insert(schema.studyPlans)
-          .values({
-            studentId: student.id,
-            examId: exam.id,
-            totalDays: result.totalDays,
-            averageDailyMinutes: result.averageDailyMinutes,
-            weakFocusPercent: result.weakFocusPercent,
-            mediumFocusPercent: result.mediumFocusPercent,
-            strongFocusPercent: result.strongFocusPercent,
-            unscheduledTopicIds: result.unscheduledTopicIds,
-            useBufferWeek: useBufferWeek ?? false,
-          })
-          .returning();
-        if (result.sessions.length > 0) {
-          await tx.insert(schema.studySessions).values(
-            result.sessions.map((s) => ({
-              planId: created.id,
-              topicId: s.topicId,
-              subjectId: s.subjectId,
-              scheduledDate: s.scheduledDate,
-              durationMinutes: s.durationMinutes,
-              sessionType: s.sessionType,
-              isFiller: s.isFiller ?? false,
-            })),
-          );
-        }
+        if (!created) throw new SaveError('Exam date must be in the future', 400);
         return created.id;
       });
 

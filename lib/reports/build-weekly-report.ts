@@ -1,5 +1,6 @@
 import { leafPriority } from '@/lib/utils/plan-generator';
 import { computeStreaks } from '@/lib/utils/streak';
+import { isStruggling } from '@/lib/utils/topic-status';
 import {
   addDays,
   appDay,
@@ -59,13 +60,15 @@ const percent = (part: number, whole: number) =>
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 // ---------------------------------------------------------------------------
-// Study time: the PLANNED length (durationMinutes) of every session marked
-// completed or partly completed whose completedAt falls in the week, optional
-// sessions included. It is not a stopwatch: a partly completed session counts
-// at its planned length.
+// Topics done: sessions marked completed or partly completed whose
+// completedAt falls in the week. Optional sessions from older plans aren't
+// counted.
 // ---------------------------------------------------------------------------
-function studyMinutes(sessions: SessionRow[], week: ReportWeek) {
-  return sum(finishedIn(sessions, week).map((s) => s.durationMinutes));
+function topicsDoneIn(sessions: SessionRow[], week: ReportWeek) {
+  return finishedIn(
+    sessions.filter((s) => !s.isFiller),
+    week,
+  ).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,37 +131,38 @@ function ratingCounts(input: ReportInput, week: ReportWeek) {
 }
 
 // ---------------------------------------------------------------------------
-// Topics needing attention: first, topics rated Again or Hard at least
-// ATTENTION_MIN_HARD_RATINGS times in the ATTENTION_RATING_WINDOW_DAYS ending
-// on the week's last day (most such ratings first); then topics the plan
-// generator itself treats as weak (leafPriority weakness above
+// Topics needing attention: first, topics that Need practice at the week's
+// end, by the same rule as the badge (isStruggling: Hard or Again on 2 of
+// the topic's last 3 ratings), most Hard or Again first; then topics the
+// plan generator itself treats as weak (leafPriority weakness above
 // WEAK_TOPIC_WEAKNESS_PERCENT, highest priority first). At most
 // ATTENTION_MAX_TOPICS, each named once.
 // ---------------------------------------------------------------------------
 function needsAttention(input: ReportInput, week: ReportWeek) {
-  const from = toDateString(
-    addDays(fromDateString(week.end), -(T.ATTENTION_RATING_WINDOW_DAYS - 1)),
-  );
-  const hard = new Map<string, { ref: TopicRef; count: number }>();
+  // Each topic's ratings up to the week's end, newest first.
+  const byTopic = new Map<string, { ref: TopicRef; ratings: number[] }>();
   for (const r of input.topicReviews) {
-    if (!r.completedDate || r.completedDate < from || r.completedDate > week.end)
-      continue;
-    if (r.rating > 2) continue;
-    const cur = hard.get(r.topicId) ?? {
+    if (!r.completedDate || r.completedDate > week.end) continue;
+    const cur = byTopic.get(r.topicId) ?? {
       ref: { topicName: r.topicName, subjectName: r.subjectName },
-      count: 0,
+      ratings: [],
     };
-    cur.count++;
-    hard.set(r.topicId, cur);
+    cur.ratings.unshift(r.rating);
+    byTopic.set(r.topicId, cur);
   }
-  const out: (TopicRef & { reason: 'hard_ratings' | 'weak' })[] = [];
+  const hardOf = (ratings: number[]) => ratings.slice(0, 3).filter((x) => x <= 2).length;
+  const out: (TopicRef & { reason: 'needs_practice' | 'weak' })[] = [];
   const seen = new Set<string>();
-  Array.from(hard.entries())
-    .filter(([, v]) => v.count >= T.ATTENTION_MIN_HARD_RATINGS)
-    .sort((a, b) => b[1].count - a[1].count || a[1].ref.topicName.localeCompare(b[1].ref.topicName))
+  Array.from(byTopic.entries())
+    .filter(([, v]) => isStruggling(v.ratings))
+    .sort(
+      (a, b) =>
+        hardOf(b[1].ratings) - hardOf(a[1].ratings) ||
+        a[1].ref.topicName.localeCompare(b[1].ref.topicName),
+    )
     .forEach(([id, v]) => {
       seen.add(id);
-      out.push({ ...v.ref, reason: 'hard_ratings' });
+      out.push({ ...v.ref, reason: 'needs_practice' });
     });
 
   // Weakness is today's mastery: left out of a report built later.
@@ -386,7 +390,8 @@ function examFor(input: ReportInput, week: ReportWeek, reportDate: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Next week: required sessions of the plan scheduled in the next week. Focus
+// Next week: the topics the plan lists in the next week (a forecast: each
+// topic's next review, so a topic is counted once). Focus
 // topics are only topics with such a session, ranked by the plan generator's
 // own leafPriority (highest first), so the report never names a topic that
 // isn't actually planned.
@@ -412,7 +417,7 @@ function nextWeekFor(input: ReportInput, week: ReportWeek) {
       subjectName: input.topicNames[t.id].subjectName,
     }));
   return {
-    plannedMinutes: sum(planned.map((s) => s.durationMinutes)),
+    topics: plannedTopicIds.size,
     focusTopics,
   };
 }
@@ -430,8 +435,12 @@ export function buildWeeklyReport(input: ReportInput): WeeklyReportSnapshot {
   // Comparisons need a whole previous week: the child existed from its start.
   const hasComparison = createdDay <= prev.start;
 
-  // ---- study time, consistency, adherence -------------------------------
-  const minutes = studyMinutes(input.sessions, week);
+  // ---- topics done, revision, consistency, adherence ------------------------
+  const weekRevisions = input.revisions.filter((r) => isInWeek(r.revisedOn, week));
+  const revised = {
+    count: weekRevisions.length,
+    hard: weekRevisions.filter((r) => r.rating <= 2).length,
+  };
   const weekDays = new Set(daysOf(week));
   const planned = new Set(
     Array.from(plannedStudyDays(input.sessions)).filter((d) => weekDays.has(d)),
@@ -553,7 +562,7 @@ export function buildWeeklyReport(input: ReportInput): WeeklyReportSnapshot {
     earned.push('study_day_streak_7');
   if (input.firstQuizAttemptAt && isInWeek(dayOf(input.firstQuizAttemptAt), week))
     earned.push('first_challenge');
-  // Needs at least HEADLINE_MIN_REQUIRED_SESSIONS so a one-session week
+  // Needs at least HEADLINE_MIN_REQUIRED_SESSIONS so a one-topic week
   // doesn't earn it.
   if (enoughSessions && adherence.finished === adherence.required)
     earned.push('all_required_sessions_week');
@@ -576,10 +585,11 @@ export function buildWeeklyReport(input: ReportInput): WeeklyReportSnapshot {
       builtLater: input.builtLater,
     },
     headline,
-    studyTime: {
-      minutes,
-      lastWeekMinutes: hasComparison ? studyMinutes(input.sessions, prev) : null,
+    topicsDone: {
+      count: topicsDoneIn(input.sessions, week),
+      lastWeek: hasComparison ? topicsDoneIn(input.sessions, prev) : null,
     },
+    revised,
     consistency,
     adherence,
     revision,
@@ -604,11 +614,11 @@ export function buildWeeklyReport(input: ReportInput): WeeklyReportSnapshot {
 //  2. the exam is over                   → start a new exam cycle
 //  3. no exam or no plan                 → create a study plan
 //  4. nothing happened this week         → sit down together to start
-//  5. a topic rated Again/Hard repeatedly → ask the child to explain it back
+//  5. a topic that Needs practice        → ask the child to explain it back
 //  6. no test logged for ACTION_TEST_STALE_DAYS → log the latest test (the
 //     active subject whose last mark is oldest, or that has none)
-//  7. fewer than READINESS_ON_TRACK_PERCENT of required sessions finished
-//     (in a week with enough of them)     → agree a fixed study time
+//  7. fewer than READINESS_ON_TRACK_PERCENT of the week's listed topics
+//     done (in a week with enough of them) → agree a fixed study time
 //  8. otherwise                          → ask what they learned (a topic
 //     learned this week, if any)
 // ---------------------------------------------------------------------------
@@ -630,7 +640,7 @@ function actionFor(a: {
   if (a.exam.state === 'none' || a.exam.state === 'no_plan') return k('create_plan');
   if (!a.hadActivity) return k('start_together');
 
-  const hard = a.attention.find((t) => t.reason === 'hard_ratings');
+  const hard = a.attention.find((t) => t.reason === 'needs_practice');
   if (hard)
     return k('explain_topic_back', {
       topic: { topicName: hard.topicName, subjectName: hard.subjectName },

@@ -25,7 +25,7 @@ const en = {
       no_plan: `${name} doesn't have a study plan yet. Setting one up takes a few minutes.`,
       quiet_week: `A quiet week for ${name}. A fresh week starts now.`,
       first_week: `${name}'s first week with StudyPlan. Here's where things start.`,
-      all_sessions_done: `${name} finished every planned session this week.`,
+      all_sessions_done: `${name} finished every topic on the list this week.`,
       consistent_week: `A consistent week: ${name} studied on most planned days.`,
       strong_challenge_week: `A strong daily challenge week for ${name}.`,
       lighter_week: `A lighter week for ${name}. Next week is a fresh start.`,
@@ -74,7 +74,7 @@ const en = {
       first_report: 'First weekly report',
       study_day_streak_7: '7 study days in a row',
       first_challenge: 'First daily challenge',
-      all_required_sessions_week: 'Every planned session in a week',
+      all_required_sessions_week: 'Every topic on the list in a week',
       reviews_on_time_10: '10 revisions on time',
     })[k],
 
@@ -82,13 +82,19 @@ const en = {
     'Spaced revision brings each topic back just before it would be forgotten, and the gap grows as it sticks.',
   studyTimeNote:
     'The planned length of finished sessions, not a stopwatch.',
+  listNote: 'Each school day lists every topic due. Topics not done come back the next day, in their place.',
   paymentDue: (name: string) => `Payment for ${name} is due soon.`,
   addedThisWeek: (name: string) =>
     `${name} joined this week, so this covers part of the week.`,
   noTestLogged: 'No test was logged this week.',
 
   label: {
+    study: 'Study',
     studyTime: 'Study time',
+    topicsDone: 'Topics done',
+    topicsDue: 'Topics due',
+    listed: 'Topics on the list',
+    revisedEarlier: 'Earlier topics revised',
     studyDays: 'Study days',
     studyDayStreak: 'Study-day streak',
     sessions: 'Planned sessions',
@@ -117,6 +123,11 @@ const en = {
     payNow: 'Pay now',
     minutesValue: (now: string, last: string | null) =>
       last === null ? now : `${now} (last week: ${last})`,
+    listedValue: (done: number, listed: number) => `${done} of ${listed} done`,
+    revisedValue: (count: number, hard: number) =>
+      count === 0
+        ? 'None this week'
+        : `${count} revised` + (hard > 0 ? `, ${hard} still felt hard` : ''),
     daysValue: (studied: number, planned: number, extra: number) =>
       `${studied} of ${planned} planned days` + (extra > 0 ? `, plus ${extra} extra day${extra === 1 ? '' : 's'}` : ''),
     noPlannedDays: 'No study days were planned this week.',
@@ -136,6 +147,7 @@ const en = {
       `${topic}: now reviewed every ${every} day${every === 1 ? '' : 's'} (was every ${was})`,
     strongerFirstWeek: 'This will show next week, once there is a week to compare with.',
     attentionReason: {
+      needs_practice: 'needs practice: rated Hard or Again on 2 of its last 3 sessions',
       hard_ratings: 'rated Again or Hard more than once recently',
       weak: 'test results show it still needs work',
     },
@@ -156,7 +168,7 @@ const en = {
     soFarLabel: 'So far',
     topicsStudied: (n: number, total: number) => `${n} of ${total} topics studied at least once`,
     readinessRule: (finished: number, required: number) =>
-      `Based on ${finished} of ${required} planned sessions finished so far.`,
+      `Based on ${finished} of ${required} topics on the list done so far.`,
     examOver: (name: string) =>
       `${name} is over, so there's no plan for it any more. Start the next exam cycle, or a new academic session if the school year has changed.`,
     newExamCycle: 'Start next exam cycle',
@@ -166,6 +178,8 @@ const en = {
     noExam: 'No exam has been added yet.',
     addExam: 'Add an exam',
     nextWeekValue: (minutes: string) => `${minutes} planned`,
+    nextWeekTopics: (n: number) =>
+      n === 0 ? 'Nothing due' : `${n} topic${n === 1 ? '' : 's'} coming up`,
     focusTitle: 'Focus topics',
     doIt: 'Go',
     allReports: 'All weekly reports',

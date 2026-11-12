@@ -114,18 +114,15 @@ describe('next batch of fixes', { skip: SKIP_DB }, () => {
   test('onboarding uses the same rules as the rest of the app', async () => {
     const route = await import('@/app/api/onboarding/route');
     const body = (over: { student?: object; subjects?: object[] }) => ({
-      student: {
-        name: 'Kiran', grade: '09', schoolName: '  Bal   Vikas  ',
-        studyDays: ['Mon'], schoolDayMinutes: 45, holidayDayMinutes: 90, ...over.student,
-      },
-      exam: { name: 'Final', examDate: inDays(40) },
-      subjects: over.subjects ?? [{ name: 'English', examWeight: 'medium', obtainedMarks: 70 }],
+      student: { name: 'Kiran', grade: '09', schoolName: '  Bal   Vikas  ', ...over.student },
+      exam: { name: 'Third Terminal Examination', examDate: inDays(40) },
+      subjects: over.subjects ?? [{ name: 'English', examWeight: 'medium' }],
     });
     const post = (b: object) => call(route.POST as Handler, '/x', { method: 'POST', body: b });
 
     const alias = await post(body({ subjects: [
-      { name: 'Math', examWeight: 'high', obtainedMarks: 60 },
-      { name: 'Mathematics', examWeight: 'high', obtainedMarks: 60 },
+      { name: 'Math', examWeight: 'high' },
+      { name: 'Mathematics', examWeight: 'high' },
     ] }));
     assert.equal(alias.status, 400);
     assert.match((await alias.json()).error, /same subject/);
@@ -137,6 +134,57 @@ describe('next batch of fixes', { skip: SKIP_DB }, () => {
     const [s] = await ctx.db.select().from(ctx.schema.students).where(ctx.sql`id = ${studentId}`);
     assert.equal(s.grade, '9');
     assert.equal(s.schoolName, 'Bal Vikas');
+    assert.equal(s.sundayRevision, true, 'Sunday is a revision day unless said otherwise');
+  });
+
+  test('onboarding a child mid-year: earlier topics, this exam\'s topics 4 a day, and a plan from the start', async () => {
+    const route = await import('@/app/api/onboarding/route');
+    const res = await call(route.POST as Handler, '/x', {
+      method: 'POST',
+      body: {
+        student: { name: 'Mina', grade: '8', schoolName: 'Shanti School', sundayRevision: false },
+        exam: { name: 'Third Terminal Examination', examDate: inDays(40) },
+        subjects: [{
+          name: 'Science', examWeight: 'high',
+          earlierTopics: [
+            { name: 'Force', examName: 'First Terminal Examination', selfRating: 'know_well' },
+            { name: 'Light', examName: 'Second Terminal Examination' },
+          ],
+          topics: Array.from({ length: 6 }, (_, i) => ({ name: `Taught ${i}`, difficultyRating: 3 })),
+        }],
+      },
+    });
+    assert.equal(res.status, 201);
+    const { studentId } = await res.json();
+    const topics = (await ctx.db.execute(ctx.sql`
+      select t.name, t.exam_id, t.exam_name, t.learn_from::text as learn_from, t.self_rating
+      from topics t join subjects s on s.id = t.subject_id where s.student_id = ${studentId}
+      order by t.name`)).rows as { name: string; exam_id: string | null; exam_name: string; learn_from: string | null; self_rating: string | null }[];
+    const [exam] = await ctx.db.select().from(ctx.schema.exams).where(ctx.sql`student_id = ${studentId}`);
+
+    const force = topics.find((t) => t.name === 'Force')!;
+    assert.equal(force.exam_id, null, 'an exam from before joining has no exam row');
+    assert.equal(force.exam_name, 'First Terminal Examination');
+    assert.equal(force.self_rating, 'know_well');
+    assert.equal(force.learn_from, null, 'earlier topics are revised, not learned');
+
+    const taught = topics.filter((t) => t.name.startsWith('Taught'));
+    assert.ok(taught.every((t) => t.exam_id === exam.id && t.exam_name === 'Third Terminal Examination'));
+    const perDay = new Map<string, number>();
+    for (const t of taught) perDay.set(t.learn_from!, (perDay.get(t.learn_from!) ?? 0) + 1);
+    assert.deepEqual([...perDay.values()].sort(), [2, 4], 'spread 4 a day');
+    assert.ok([...perDay.keys()].every((d) => d > inDays(0)), 'from tomorrow');
+
+    const [plan] = await ctx.db.select().from(ctx.schema.studyPlans).where(ctx.sql`exam_id = ${exam.id}`);
+    assert.ok(plan, 'the plan exists from the start');
+    const planned = (await ctx.db.execute(ctx.sql`
+      select t.name from study_sessions ss join topics t on t.id = ss.topic_id
+      where ss.plan_id = ${plan.id}`)).rows as { name: string }[];
+    assert.ok(planned.length > 0);
+    assert.ok(planned.every((r) => r.name.startsWith('Taught')), 'earlier topics are not on the daily list');
+    const saturdays = (await ctx.db.execute(ctx.sql`
+      select count(*)::int as n from study_sessions where plan_id = ${plan.id} and extract(dow from scheduled_date) = 6`)).rows as { n: number }[];
+    assert.equal(saturdays[0].n, 0, 'nothing on Saturdays: they are for revision');
   });
 
   test('quiz usage is recounted on publish and unpublish, by quiz date', async () => {

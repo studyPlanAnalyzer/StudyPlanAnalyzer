@@ -20,7 +20,9 @@ export const GET = withErrorHandling(
         weekStart: schema.weeklyReports.weekStart,
         weekEnd: sql<string>`${schema.weeklyReports.snapshot}->'week'->>'end'`,
         headline: sql<string>`${schema.weeklyReports.snapshot}->>'headline'`,
-        studyMinutes: sql<number>`(${schema.weeklyReports.snapshot}->'studyTime'->>'minutes')::int`,
+        // Version 3 reports count topics done; version 2 ones, minutes.
+        topicsDone: sql<number | null>`(${schema.weeklyReports.snapshot}->'topicsDone'->>'count')::int`,
+        studyMinutes: sql<number | null>`(${schema.weeklyReports.snapshot}->'studyTime'->>'minutes')::int`,
         builtLater: sql<boolean>`coalesce((${schema.weeklyReports.snapshot}->'context'->>'builtLater')::boolean, false)`,
         readAt: schema.weeklyReports.readAt,
       })

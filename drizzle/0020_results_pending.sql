@@ -1,0 +1,2 @@
+ALTER TABLE "exams" ADD COLUMN "results_pending_for" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD CONSTRAINT "exams_results_pending_for_exams_id_fk" FOREIGN KEY ("results_pending_for") REFERENCES "public"."exams"("id") ON DELETE set null ON UPDATE no action;

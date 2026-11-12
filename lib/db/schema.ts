@@ -110,8 +110,13 @@ export const students = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY['Mon','Tue','Wed','Thu','Fri','Sun']::text[]`),
+    // No longer used: every day is a study day (lib/utils/revision-days.ts).
+    // Kept until a later migration drops it with the minutes columns below.
     schoolDayMinutes: integer('school_day_minutes').default(45).notNull(),
     holidayDayMinutes: integer('holiday_day_minutes').default(90).notNull(),
+    // Saturday is always a revision day; Sunday is one too unless the child's
+    // school is open on Sundays.
+    sundayRevision: boolean('sunday_revision').default(true).notNull(),
     // Billing: the end of the period this child can be used until. null =
     // never paid (a new child). See lib/billing/state.ts.
     paidUntil: timestamp('paid_until'),
@@ -214,6 +219,12 @@ export const exams = pgTable(
     name: text('name').notNull(),
     examDate: date('exam_date').notNull(),
     isPrimary: boolean('is_primary').default(true).notNull(),
+    // Set when this cycle started before the previous exam's results were
+    // out: that exam. Cleared when its marks are added ("Add exam marks").
+    resultsPendingFor: uuid('results_pending_for').references(
+      (): AnyPgColumn => exams.id,
+      { onDelete: 'set null' },
+    ),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (t) => ({
@@ -433,11 +444,27 @@ export const topics = pgTable(
     name: text('name').notNull(),
     difficultyRating: integer('difficulty_rating').default(2).notNull(), // 1-5
     estimatedMastery: integer('estimated_mastery'), // 0-100
+    // The exam this topic was taught for. Topics of the current exam follow
+    // SM-2 on school days; topics of earlier exams are revised on revision
+    // days (lib/revision.ts). A topic studied for an exam from before the
+    // child joined has no exam row: examId is null and examName names it.
+    examId: uuid('exam_id').references((): AnyPgColumn => exams.id, {
+      onDelete: 'set null',
+    }),
+    examName: text('exam_name'),
+    // The first day its learn session may be: the day after it was added, or
+    // later for topics added in a batch while setting up (4 a day).
+    learnFrom: date('learn_from'),
+    // An earlier-exam topic added by a family that joined mid-year: how well
+    // the child feels they know it ('not_sure' | 'ok' | 'know_well'). Only
+    // orders the revision suggestions.
+    selfRating: text('self_rating'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (t) => ({
     subjectIdIdx: index('topics_subject_id_idx').on(t.subjectId),
     parentTopicIdIdx: index('topics_parent_topic_id_idx').on(t.parentTopicId),
+    examIdIdx: index('topics_exam_id_idx').on(t.examId),
   }),
 );
 
@@ -469,6 +496,12 @@ export const topicSpacedState = pgTable('topic_spaced_state', {
   lastReviewDate: date('last_review_date'),
   nextReviewDate: date('next_review_date'),
   status: text('status').default('new').notNull(), // 'new'|'learning'|'reviewing'|'mastered'
+  // Easy ratings in a row on reviews; MASTERY_EASY_STREAK of them = mastered.
+  easyStreak: integer('easy_streak').default(0).notNull(),
+  // The last day the topic was studied in any rated session, due or not.
+  // (lastReviewDate only moves with the SM-2 ladder.) Used so a topic gets
+  // one final look before the exam, not one every remaining day.
+  lastSeenDate: date('last_seen_date'),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
@@ -553,6 +586,10 @@ export const studySessions = pgTable(
     scheduledDate: date('scheduled_date').notNull(),
     durationMinutes: integer('duration_minutes').notNull(),
     sessionType: text('session_type').notNull(), // 'learn'|'practice'|'review'|'mock'
+    // Order within its day, from the plan generator: new topics first, then
+    // first follow-ups, then the longest overdue. The daily goal is the top
+    // of this list.
+    position: integer('position').default(0).notNull(),
     isFiller: boolean('is_filler').default(false).notNull(),
     status: text('status').default('planned').notNull(), // 'planned'|'completed'|'partly_completed'|'skipped'
     rating: integer('rating'), // 1-4
@@ -601,6 +638,32 @@ export const topicReviews = pgTable(
   },
   (t) => ({
     topicIdIdx: index('topic_reviews_topic_id_idx').on(t.topicId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// topic_revisions (revision of earlier-exam topics on revision days)
+// ---------------------------------------------------------------------------
+// One row per earlier-exam topic revised, rated, for the exam being prepared
+// for then. Not SM-2: the ratings decide where the topic is listed next
+// (lib/utils/revision.ts), and an Again puts it back on SM-2 for that exam.
+export const topicRevisions = pgTable(
+  'topic_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    topicId: uuid('topic_id')
+      .notNull()
+      .references(() => topics.id, { onDelete: 'cascade' }),
+    examId: uuid('exam_id')
+      .notNull()
+      .references(() => exams.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(), // 1 Again, 2 Hard, 3 Good, 4 Easy
+    revisedOn: date('revised_on').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    topicIdIdx: index('topic_revisions_topic_id_idx').on(t.topicId),
+    examIdIdx: index('topic_revisions_exam_id_idx').on(t.examId),
   }),
 );
 

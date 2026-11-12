@@ -6,6 +6,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import {
   updateTopicSpacedState,
   intervalCapForExam,
+  defaultSpacedState,
   SpacedState,
   Rating,
 } from '@/lib/utils/spaced-repetition';
@@ -49,17 +50,13 @@ async function loadOwnedSession(sessionId: string, parentId: string) {
 }
 
 /**
- * The topic's next SM-2 state after a rated session, or null when the session
- * wasn't due. Only a due session advances the real ladder: the topic's
- * first-ever review (no nextReviewDate yet), or one scheduled on/after the
- * stored due date. A required session on a topic that isn't due yet (like a
- * last look before the exam) is still rated and logged, but must NOT count as a
- * genuine spaced repetition, otherwise a topic can rack up 5 "repetitions"
- * within days.
+ * The topic's next SM-2 state after a rated session. Every session the plan
+ * lists counts as a review, final looks included: a final look comes before
+ * the topic's due date on purpose, and the review it gives must move the
+ * topic on, or its old date would come back as overdue after the exam.
  */
 function nextSpacedState(
   state: typeof schema.topicSpacedState.$inferSelect | undefined,
-  scheduledDate: string,
   rating: Rating,
   examDate: string | undefined,
 ) {
@@ -71,18 +68,9 @@ function nextSpacedState(
         lastReviewDate: state.lastReviewDate,
         nextReviewDate: state.nextReviewDate,
         status: state.status as SpacedState['status'],
+        easyStreak: state.easyStreak,
       }
-    : {
-        intervalDays: 0,
-        easeFactor: 2.5,
-        repetitionCount: 0,
-        lastReviewDate: null,
-        nextReviewDate: null,
-        status: 'new',
-      };
-  const isDue =
-    !currentState.nextReviewDate || scheduledDate >= currentState.nextReviewDate;
-  if (!isDue) return null;
+    : defaultSpacedState();
   // Keep review gaps proportional to the time left before the exam.
   const cap = examDate
     ? intervalCapForExam(diffInDays(fromDateString(examDate), appToday()))
@@ -197,38 +185,25 @@ export const PUT = withErrorHandling(
           .from(schema.topicSpacedState)
           .where(eq(schema.topicSpacedState.topicId, reviewTopicId))
           .for('update');
-        const nextState = nextSpacedState(
-          state,
-          current.scheduledDate,
-          rating as Rating,
-          exam?.examDate,
-        );
-        if (nextState) {
-          await tx
-            .insert(schema.topicSpacedState)
-            .values({
-              topicId: reviewTopicId,
-              intervalDays: nextState.intervalDays,
-              easeFactor: String(nextState.easeFactor),
-              repetitionCount: nextState.repetitionCount,
-              lastReviewDate: nextState.lastReviewDate,
-              nextReviewDate: nextState.nextReviewDate,
-              status: nextState.status,
-              updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: schema.topicSpacedState.topicId,
-              set: {
-                intervalDays: nextState.intervalDays,
-                easeFactor: String(nextState.easeFactor),
-                repetitionCount: nextState.repetitionCount,
-                lastReviewDate: nextState.lastReviewDate,
-                nextReviewDate: nextState.nextReviewDate,
-                status: nextState.status,
-                updatedAt: new Date(),
-              },
-            });
-        }
+        const nextState = nextSpacedState(state, rating as Rating, exam?.examDate);
+        const values = {
+          intervalDays: nextState.intervalDays,
+          easeFactor: String(nextState.easeFactor),
+          repetitionCount: nextState.repetitionCount,
+          lastReviewDate: nextState.lastReviewDate,
+          nextReviewDate: nextState.nextReviewDate,
+          status: nextState.status,
+          easyStreak: nextState.easyStreak,
+          lastSeenDate: today,
+          updatedAt: new Date(),
+        };
+        await tx
+          .insert(schema.topicSpacedState)
+          .values({ topicId: reviewTopicId, ...values })
+          .onConflictDoUpdate({
+            target: schema.topicSpacedState.topicId,
+            set: values,
+          });
 
         await tx.insert(schema.topicReviews).values({
           topicId: reviewTopicId,

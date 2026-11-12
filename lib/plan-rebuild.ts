@@ -1,11 +1,12 @@
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { BUFFER_WEEK_DAYS } from '@/lib/utils/study-limits';
+import { sessionRows } from '@/lib/session-rows';
 import { generateStudyPlan } from '@/lib/utils/plan-generator';
 import { addDays, appToday, fromDateString, toDateString } from '@/lib/utils/date-utils';
 import { isExamOver } from '@/lib/plan-expiry';
-import { loadSubjectInputs } from '@/lib/plan-inputs';
+import { scheduleInputFor } from '@/lib/plan-schedule';
 
-const BUFFER_DAYS = 7;
 
 // A transaction the caller already holds, or the database itself.
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -70,7 +71,7 @@ export async function rebuildPlan({
   // the buffer no longer fits before the exam, fall back to the full period.
   const useBufferWeek = requestedBufferWeek ?? plan.useBufferWeek;
   const scheduleEndDate = useBufferWeek
-    ? addDays(examDate, -BUFFER_DAYS)
+    ? addDays(examDate, -BUFFER_WEEK_DAYS)
     : examDate;
   const effectiveEndDate =
     scheduleEndDate.getTime() <= appToday().getTime() ? examDate : scheduleEndDate;
@@ -85,16 +86,9 @@ export async function rebuildPlan({
     };
   }
 
-  const subjectInputs = await loadSubjectInputs(student.id, plan.examId, ex);
-
   const result = generateStudyPlan({
-    examDate,
+    ...(await scheduleInputFor({ student, exam, useBufferWeek, fromDate, ex })),
     scheduleEndDate: effectiveEndDate,
-    studyDays: student.studyDays,
-    schoolDayMinutes: student.schoolDayMinutes,
-    holidayDayMinutes: student.holidayDayMinutes,
-    subjects: subjectInputs,
-    startDate: fromDate,
   });
 
   const fromKey = toDateString(fromDate);
@@ -126,17 +120,7 @@ export async function rebuildPlan({
       );
 
     if (result.sessions.length > 0) {
-      await tx.insert(schema.studySessions).values(
-        result.sessions.map((s) => ({
-          planId: plan.id,
-          topicId: s.topicId,
-          subjectId: s.subjectId,
-          scheduledDate: s.scheduledDate,
-          durationMinutes: s.durationMinutes,
-          sessionType: s.sessionType,
-          isFiller: s.isFiller ?? false,
-        })),
-      );
+      await tx.insert(schema.studySessions).values(sessionRows(plan.id, result.sessions));
     }
 
     const [updated] = await tx

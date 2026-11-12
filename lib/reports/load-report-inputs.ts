@@ -5,7 +5,7 @@ import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { leafTopics } from '@/lib/topic-leaves';
 import { addDays, appDay, appDayStart, fromDateString, toDateString } from '@/lib/utils/date-utils';
 import { nextWeek, previousWeek, type ReportWeek } from './week';
-import { ATTENTION_RATING_WINDOW_DAYS, STREAK_HISTORY_DAYS } from './thresholds';
+import { RATING_HISTORY_DAYS, STREAK_HISTORY_DAYS } from './thresholds';
 import type {
   BillingForReport,
   MarkRow,
@@ -38,7 +38,7 @@ export async function loadReportInput(a: {
   const prev = previousWeek(week);
   const after = nextWeek(week);
   const weekEnd = fromDateString(week.end);
-  const ratingsFrom = day(addDays(weekEnd, -(ATTENTION_RATING_WINDOW_DAYS - 1)));
+  const ratingsFrom = day(addDays(weekEnd, -(RATING_HISTORY_DAYS - 1)));
   const todosFrom = day(addDays(weekEnd, -(STREAK_HISTORY_DAYS - 1)));
 
   const examPlanInputs = (async () => {
@@ -94,6 +94,7 @@ export async function loadReportInput(a: {
     topicRows,
     [earlier],
     milestoneRows,
+    revisionRows,
   ] = await Promise.all([
     examPlanInputs,
     // Every session of every plan the child has, with names.
@@ -108,7 +109,7 @@ export async function loadReportInput(a: {
       .leftJoin(schema.topics, eq(schema.topics.id, schema.studySessions.topicId))
       .leftJoin(schema.subjects, eq(schema.subjects.id, schema.studySessions.subjectId))
       .where(eq(schema.studyPlans.studentId, id)),
-    // Ratings in the attention window.
+    // Ratings for the Needs practice rule, oldest first.
     db
       .select({
         r: schema.topicReviews,
@@ -124,7 +125,8 @@ export async function loadReportInput(a: {
           gte(schema.topicReviews.completedDate, ratingsFrom),
           lte(schema.topicReviews.completedDate, week.end),
         ),
-      ),
+      )
+      .orderBy(asc(schema.topicReviews.completedDate), asc(schema.topicReviews.createdAt)),
     // Daily challenge attempts in this week and the one before.
     db
       .select({
@@ -193,6 +195,19 @@ export async function loadReportInput(a: {
       .from(schema.studentMilestones)
       .where(eq(schema.studentMilestones.studentId, id))
       .orderBy(asc(schema.studentMilestones.awardedAt)),
+    // Earlier-exam topics revised in the week.
+    db
+      .select({ revisedOn: schema.topicRevisions.revisedOn, rating: schema.topicRevisions.rating })
+      .from(schema.topicRevisions)
+      .innerJoin(schema.topics, eq(schema.topics.id, schema.topicRevisions.topicId))
+      .innerJoin(schema.subjects, eq(schema.subjects.id, schema.topics.subjectId))
+      .where(
+        and(
+          eq(schema.subjects.studentId, id),
+          gte(schema.topicRevisions.revisedOn, week.start),
+          lte(schema.topicRevisions.revisedOn, week.end),
+        ),
+      ),
   ]);
 
   const sessions: SessionRow[] = sessionRows.map(({ s, topicName, subjectName }) => ({
@@ -258,6 +273,7 @@ export async function loadReportInput(a: {
     exam: exam ? { id: exam.id, name: exam.name, examDate: exam.examDate } : null,
     plan: plan ? { id: plan.id, generatedAt: plan.generatedAt.toISOString() } : null,
     sessions,
+    revisions: revisionRows,
     topicReviews: reviewRows.map(({ r, topicName, subjectName }) => ({
       topicId: r.topicId,
       topicName,

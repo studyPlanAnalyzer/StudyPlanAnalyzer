@@ -7,8 +7,6 @@ import { withErrorHandling } from '@/lib/api/handler';
 import { pickExam } from '@/lib/exam-pick';
 import { isExamOver } from '@/lib/plan-expiry';
 import {
-  holidayDayMinutesSchema,
-  schoolDayMinutesSchema,
   gradeSchema,
   schoolNameSchema,
   studyDaysSchema,
@@ -122,6 +120,14 @@ export const GET = withErrorHandling(
       // True once the current exam's date has passed: the pages show the
       // "start a new exam cycle / new academic session" choices.
       currentExamOver: currentExam ? isExamOver(currentExam.examDate) : false,
+      // The cycle started before the last exam's results were out: the exam
+      // whose marks are still to be added ("Add exam marks").
+      resultsPending: (() => {
+        const pending = currentExam?.resultsPendingFor
+          ? exams.find((e) => e.id === currentExam.resultsPendingFor)
+          : undefined;
+        return pending ? { examId: pending.id, name: pending.name, examDate: pending.examDate } : null;
+      })(),
     });
   },
 );
@@ -133,8 +139,6 @@ const updateStudentSchema = z.object({
   // so it can't be cleared after onboarding.
   schoolName: schoolNameSchema.optional(),
   studyDays: studyDaysSchema.optional(),
-  schoolDayMinutes: schoolDayMinutesSchema.optional(),
-  holidayDayMinutes: holidayDayMinutesSchema.optional(),
 });
 
 export const PUT = withErrorHandling(

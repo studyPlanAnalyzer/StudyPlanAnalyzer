@@ -127,6 +127,34 @@
       "when": 1793688874441,
       "tag": "0017_account_devices_and_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794312812979,
+      "tag": "0018_topic_mastery",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794465096538,
+      "tag": "0019_session_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794465617395,
+      "tag": "0020_results_pending",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794488276276,
+      "tag": "0021_revision_days",
+      "breakpoints": true
     }
   ]
 }

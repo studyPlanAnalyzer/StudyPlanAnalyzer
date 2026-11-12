@@ -44,7 +44,7 @@ describe('report APIs: access', { skip: SKIP_DB }, () => {
     const snap = (studentId: string, name: string) =>
       buildWeeklyReport({
         student: { id: studentId, name, createdAt: '2026-09-01T00:00:00.000Z' }, weekStart: WEEK, billing: 'active',
-        exam: null, plan: null, sessions: [], topicReviews: [], quizAttempts: [], firstQuizAttemptAt: null, todos: [],
+        exam: null, plan: null, sessions: [], revisions: [], topicReviews: [], quizAttempts: [], firstQuizAttemptAt: null, todos: [],
         marks: [], subjectInputs: [], topicNames: {}, intervalDays: {}, onTimeReviewsAllTime: 0,
         previousReport: null, hasEarlierReport: false, awardedMilestones: [], builtLater: false,
       });

@@ -1,12 +1,20 @@
 'use client';
 
+import { academicYearText } from '@/lib/utils/academic-year';
 import { useEffect, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ButtonLink, buttonClass } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { WeeklyPlanView, PlanWeek } from '@/components/plan/WeeklyPlanView';
+import {
+  ComingUp,
+  PlanStatusCard,
+  ThisWeek,
+  type ComingUpTopic,
+  type WeekDay,
+} from '@/components/plan/PlanOverview';
+import type { PlanStatus } from '@/lib/utils/plan-status';
 import { api, ApiError } from '@/lib/api-client';
 import { ExamOverNotice } from '@/components/exam/ExamOverNotice';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
@@ -16,21 +24,23 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
 import { cardClass } from '@/components/ui/Card';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
-import { formatDay } from '@/lib/utils/date-utils';
+import { daysUntil, formatDay } from '@/lib/utils/date-utils';
+import { ensurePlanId } from '@/lib/ensure-plan';
 
 interface PlanResponse {
   plan: {
     id: string;
     totalDays: number;
-    averageDailyMinutes: number;
     weakFocusPercent: number;
     mediumFocusPercent: number;
     strongFocusPercent: number;
   };
   exam: { name: string; examDate: string } | null;
   student: { id: string; name: string };
-  weeks: PlanWeek[];
-  unscheduledTopics: { id: string; name: string; subjectName: string }[];
+  today: { listed: number; done: number; revisionDay: boolean };
+  thisWeek: WeekDay[];
+  comingUp: ComingUpTopic[];
+  status: PlanStatus | null;
 }
 
 interface StudentDetail {
@@ -79,6 +89,7 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
           planId = detail.latestPlan?.id ?? null;
         }
 
+        if (!planId && detail) planId = await ensurePlanId(params.id, detail);
         if (!planId) {
           await showNoPlan(detail);
           return;
@@ -175,14 +186,14 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
           />
         )}
 
-        {/* NO PLAN */}
+        {/* NO PLAN: there is no exam to plan for yet */}
         {notFound && !overExam && (
           <EmptyState
-            title="No study plan yet"
-            description="Generate a plan from the analysis page once marks and topics are in place."
+            title="No upcoming exam"
+            description="Add the next exam and its date. The study plan starts as soon as it exists, and topics join it as they're taught."
             action={
-              <ButtonLink href={`/students/${params.id}/analysis`}>
-                Go to analysis
+              <ButtonLink href={`/students/${params.id}/new-exam`}>
+                Add the next exam
               </ButtonLink>
             }
           />
@@ -202,6 +213,9 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                   <p className="mt-4 max-w-xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
                     Until {data.exam.name} on{' '}
                     {formatDay(data.exam.examDate)}
+                    <span className="block text-sm text-[#65615D] sm:text-base">
+                      {academicYearText(data.exam.examDate)}
+                    </span>
                   </p>
                 )}
               </div>
@@ -225,7 +239,14 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                       d="M7 4.5v15l12-7.5-12-7.5z"
                     />
                   </svg>
-                  Start today&apos;s session
+                  Open today
+                </Link>
+
+                <Link
+                  href={`/students/${params.id}/revise`}
+                  className={buttonClass('secondary', 'lg', 'w-fit')}
+                >
+                  Revise earlier topics
                 </Link>
 
                 <Link
@@ -276,7 +297,7 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
 
                   <div>
                     <p className="text-5xl font-extrabold tracking-tight text-black sm:text-6xl">
-                      {data.plan.totalDays}
+                      {data.exam ? daysUntil(data.exam.examDate) : data.plan.totalDays}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-black/70">
                       days until exam
@@ -284,42 +305,33 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                   </div>
                 </div>
 
-                {/* Daily average */}
-                <div className="relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-[32px] bg-[#a4e5c7] p-6 sm:p-8">
+                {/* Today */}
+                <Link
+                  href={`/students/${params.id}/today`}
+                  className={`relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-[32px] p-6 transition-transform hover:-translate-y-0.5 sm:p-8 ${data.today.revisionDay ? 'bg-[#EEF0FF]' : data.today.listed > 0 && data.today.done >= data.today.listed ? 'bg-[#a4e5c7]' : 'bg-[#F0EFED]'}`}
+                >
                   <div className="flex items-center justify-between">
-                    <Tag className="px-5 py-2">DAILY AVG</Tag>
-
-                    <svg
-                      className="h-8 w-8 text-black/65"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 7v5l3 2"
-                      />
-                    </svg>
+                    <Tag className="px-5 py-2">TODAY</Tag>
                   </div>
 
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <p className="text-5xl font-extrabold tracking-tight text-black sm:text-6xl">
-                        {data.plan.averageDailyMinutes}
-                      </p>
-                      <span className="text-lg font-bold text-black/60">
-                        min
-                      </span>
-                    </div>
-
-                    <p className="mt-1 text-sm font-semibold text-black/70">
-                      per study day
+                  {data.today.revisionDay ? (
+                    <p className="text-lg font-bold text-black/80">
+                      Revision day: topics from earlier exams
                     </p>
-                  </div>
-                </div>
+                  ) : data.today.listed === 0 ? (
+                    <p className="text-lg font-bold text-black/70">Nothing listed today</p>
+                  ) : (
+                    <div>
+                      <div className="flex items-baseline gap-1">
+                        <p className="text-5xl font-extrabold tracking-tight text-black sm:text-6xl">
+                          {data.today.done}
+                        </p>
+                        <span className="text-lg font-bold text-black/60">/ {data.today.listed}</span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-black/70">topics done</p>
+                    </div>
+                  )}
+                </Link>
 
                 {/* Focus split */}
                 <div className="relative flex min-h-[220px] flex-col rounded-[32px] bg-[#a8acf0] p-6 sm:p-8">
@@ -371,6 +383,13 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                 </div>
               </div>
 
+              {/* STATUS */}
+              {data.status && (
+                <div className="mb-8">
+                  <PlanStatusCard status={data.status} childName={data.student.name} />
+                </div>
+              )}
+
               {/* ADD TOPICS BANNER */}
               <div className="mb-10 flex flex-col gap-4 rounded-[26px] bg-[#F0EFED] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-6">
                 <p className="text-sm font-semibold leading-6 text-black sm:text-base">
@@ -387,48 +406,11 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                 </Link>
               </div>
 
-              {/* UNSCHEDULED TOPICS */}
-              {data.unscheduledTopics.length > 0 && (
-                <div className="mb-8 rounded-[26px] bg-[#fff5dc] p-5 sm:p-6">
-                  <p className="text-sm font-bold text-[#805500]">
-                    {data.unscheduledTopics.length} topic
-                    {data.unscheduledTopics.length > 1 ? 's' : ''} couldn&apos;t
-                    fit in this plan
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-[#88651d]">
-                    There wasn&apos;t enough time before the exam to schedule
-                    these, given the current daily minutes and study days.
-                    Consider increasing daily minutes in Settings, or moving the
-                    exam date out if possible.
-                  </p>
-
-                  <ul className="mt-4 flex flex-wrap gap-2">
-                    {data.unscheduledTopics.map((t) => (
-                      <li
-                        key={t.id}
-                        className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#805500]"
-                      >
-                        {t.name}
-                        <span className="text-[#b28b3e]">
-                          {' '}
-                          · {t.subjectName}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* WEEKLY PLAN */}
-              {data.weeks.length === 0 ? (
-                <EmptyState
-                  title="No sessions scheduled"
-                  description="The plan didn't generate any sessions — try adding topics first, then regenerate."
-                />
-              ) : (
-                <WeeklyPlanView weeks={data.weeks} />
-              )}
+              {/* THIS WEEK + COMING UP */}
+              <div className="flex flex-col gap-10">
+                <ThisWeek days={data.thisWeek} />
+                <ComingUp topics={data.comingUp} childName={data.student.name} />
+              </div>
             </div>
           </>
         )}

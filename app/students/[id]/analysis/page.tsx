@@ -8,8 +8,6 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { api, ApiError } from '@/lib/api-client';
 import { DailyChallengeStatsCard } from '@/components/daily-challenge/DailyChallengeStatsCard';
-import { BufferWeekChoiceModal } from '@/components/plan/BufferWeekChoiceModal';
-import { hasBufferRunway } from '@/components/plan/BufferWeekToggle';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { Modal } from '@/components/ui/Modal';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
@@ -19,6 +17,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { buttonClass } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
 import { Tag } from '@/components/ui/Tag';
+import { TopicStatusBadge } from '@/components/ui/TopicStatusBadge';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 
 interface SubjectAnalysis {
@@ -37,6 +36,8 @@ interface SubjectAnalysis {
     name: string;
     priority: number;
     difficultyRating: number;
+    mastered: boolean;
+    struggling: boolean;
   }[];
 }
 
@@ -50,6 +51,8 @@ interface AnalysisResponse {
     name: string;
     subjectName: string;
     priority: number;
+    mastered: boolean;
+    struggling: boolean;
   }[];
 }
 
@@ -63,6 +66,8 @@ interface StudentDetail {
   }[];
   currentExamId: string | null;
   latestPlan: { id: string } | null;
+  /** The last exam's results, still to be added ("Add exam marks"). */
+  resultsPending: { examId: string; name: string; examDate: string } | null;
 }
 
 const trendLabel: Record<string, string> = {
@@ -98,9 +103,8 @@ function SubjectDetailModal({
 }) {
   const maxScore = Math.max(...subject.percentHistory, 100);
 
-  const sortedTopics = [...subject.topics].sort(
-    (a, b) => b.priority - a.priority,
-  );
+  // Already in focus order from the API: struggling first, mastered last.
+  const sortedTopics = subject.topics;
 
   const strengthStyles: Record<string, string> = {
     weak: 'border-[#F1B5AE] bg-[#F1B5AE]/20 text-[#A4473D]',
@@ -262,6 +266,12 @@ function SubjectDetailModal({
                     <span className="text-sm font-semibold text-black">
                       {t.name}
                     </span>
+
+                    <TopicStatusBadge
+                            mastered={t.mastered}
+                            struggling={t.struggling}
+                            size="sm"
+                          />
                   </div>
 
                   <div className="flex items-center gap-3 text-sm text-[#65615D]">
@@ -302,13 +312,6 @@ export default function AnalysisPage(props: {
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showBufferChoice, setShowBufferChoice] = useState(false);
-
-  const [pendingExam, setPendingExam] = useState<
-    StudentDetail['exams'][number] | null
-  >(null);
-
   const [selectedSubject, setSelectedSubject] =
     useState<SubjectAnalysis | null>(null);
 
@@ -335,83 +338,6 @@ export default function AnalysisPage(props: {
       });
   }, [params.id, router]);
 
-  // --------------------------------------------------
-  // GENERATE / REGENERATE STUDY PLAN
-  // --------------------------------------------------
-
-  async function handleGeneratePlan() {
-    if (!detail) return;
-
-    const primaryExam = detail.exams.find((e) => e.id === detail.currentExamId);
-
-    if (!primaryExam) {
-      setError('Add an exam before generating a plan.');
-      return;
-    }
-
-    // Existing plan: regenerate using its stored settings.
-
-    if (detail.latestPlan) {
-      setIsGenerating(true);
-      setError(null);
-
-      try {
-        await api.post(`/api/plans/${detail.latestPlan.id}/regenerate`);
-
-        router.push(
-          `/students/${params.id}/plan?planId=${detail.latestPlan.id}`,
-        );
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : "Couldn't regenerate the plan. Please try again.",
-        );
-      } finally {
-        setIsGenerating(false);
-      }
-
-      return;
-    }
-
-    // New plan: ask about buffer week.
-
-    setPendingExam(primaryExam);
-    setShowBufferChoice(true);
-  }
-
-  // --------------------------------------------------
-  // BUFFER WEEK CHOICE
-  // --------------------------------------------------
-
-  async function handleBufferChoice(useBufferWeek: boolean) {
-    if (!pendingExam) return;
-
-    setShowBufferChoice(false);
-    setIsGenerating(true);
-    setError(null);
-
-    try {
-      const { plan } = await api.post<{ plan: { id: string } }>(
-        '/api/plans/generate',
-        {
-          studentId: params.id,
-          examId: pendingExam.id,
-          useBufferWeek,
-        },
-      );
-
-      router.push(`/students/${params.id}/plan?planId=${plan.id}`);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Couldn't generate a plan. Please try again.",
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }
 
   // --------------------------------------------------
   // EXAM STATUS
@@ -515,20 +441,6 @@ export default function AnalysisPage(props: {
                   </Link>
                 )}
 
-                {!examHasPassed && (
-                  <button
-                    type="button"
-                    onClick={handleGeneratePlan}
-                    disabled={isGenerating}
-                    className={buttonClass('yellow', 'lg', 'w-fit')}
-                  >
-                    {isGenerating
-                      ? 'Generating...'
-                      : hasPlan
-                        ? 'Regenerate plan'
-                        : 'Generate plan'}
-                  </button>
-                )}
               </div>
             </section>
 
@@ -576,6 +488,26 @@ export default function AnalysisPage(props: {
                     </div>
                   </div>
                 </div>
+              </Notice>
+            )}
+
+            {/* RESULTS STILL TO ADD */}
+            {detail?.resultsPending && (
+              <Notice
+                tone="info"
+                className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="text-sm font-medium leading-6 text-black sm:text-base">
+                  <strong className="font-bold">{detail.resultsPending.name}</strong>{' '}
+                  results aren&apos;t added yet. Until they are, the plan uses
+                  the marks before them.
+                </span>
+                <Link
+                  href={`/students/${params.id}/exam-marks`}
+                  className={buttonClass('primary', 'lg', 'w-fit shrink-0')}
+                >
+                  Add exam marks
+                </Link>
               </Notice>
             )}
 
@@ -743,9 +675,14 @@ export default function AnalysisPage(props: {
                               {s.topics.slice(0, 4).map((t) => (
                                 <span
                                   key={t.id}
-                                  className="rounded-full bg-white/75 px-4 py-2 text-sm font-semibold text-black"
+                                  className="inline-flex items-center gap-2 rounded-full bg-white/75 px-4 py-2 text-sm font-semibold text-black"
                                 >
                                   {t.name}
+                                  <TopicStatusBadge
+                            mastered={t.mastered}
+                            struggling={t.struggling}
+                            size="sm"
+                          />
                                 </span>
                               ))}
                             </div>
@@ -830,6 +767,12 @@ export default function AnalysisPage(props: {
                           <span className="text-sm text-[#65615D] sm:text-base">
                             · {t.subjectName}
                           </span>
+
+                          <TopicStatusBadge
+                            mastered={t.mastered}
+                            struggling={t.struggling}
+                            size="sm"
+                          />
                         </div>
                       </div>
                     );
@@ -852,14 +795,6 @@ export default function AnalysisPage(props: {
       )}
 
       {/* BUFFER WEEK MODAL */}
-      {showBufferChoice && pendingExam && (
-        <BufferWeekChoiceModal
-          examDateLabel={formatDay(pendingExam.examDate)}
-          minimumRunwayOk={hasBufferRunway(pendingExam.examDate)}
-          onChoose={handleBufferChoice}
-          onCancel={() => setShowBufferChoice(false)}
-        />
-      )}
     </PageShell>
   );
 }

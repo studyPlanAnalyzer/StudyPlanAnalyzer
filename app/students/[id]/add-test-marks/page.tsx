@@ -300,7 +300,7 @@ export default function AddTestMarksPage(
       router.push(`/students/${params.id}/plan?planId=${detail.latestPlan.id}`);
     } catch {
       setError(
-        "Your marks were saved, but the plan couldn't be updated just now. Open the plan and press regenerate, or try again below.",
+        "Your marks were saved, but the plan couldn't be updated just now. Try again below.",
       );
       setIsSubmitting(false);
     }
@@ -316,7 +316,7 @@ export default function AddTestMarksPage(
       router.push(`/students/${params.id}/plan?planId=${detail.latestPlan.id}`);
     } catch {
       setError(
-        "The plan still couldn't be updated. Your marks are saved; you can regenerate the plan from its page.",
+        "The plan still couldn't be updated. Your marks are saved, and the plan picks them up the next time it changes.",
       );
       setIsSubmitting(false);
     }

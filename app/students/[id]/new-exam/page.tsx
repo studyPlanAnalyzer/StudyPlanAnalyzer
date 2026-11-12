@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { examDateProblem, MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
+import { nextExamName } from '@/lib/exam-names';
 import { cardClass } from '@/components/ui/Card';
 import { buttonClass } from '@/components/ui/Button';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
@@ -18,6 +19,15 @@ import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Field, Select } from '@/components/ui/Field';
 import { AddTopicInput } from '@/components/ui/AddTopicInput';
+import { EarlierTopicsSection, NewYearWarning, missedPayload, type MissedTopic } from '@/components/exam/EarlierTopicsSection';
+import { academicYearText } from '@/lib/utils/academic-year';
+import {
+  buildMarkEntries,
+  MarksheetFields,
+  marksheetError,
+  marksheetPayload,
+  type MarkEntry,
+} from '@/components/exam/MarksheetFields';
 
 interface Subject {
   id: string;
@@ -31,6 +41,8 @@ interface Topic {
   name: string;
   subjectId: string;
   parentTopicId: string | null;
+  examId: string | null;
+  examName: string | null;
 }
 
 interface StudentDetail {
@@ -41,81 +53,11 @@ interface StudentDetail {
   latestPlan?: { id: string } | null;
 }
 
-// One row of the marksheet: the LOWEST level of the hierarchy, which is what
-// analysis and plans work on. That is a sub-topic, a topic that has no
-// sub-topics, or (for a subject with no topics yet) the subject itself.
-interface MarkEntry {
-  key: string; // topic id, or the subject id for a subject with no topics
-  subjectId: string;
-  subjectName: string;
-  topicId: string | null;
-  groupName: string | null; // the parent topic of a sub-topic
-  label: string;
-  fullMarks: string; // 0 = not in this exam, nothing is saved for it
-  obtainedMarks: string;
-  confidenceLevel: 'low' | 'medium' | 'high';
-}
-
-function buildMarkEntries(subjects: Subject[], topics: Topic[]): MarkEntry[] {
-  const entries: MarkEntry[] = [];
-  for (const s of subjects) {
-    const own = topics.filter((t) => t.subjectId === s.id);
-    const parentIds = new Set(own.map((t) => t.parentTopicId).filter(Boolean));
-    const base = {
-      subjectId: s.id,
-      subjectName: s.name,
-      fullMarks: '',
-      obtainedMarks: '',
-      confidenceLevel: 'medium' as const,
-    };
-    if (own.length === 0) {
-      entries.push({
-        ...base,
-        key: s.id,
-        topicId: null,
-        groupName: null,
-        label: s.name,
-      });
-      continue;
-    }
-    for (const top of own.filter((t) => !t.parentTopicId)) {
-      if (parentIds.has(top.id)) {
-        for (const sub of own.filter((t) => t.parentTopicId === top.id)) {
-          entries.push({
-            ...base,
-            key: sub.id,
-            topicId: sub.id,
-            groupName: top.name,
-            label: sub.name,
-          });
-        }
-      } else {
-        entries.push({
-          ...base,
-          key: top.id,
-          topicId: top.id,
-          groupName: null,
-          label: top.name,
-        });
-      }
-    }
-  }
-  return entries;
-}
-
-function entryPath(m: MarkEntry): string {
-  if (!m.topicId) return m.label;
-  return m.groupName
-    ? `${m.subjectName} › ${m.groupName} › ${m.label}`
-    : `${m.subjectName} › ${m.label}`;
-}
-
 interface NewSubjectEntry {
   name: string;
   fullMarks: number;
   examWeight: 'low' | 'medium' | 'high';
-  obtainedMarks: string;
-  confidenceLevel: 'low' | 'medium' | 'high';
+  /** Topics already taught for the new exam (none ticked to start with). */
   topics: { name: string; difficultyRating: number; selected: boolean }[];
 }
 
@@ -206,6 +148,10 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
   const [examDate, setExamDate] = useState('');
   const [marks, setMarks] = useState<MarkEntry[]>([]);
   const [newSubjects, setNewSubjects] = useState<NewSubjectEntry[]>([]);
+  // Topics of this academic year's earlier exams that were never listed.
+  const [missed, setMissed] = useState<MissedTopic[]>([]);
+  // The last exam's results aren't out yet: start now, add the marks later.
+  const [resultsPending, setResultsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
@@ -216,6 +162,10 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
       .then((data) => {
         setDetail(data);
         setMarks(buildMarkEntries(data.subjects, data.topics));
+        // Suggest the exam that usually follows the last one.
+        const last = [...data.exams].sort((a, b) => b.examDate.localeCompare(a.examDate))[0];
+        const next = nextExamName(last?.name);
+        if (next) setExamName((current) => current || next);
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -243,8 +193,6 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
         name: '',
         fullMarks: 100,
         examWeight: 'medium',
-        obtainedMarks: '',
-        confidenceLevel: 'medium',
         topics: [],
       },
     ]);
@@ -269,7 +217,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
               topics: suggestTopicsFor(s.name).map((t) => ({
                 name: t,
                 difficultyRating: 2,
-                selected: true,
+                selected: false,
               })),
             }
           : s,
@@ -332,23 +280,9 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
     if (!examName.trim() || !examDate) return 'Enter the exam name and date.';
     const examDateError = examDateProblem(examDate);
     if (examDateError) return `${examDateError}.`;
-    // Every lowest-level item needs an entry. "Out of" 0 means it isn't in
-    // this exam, so nothing is recorded for it.
-    for (const m of marks) {
-      const full = Number(m.fullMarks);
-      if (m.fullMarks.trim() === '' || !Number.isInteger(full) || full < 0)
-        return `Enter the full marks for ${entryPath(m)} (enter 0 if it isn't in this exam).`;
-      if (full === 0) continue;
-      if (full > MAX_FULL_MARKS)
-        return `Full marks for ${entryPath(m)} can be at most ${MAX_FULL_MARKS}.`;
-      const val = Number(m.obtainedMarks);
-      if (
-        m.obtainedMarks.trim() === '' ||
-        !Number.isInteger(val) ||
-        val < 0 ||
-        val > full
-      )
-        return `Enter valid marks for ${entryPath(m)} (0–${full}).`;
+    if (!resultsPending) {
+      const marksError = marksheetError(marks);
+      if (marksError) return marksError;
     }
     for (const s of newSubjects) {
       if (!s.name.trim()) return 'Every new subject needs a name.';
@@ -359,16 +293,9 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
       if (clash) return clash;
       if (!Number.isInteger(s.fullMarks) || s.fullMarks < 1 || s.fullMarks > MAX_FULL_MARKS)
         return `Full marks for ${s.name} must be from 1 to ${MAX_FULL_MARKS}.`;
-      const val = Number(s.obtainedMarks);
-      if (
-        s.obtainedMarks === '' ||
-        Number.isNaN(val) ||
-        val < 0 ||
-        val > s.fullMarks
-      ) {
-        return `Enter valid marks for ${s.name} (0–${s.fullMarks}).`;
-      }
     }
+    const earlier = missedPayload({ exams: detail?.exams ?? [], examDate, today: todayDateString(), missed });
+    if ('error' in earlier) return earlier.error ?? null;
     return null;
   }
 
@@ -382,6 +309,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
     setError(null);
     setCanRetry(false);
     setIsSubmitting(true);
+    const earlier = missedPayload({ exams: detail?.exams ?? [], examDate, today: todayDateString(), missed });
 
     try {
       // One request: the new exam, the marksheet, any new subjects and their
@@ -389,22 +317,12 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
       await api.post(`/api/students/${params.id}/exam-cycle`, {
         name: examName.trim(),
         examDate,
-        // One mark per lowest-level item that is in this exam.
-        marks: marks
-          .filter((m) => Number(m.fullMarks) > 0)
-          .map((m) => ({
-            subjectId: m.subjectId,
-            obtainedMarks: Number(m.obtainedMarks),
-            fullMarks: Number(m.fullMarks),
-            confidenceLevel: m.confidenceLevel,
-            topicIds: m.topicId ? [m.topicId] : [],
-          })),
+        resultsPending,
+        marks: resultsPending ? [] : marksheetPayload(marks),
         newSubjects: newSubjects.map((s) => ({
           name: s.name.trim(),
           fullMarks: s.fullMarks,
           examWeight: s.examWeight,
-          obtainedMarks: Number(s.obtainedMarks),
-          confidenceLevel: s.confidenceLevel,
           topics: s.topics
             .filter((t) => t.selected && t.name.trim())
             .map((t) => ({
@@ -412,8 +330,9 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
               difficultyRating: t.difficultyRating,
             })),
         })),
+        earlierTopics: 'earlierTopics' in earlier ? earlier.earlierTopics : [],
       });
-      router.push(`/students/${params.id}/analysis`);
+      router.push(`/students/${params.id}/plan`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -545,9 +464,10 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                   </PageTitle>
 
                   <p className="mt-4 max-w-2xl text-sm leading-7 text-[#000000] sm:text-base lg:text-lg">
-                    For {detail.student.name}. This retires the current exam,
-                    records fresh marks, and lets you generate a new plan aimed
-                    at the next test date.
+                    For {detail.student.name}. This starts the next exam&apos;s
+                    plan. Topics from the exam just finished move to revision
+                    days (Saturday, and Sunday unless school is open), and new
+                    topics join the daily list as they&apos;re taught.
                   </p>
                 </section>
 
@@ -574,9 +494,16 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                         label="Exam date"
                         type="date"
                         value={examDate}
+                        hint={academicYearText(examDate) ?? undefined}
                         onChange={(e) => setExamDate(e.target.value)}
                       />
                     </div>
+                    <NewYearWarning
+                      studentId={params.id}
+                      exams={detail.exams}
+                      examDate={examDate}
+                      today={todayDateString()}
+                    />
                   </section>
 
                   {/* LATEST MARKS */}
@@ -588,119 +515,57 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                       description="Enter the latest result for every topic and sub-topic. If something won't be in this exam, set its “Out of” to 0 and nothing is recorded for it."
                     />
 
-                    <div className="flex flex-col gap-4">
-                      {detail.subjects.map((subject) => {
-                        const rows = marks.filter(
-                          (m) => m.subjectId === subject.id,
-                        );
-                        let lastGroup: string | null = null;
-                        return (
-                          <div
-                            key={subject.id}
-                            className="rounded-[26px] bg-[#F0EFED] p-5"
-                          >
-                            <p className="mb-4 text-base font-extrabold tracking-tight sm:text-lg">
-                              {subject.name}
-                            </p>
+                    <label className="mb-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-[#F0EFED] p-4">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-5 w-5 shrink-0 accent-black"
+                        checked={resultsPending}
+                        onChange={(e) => setResultsPending(e.target.checked)}
+                      />
+                      <span>
+                        <span className="block text-sm font-bold sm:text-base">
+                          Results not out yet
+                        </span>
+                        <span className="mt-0.5 block text-sm text-[#65615D]">
+                          Start the new cycle now and add the marks when they come.
+                        </span>
+                      </span>
+                    </label>
 
-                            <div className="flex flex-col gap-3">
-                              {rows.map((m) => {
-                                const showGroup =
-                                  m.groupName !== null &&
-                                  m.groupName !== lastGroup;
-                                lastGroup = m.groupName;
-                                const notInExam = m.fullMarks.trim() === '0';
-                                return (
-                                  <div key={m.key}>
-                                    {showGroup && (
-                                      <p className="mb-2 mt-1 text-sm font-bold uppercase tracking-wide text-black/50">
-                                        {m.groupName}
-                                      </p>
-                                    )}
+                    {resultsPending ? (
+                      <Notice tone="info">
+                        No marks needed now. The plan keeps using the last
+                        results you entered, and you can add this exam&apos;s
+                        marks with &quot;Add exam marks&quot; once they&apos;re out.
+                      </Notice>
+                    ) : (
+                      <MarksheetFields
+                        subjects={detail.subjects}
+                        marks={marks}
+                        onChange={updateMark}
+                        emptyText="No subjects yet — add one below."
+                      />
+                    )}
+                  </section>
 
-                                    <div className="rounded-2xl bg-white p-4">
-                                      <div className="flex flex-wrap items-end gap-3">
-                                        <div className="min-w-[8rem] flex-1 self-center text-sm font-semibold sm:text-base">
-                                          {m.topicId
-                                            ? m.label
-                                            : 'Whole subject'}
-                                          {!m.topicId && (
-                                            <span className="mt-0.5 block text-sm font-normal text-[#65615D]">
-                                              No topics yet. Add some on the
-                                              Subjects page for a finer plan.
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        <Input
-                                          label="Out of"
-                                          type="number"
-                                          min={0}
-                                          max={MAX_FULL_MARKS}
-                                          className="w-24"
-                                          value={m.fullMarks}
-                                          onChange={(e) =>
-                                            updateMark(m.key, {
-                                              fullMarks: e.target.value,
-                                            })
-                                          }
-                                        />
-                                        <Input
-                                          label="Obtained"
-                                          type="number"
-                                          min={0}
-                                          className="w-24"
-                                          disabled={notInExam}
-                                          value={
-                                            notInExam ? '' : m.obtainedMarks
-                                          }
-                                          onChange={(e) =>
-                                            updateMark(m.key, {
-                                              obtainedMarks: e.target.value,
-                                            })
-                                          }
-                                        />
-                                        <Field label="Confidence">
-                                          <Select
-                                            disabled={notInExam}
-                                            value={m.confidenceLevel}
-                                            onChange={(e) =>
-                                              updateMark(m.key, {
-                                                confidenceLevel: e.target
-                                                  .value as MarkEntry['confidenceLevel'],
-                                              })
-                                            }
-                                          >
-                                            <option value="low">Low</option>
-                                            <option value="medium">
-                                              Medium
-                                            </option>
-                                            <option value="high">High</option>
-                                          </Select>
-                                        </Field>
-                                      </div>
-
-                                      {notInExam && (
-                                        <p className="mt-3 text-sm font-semibold text-[#65615D]">
-                                          Not in this exam. Nothing will be
-                                          recorded for it.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {detail.subjects.length === 0 && (
-                        <p className="text-sm text-[#65615D]">
-                          No subjects yet — add one below.
-                        </p>
-                      )}
-                    </div>
+                  {/* EARLIER TOPICS */}
+                  <section className={sectionCard}>
+                    <CardTitle
+                      emoji="🔁"
+                      tone="bg-[#F1B5AE]"
+                      title="Earlier topics"
+                      description="Everything listed for this academic year's earlier exams. They're all on the revision list already, so there's nothing to add again. Add any that were missed."
+                    />
+                    <EarlierTopicsSection
+                      studentId={params.id}
+                      subjects={detail.subjects}
+                      topics={detail.topics}
+                      exams={detail.exams}
+                      examDate={examDate}
+                      today={todayDateString()}
+                      missed={missed}
+                      onMissedChange={setMissed}
+                    />
                   </section>
 
                   {/* NEW SUBJECTS */}
@@ -747,17 +612,6 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                               onChange={(e) =>
                                 updateNewSubject(i, {
                                   fullMarks: Number(e.target.value),
-                                })
-                              }
-                            />
-                            <Input
-                              label="Obtained"
-                              type="number"
-                              className="w-28"
-                              value={s.obtainedMarks}
-                              onChange={(e) =>
-                                updateNewSubject(i, {
-                                  obtainedMarks: e.target.value,
                                 })
                               }
                             />
@@ -879,7 +733,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                     disabled={isSubmitting}
                     className={primaryBtn}
                   >
-                    {isSubmitting ? 'Saving…' : 'Save and go to analysis'}
+                    {isSubmitting ? 'Saving…' : 'Save and go to the plan'}
                   </button>
                 </div>
               </>

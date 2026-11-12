@@ -7,6 +7,8 @@ import { reportStrings } from '@/lib/reports/strings';
 import type { TodoStats } from '@/lib/types/todo';
 import type { BillingInfo } from '@/lib/billing/pricing';
 import { daysUntil, formatDay, formatInstantDay, todayKey } from '@/lib/utils/date-utils';
+import { breakReminder, breakReminderText } from '@/lib/utils/exam-break';
+import { planStatusShort, type PlanStatus } from '@/lib/utils/plan-status';
 
 export interface StudentSummary {
   id: string;
@@ -229,12 +231,37 @@ function useNewWeeklyReport(studentId: string): string | null {
   return weekStart;
 }
 
+interface PlanStatusResponse {
+  status: PlanStatus | null;
+  resultsPending: { examId: string; name: string } | null;
+}
+
+/** Pace against need, and results still to add (GET .../plan-status). */
+function usePlanStatus(studentId: string, skip: boolean): PlanStatusResponse | null {
+  const [data, setData] = useState<PlanStatusResponse | null>(null);
+  useEffect(() => {
+    if (skip) return;
+    let alive = true;
+    api
+      .get<PlanStatusResponse>(`/api/students/${studentId}/plan-status`)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [studentId, skip]);
+  return data;
+}
+
 export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
   const billing = s.billing;
   const newReportWeek = useNewWeeklyReport(s.id);
 
   const locked =
     !!billing && (billing.state === 'locked' || billing.state === 'unpaid');
+  const planStatus = usePlanStatus(s.id, locked);
 
   const daysUntilExam = s.nextExam ? getDaysUntil(s.nextExam.examDate) : null;
 
@@ -243,6 +270,10 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
   const examToday = daysUntilExam === 0;
 
   const examOver = s.nextExam ? s.nextExam.examDate <= todayKey() : false;
+
+  // From 2 weeks after the exam until the next cycle starts: a nudge back.
+  const reminder =
+    s.nextExam && examOver ? breakReminder(s.nextExam.examDate, todayKey()) : null;
 
   const completion = stats
     ? Math.min(100, Math.max(0, stats.todayCompletionRate))
@@ -346,6 +377,23 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
         </div>
       )}
 
+      {/* Exam results still to add */}
+      {planStatus?.resultsPending && (
+        <div className="mb-7 flex flex-col justify-between gap-3 rounded-full bg-[#FCE9B9] px-5 py-3 sm:flex-row sm:items-center">
+          <p className="text-sm font-medium text-black">
+            📝 {planStatus.resultsPending.name} results aren&apos;t added yet. Add
+            them when they&apos;re out.
+          </p>
+
+          <Link
+            href={`/students/${s.id}/exam-marks`}
+            className="inline-flex w-fit rounded-full bg-black px-5 py-2 text-xs font-bold text-white transition hover:bg-black/80"
+          >
+            Add exam marks
+          </Link>
+        </div>
+      )}
+
       {/* Three main dashboard cards */}
       <div className="grid grid-cols-1 items-stretch gap-5 pb-7 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
         {/* STUDY PROGRESS - YELLOW */}
@@ -405,6 +453,27 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
                       ? 'Exam today!'
                       : `${daysUntilExam} days remaining`}
                 </p>
+
+                {planStatus?.status && (
+                  <p
+                    className={`mt-2 text-xs font-semibold ${
+                      planStatus.status.kind === 'behind' ? 'text-[#A4473D]' : 'text-black/80'
+                    }`}
+                  >
+                    {planStatusShort(planStatus.status)}
+                  </p>
+                )}
+
+                {reminder && (
+                  <p
+                    role="status"
+                    className={`mt-2 text-xs font-semibold ${
+                      reminder.stage === 'firm' ? 'text-[#A4473D]' : 'text-black/80'
+                    }`}
+                  >
+                    {breakReminderText(reminder)}
+                  </p>
+                )}
               </>
             ) : (
               <>

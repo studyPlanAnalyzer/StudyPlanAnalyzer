@@ -1,7 +1,7 @@
 'use client';
 
 import { subjectClashFor } from '@/lib/subject-name';
-import { useCallback, useEffect, useState, use } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, use } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -9,7 +9,8 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { academicYearOf, earlierExamChoices } from '@/lib/utils/academic-year';
+import { Button } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
 import { Tag } from '@/components/ui/Tag';
 import { Field, Select, fieldClass, fieldOnColourClass, fieldOnColourShapeClass } from '@/components/ui/Field';
@@ -41,15 +42,37 @@ interface Topic {
   subjectId: string;
   parentTopicId: string | null;
   difficultyRating: number;
+  /** The exam it was taught for (an earlier one is revised on weekends). */
+  examId: string | null;
+  examName: string | null;
 }
 
 interface StudentDetail {
   student: { id: string; name: string; grade: string };
   subjects: Subject[];
   topics: Topic[];
-  exams: { id: string; examDate: string; isPrimary: boolean }[];
+  exams: { id: string; name: string; examDate: string; isPrimary: boolean }[];
+  currentExamId: string | null;
   latestPlan: { id: string } | null;
 }
+
+type SelfRating = 'not_sure' | 'ok' | 'know_well';
+/** A topic studied for an earlier exam: which one, and how well it's known. */
+interface Earlier {
+  examId?: string;
+  examName: string;
+  selfRating?: SelfRating;
+}
+
+/** Where a new topic belongs: the current exam, or one of these earlier ones. */
+interface ExamChoices {
+  currentExamId: string | null;
+  currentExamName: string | null;
+  earlier: { key: string; examId?: string; examName: string }[];
+}
+const ExamChoicesContext = createContext<ExamChoices>({ currentExamId: null, currentExamName: null, earlier: [] });
+
+const AN_EARLIER_EXAM = 'An earlier exam';
 
 // Every change on this page is held in the draft until the parent clicks the
 // one Save button. Nothing reaches the database, the analysis or the plan
@@ -65,6 +88,8 @@ interface DraftTopic {
   parentTopicId: string | null;
   name: string;
   difficultyRating: number;
+  /** Set when it was studied for an earlier exam rather than taught now. */
+  earlier?: Earlier;
 }
 interface SubjectEdit {
   name: string;
@@ -321,6 +346,24 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
     .map((t) => ({ ...t, ...draft.topicEdits[t.id] }));
 
   const active = subjects.filter((s) => s.isActive);
+
+  // A new topic is taught now (the current exam) unless the parent picks the
+  // earlier exam it was studied for: one of the child's own past exams of
+  // the same academic year, or one of the year's exams from before they joined.
+  const currentExam = detail?.exams.find((e) => e.id === detail.currentExamId) ?? null;
+  const earlierThisYear = currentExam
+    ? earlierExamChoices(academicYearOf(currentExam.examDate), detail?.exams ?? []).filter(
+        (c) => c.examId !== currentExam.id,
+      )
+    : [];
+  const examChoices: ExamChoices = {
+    currentExamId: currentExam?.id ?? null,
+    currentExamName: currentExam?.name ?? null,
+    earlier:
+      earlierThisYear.length > 0
+        ? earlierThisYear
+        : [{ key: `name:${AN_EARLIER_EXAM}`, examName: AN_EARLIER_EXAM }],
+  };
   const archived = subjects.filter((s) => !s.isActive);
   const topicsFor = (subjectId: string) =>
     topics.filter((t) => t.subjectId === subjectId);
@@ -415,6 +458,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
   ];
 
   return (
+    <ExamChoicesContext.Provider value={examChoices}>
     <PageShell className="pb-16 sm:pb-8">
 
       <AppHeader menu={{ items: navItems, breakpoint: 'lg' }}>
@@ -455,13 +499,9 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     There&apos;s no study plan yet
                   </p>
                   <p className="mt-1 text-sm leading-6 text-black">
-                    Saved changes are used when you generate one.
+                    It starts as soon as you save: topics taught for the current exam
+                    join it the next day.
                   </p>
-                  <div className="mt-3">
-                    <ButtonLink href={`/students/${params.id}/settings`}>
-                      Generate a plan in Settings
-                    </ButtonLink>
-                  </div>
                 </div>
               )}
 
@@ -542,7 +582,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     onDeleteTopic={(id) =>
                       update({ deletedTopics: [...draft.deletedTopics, id] })
                     }
-                    onAddDraftTopic={(parentId, name, difficultyRating) =>
+                    onAddDraftTopic={(parentId, name, difficultyRating, earlier) =>
                       update({
                         topics: [
                           ...draft.topics,
@@ -551,6 +591,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                             parentTopicId: parentId,
                             name,
                             difficultyRating,
+                            earlier,
                           },
                         ],
                       })
@@ -659,6 +700,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
         )}
       </PageMain>
     </PageShell>
+    </ExamChoicesContext.Provider>
   );
 }
 
@@ -697,6 +739,7 @@ function SubjectCard({
     parentTopicId: string | null,
     name: string,
     difficultyRating: number,
+    earlier?: Earlier,
   ) => void;
   onRemoveDraftTopic: (index: number) => void;
 }) {
@@ -856,7 +899,8 @@ function SubjectCard({
                       placeholder="Add a sub-topic (optional)"
                       buttonLabel="Sub-topic"
                       ariaLabel="Add sub-topic"
-                      onAdd={(name, d) => onAddDraftTopic(t.id, name, d)}
+                      parentExam={t}
+                      onAdd={(name, d, earlier) => onAddDraftTopic(t.id, name, d, earlier)}
                     />
                   </div>
                 </li>
@@ -871,7 +915,7 @@ function SubjectCard({
         <AddTopicInput
           buttonLabel="Topic"
           ariaLabel="Add topic"
-          onAdd={(name, d) => onAddDraftTopic(null, name, d)}
+          onAdd={(name, d, earlier) => onAddDraftTopic(null, name, d, earlier)}
         />
       </div>
     </div>
@@ -956,6 +1000,7 @@ function TopicRow({
         </span>
       </span>
       <div className="ml-auto flex shrink-0 items-center">
+        <EarlierTag topic={topic} />
         {!hasSubTopics &&
           (isSub ? (
             <span className="mr-1.5 text-sm font-bold text-black">
@@ -996,7 +1041,7 @@ function DraftChips({
   items,
   onRemove,
 }: {
-  items: { i: number; name: string; difficultyRating: number }[];
+  items: { i: number; name: string; difficultyRating: number; earlier?: Earlier }[];
   onRemove: (index: number) => void;
 }) {
   if (items.length === 0) return null;
@@ -1007,7 +1052,8 @@ function DraftChips({
           key={d.i}
           className="flex items-center gap-1 rounded-full border-[1.5px] border-dashed border-black/30 bg-white/70 pl-4 text-sm font-semibold text-black"
         >
-          {d.name} · difficulty {d.difficultyRating} · added
+          {d.name} · difficulty {d.difficultyRating}
+          {d.earlier ? ` · ${d.earlier.examName}` : ''} · added
           <button
             type="button"
             aria-label={`Remove ${d.name}`}
@@ -1022,20 +1068,45 @@ function DraftChips({
   );
 }
 
+// An earlier-exam topic's exam, shown next to it. This exam's topics have none.
+function EarlierTag({ topic }: { topic: Topic }) {
+  const { currentExamId } = useContext(ExamChoicesContext);
+  if (!topic.examName || topic.examId === currentExamId) return null;
+  return (
+    <span
+      title="Studied for an earlier exam: revised on weekends"
+      className="mr-1.5 inline-flex items-center rounded-full bg-black/80 px-2.5 py-0.5 text-xs font-bold text-white"
+    >
+      {topic.examName}
+    </span>
+  );
+}
+
 function AddTopicInput({
   placeholder = 'Add a topic',
   buttonLabel = 'Topic',
   ariaLabel,
+  parentExam,
   onAdd,
 }: {
   placeholder?: string;
   buttonLabel?: string;
   ariaLabel?: string;
-  onAdd: (name: string, difficultyRating: number) => void;
+  /** For a sub-topic: its topic, whose exam it starts on. */
+  parentExam?: Pick<Topic, 'examId' | 'examName'>;
+  onAdd: (name: string, difficultyRating: number, earlier?: Earlier) => void;
 }) {
+  const choices = useContext(ExamChoicesContext);
+  const parentKey =
+    parentExam && parentExam.examId !== choices.currentExamId && parentExam.examName
+      ? (choices.earlier.find((c) => (parentExam.examId ? c.examId === parentExam.examId : c.examName === parentExam.examName))?.key ?? 'now')
+      : 'now';
   const [value, setValue] = useState('');
   const [difficulty, setDifficulty] = useState(''); // '' = not chosen yet
+  const [when, setWhen] = useState(parentKey); // 'now' or an earlier exam's key
+  const [selfRating, setSelfRating] = useState<SelfRating>('not_sure');
   const [error, setError] = useState<string | null>(null);
+  const earlierChoice = choices.earlier.find((c) => c.key === when);
 
   function add() {
     const name = value.trim();
@@ -1047,7 +1118,11 @@ function AddTopicInput({
       setError('Choose a difficulty from 1 to 5.');
       return;
     }
-    onAdd(name, Number(difficulty));
+    onAdd(
+      name,
+      Number(difficulty),
+      earlierChoice ? { examId: earlierChoice.examId, examName: earlierChoice.examName, selfRating } : undefined,
+    );
     setValue('');
     setDifficulty('');
     setError(null);
@@ -1096,6 +1171,42 @@ function AddTopicInput({
           {buttonLabel}
         </Button>
       </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Select
+          onColour
+          aria-label="When was it taught?"
+          className="min-w-[220px] flex-1 sm:flex-none"
+          value={when}
+          onChange={(e) => setWhen(e.target.value)}
+        >
+          <option value="now">
+            Taught now{choices.currentExamName ? ` (for ${choices.currentExamName})` : ''}
+          </option>
+          {choices.earlier.map((c) => (
+            <option key={c.key} value={c.key}>
+              Studied for {c.examName}
+            </option>
+          ))}
+        </Select>
+        {earlierChoice && (
+          <Select
+            onColour
+            aria-label="How well is it known?"
+            className="min-w-[150px] flex-1 sm:flex-none"
+            value={selfRating}
+            onChange={(e) => setSelfRating(e.target.value as SelfRating)}
+          >
+            <option value="not_sure">Not sure</option>
+            <option value="ok">OK</option>
+            <option value="know_well">Know it well</option>
+          </Select>
+        )}
+      </div>
+      <p className="mt-1.5 text-sm text-black/70">
+        {earlierChoice
+          ? 'Earlier topics are revised on weekends, with suggestions.'
+          : 'It comes onto the list tomorrow.'}
+      </p>
       {error && (
         <p className="mt-1.5 text-sm font-semibold text-red-700">{error}</p>
       )}

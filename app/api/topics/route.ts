@@ -9,6 +9,9 @@ import {
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import { revertTopicTrends } from '@/lib/test-trend';
+import { pickExam } from '@/lib/exam-pick';
+import { tomorrowKey } from '@/lib/utils/revision-days';
+import { appToday, toDateString } from '@/lib/utils/date-utils';
 
 async function assertOwnsSubject(subjectId: string, parentId: string) {
   const [row] = await db
@@ -98,6 +101,12 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     // taken back so nothing stale is left if it later loses its sub-topics.
     if (parentTopicId) await revertTopicTrends(tx, [parentTopicId]);
 
+    // Topics added here are taught now: they belong to the exam being
+    // prepared for and get their learn session tomorrow.
+    const exams = await tx.select().from(schema.exams).where(eq(schema.exams.studentId, owns.id));
+    const current = pickExam(exams);
+    const tomorrow = tomorrowKey(toDateString(appToday()));
+
     const rows = await tx
       .insert(schema.topics)
       .values(
@@ -107,6 +116,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
           name: t.name,
           difficultyRating: t.difficultyRating,
           estimatedMastery: t.estimatedMastery ?? null,
+          examId: current?.id ?? null,
+          examName: current?.name ?? null,
+          learnFrom: tomorrow,
         })),
       )
       .returning();

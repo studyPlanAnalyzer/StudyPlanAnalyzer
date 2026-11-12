@@ -6,12 +6,7 @@ import {
   toDateString,
   todayKey,
 } from '@/lib/utils/date-utils';
-import {
-  MAX_DAILY_MINUTES,
-  MAX_EXAM_DAYS_AHEAD,
-  MIN_HOLIDAY_DAY_MINUTES,
-  MIN_SCHOOL_DAY_MINUTES,
-} from '@/lib/utils/study-limits';
+import { MAX_EXAM_DAYS_AHEAD } from '@/lib/utils/study-limits';
 
 // ---------------------------------------------------------------------------
 // Request-body rules shared by every route that accepts the same kind of
@@ -42,24 +37,6 @@ export const studyDaysSchema = z
   .array(z.enum(STUDY_DAYS))
   .min(1)
   .transform((days) => Array.from(new Set(days)));
-
-export const schoolDayMinutesSchema = z
-  .number()
-  .int()
-  .min(
-    MIN_SCHOOL_DAY_MINUTES,
-    `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes`,
-  )
-  .max(MAX_DAILY_MINUTES, `A day can have at most ${MAX_DAILY_MINUTES} minutes`);
-
-export const holidayDayMinutesSchema = z
-  .number()
-  .int()
-  .min(
-    MIN_HOLIDAY_DAY_MINUTES,
-    `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes`,
-  )
-  .max(MAX_DAILY_MINUTES, `A day can have at most ${MAX_DAILY_MINUTES} minutes`);
 
 /** Grade 4 to 10, stored without leading zeros ("09" becomes "9"). */
 export const gradeSchema = z

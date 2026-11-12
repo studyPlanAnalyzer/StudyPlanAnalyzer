@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
@@ -13,6 +13,10 @@ import {
 } from '@/lib/subject-name';
 import { saveMarks, type NewMark } from '@/lib/save-mark';
 import { toDateString, appToday } from '@/lib/utils/date-utils';
+import { marksheetEntrySchema, marksheetProblem } from '@/lib/exam-cycle';
+import { createPlanForExam } from '@/lib/plan-create';
+import { sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
+import { academicYearLabel, academicYearOf } from '@/lib/utils/academic-year';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import {
   dateStringSchema,
@@ -26,27 +30,18 @@ const name = z.string().trim().min(1).max(200);
 const bodySchema = z.object({
   name,
   examDate: dateStringSchema,
+  // The last exam's results aren't out yet: no marks now, "Add exam marks" later.
+  resultsPending: z.boolean().default(false),
   // Latest marks for subjects the child already has (blank ones are left out).
-  marks: z
-    .array(
-      z.object({
-        subjectId: z.string().uuid(),
-        obtainedMarks: z.number().int().min(0),
-        fullMarks: fullMarksSchema,
-        confidenceLevel: level.optional(),
-        topicIds: z.array(z.string().uuid()).default([]),
-      }),
-    )
-    .default([]),
-  // Subjects tested for the first time this cycle, with their marks and topics.
+  marks: z.array(marksheetEntrySchema).default([]),
+  // Subjects studied for the first time this cycle, with any topics already
+  // taught (they start over the next days, 4 a day). No marks: they have none.
   newSubjects: z
     .array(
       z.object({
         name: subjectNameSchema,
         fullMarks: fullMarksSchema.default(100),
         examWeight: level,
-        obtainedMarks: z.number().int().min(0),
-        confidenceLevel: level.optional(),
         topics: z
           .array(
             z.object({
@@ -58,13 +53,33 @@ const bodySchema = z.object({
       }),
     )
     .default([]),
+  // Topics of this academic year's earlier exams that were never listed:
+  // straight onto the revision list, for the exam they were studied for (one
+  // of the child's exams this year, or one from before they joined).
+  earlierTopics: z
+    .array(
+      z.object({
+        subjectId: z.string().uuid(),
+        name,
+        examId: z.string().uuid().optional(),
+        examName: name,
+        selfRating: z.enum(['not_sure', 'ok', 'know_well']).optional(),
+      }),
+    )
+    .max(500)
+    .default([]),
 });
 
 /**
  * Starts a new exam cycle in ONE request and ONE transaction: retires the old
- * exam, creates the new one, records the marksheet (marks, topic mastery, SM-2
- * trend), and adds any brand-new subjects with their topics. If anything
- * fails, nothing is saved.
+ * exam, creates the new one with its study plan, records the marksheet (marks
+ * and topic mastery), adds any brand-new subjects with their topics, and any
+ * topics of this academic year's earlier exams that were missed. Every
+ * topic of the earlier exams moves to revision days from now on (it is no
+ * longer this exam's), so nothing on SM-2 carries over the break. If the last
+ * exam's results aren't out yet, the marks are left for "Add exam marks"
+ * (exam-marks route) and the new exam remembers which exam they belong to.
+ * If anything fails, nothing is saved.
  *
  * All reading happens up front in a single parallel round; the transaction
  * then uses a fixed number of statements (about 15) however many subjects,
@@ -83,17 +98,13 @@ export const POST = withErrorHandling(
         { status: 400 },
       );
     }
-    const { name: examName, examDate, marks, newSubjects } = parsed.data;
+    const { name: examName, examDate, marks, newSubjects, resultsPending, earlierTopics } = parsed.data;
 
     // One parallel round of reads. Nothing is returned from them until the
     // ownership check below passes.
     const [students, exams, subjects, topics] = await Promise.all([
       db
-        .select({
-          id: schema.students.id,
-          paidUntil: schema.students.paidUntil,
-          paymentStatus: schema.students.paymentStatus,
-        })
+        .select()
         .from(schema.students)
         .where(
           and(
@@ -104,6 +115,7 @@ export const POST = withErrorHandling(
         .limit(1),
       db
         .select({
+          id: schema.exams.id,
           name: schema.exams.name,
           examDate: schema.exams.examDate,
           isPrimary: schema.exams.isPrimary,
@@ -115,6 +127,7 @@ export const POST = withErrorHandling(
           id: schema.subjects.id,
           name: schema.subjects.name,
           orderIndex: schema.subjects.orderIndex,
+          isActive: schema.subjects.isActive,
         })
         .from(schema.subjects)
         .where(eq(schema.subjects.studentId, params.id)),
@@ -152,44 +165,17 @@ export const POST = withErrorHandling(
       );
 
     // Marks must be for this child's subjects and topics, and make sense.
-    const subjectIds = new Set(subjects.map((s) => s.id));
-    const subjectOfTopic = new Map(topics.map((t) => [t.id, t.subjectId]));
-    // The marksheet is at the lowest level: one mark per topic or sub-topic.
-    // A whole-subject mark (no topics) is only for a subject with none, so at
-    // most one per subject, and no topic can be marked twice.
-    const seenSubject = new Set<string>();
-    const seenTopic = new Set<string>();
-    for (const m of marks) {
-      if (!subjectIds.has(m.subjectId))
-        return NextResponse.json(
-          { error: 'Subject not found' },
-          { status: 404 },
-        );
-      if (m.topicIds.length === 0) {
-        if (seenSubject.has(m.subjectId))
-          return NextResponse.json(
-            { error: 'Each subject can only have one whole-subject mark' },
-            { status: 400 },
-          );
-        seenSubject.add(m.subjectId);
-      }
-      if (m.topicIds.some((id) => seenTopic.has(id)))
-        return NextResponse.json(
-          { error: 'Each topic can only have one mark in a marksheet' },
-          { status: 400 },
-        );
-      m.topicIds.forEach((id) => seenTopic.add(id));
-      if (m.obtainedMarks > m.fullMarks)
-        return NextResponse.json(
-          { error: 'obtainedMarks cannot exceed fullMarks' },
-          { status: 400 },
-        );
-      if (m.topicIds.some((id) => subjectOfTopic.get(id) !== m.subjectId))
-        return NextResponse.json(
-          { error: 'Selected topics must belong to the chosen subject' },
-          { status: 400 },
-        );
-    }
+    const problem = marksheetProblem(
+      marks,
+      new Set(subjects.map((s) => s.id)),
+      new Map(topics.map((t) => [t.id, t.subjectId])),
+    );
+    if (problem) return NextResponse.json({ error: problem.error }, { status: problem.status });
+    if (resultsPending && marks.length > 0)
+      return NextResponse.json(
+        { error: "The results aren't out yet, so leave the marks for later and add them with \"Add exam marks\"." },
+        { status: 400 },
+      );
     // Existing subjects first, so a clash names the one already there.
     const clash = findNameClash(
       subjects.map((s) => s.name),
@@ -197,16 +183,32 @@ export const POST = withErrorHandling(
     );
     if (clash)
       return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
-    for (const s of newSubjects) {
-      if (s.obtainedMarks > s.fullMarks)
-        return NextResponse.json(
-          { error: `Marks for ${s.name} cannot exceed ${s.fullMarks}` },
-          { status: 400 },
-        );
-    }
+
+    // Missed earlier topics: for the child's own subjects, and for an exam of
+    // the same academic year as the new one.
+    const activeSubjects = new Set(subjects.filter((s) => s.isActive).map((s) => s.id));
+    if (earlierTopics.some((t) => !activeSubjects.has(t.subjectId)))
+      return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+    const year = academicYearOf(examDate);
+    const examById = new Map(exams.map((e) => [e.id, e]));
+    if (
+      earlierTopics.some((t) => {
+        const e = t.examId ? examById.get(t.examId) : undefined;
+        return t.examId && (!e || academicYearOf(e.examDate) !== year);
+      })
+    )
+      return NextResponse.json(
+        { error: `Choose one of the ${academicYearLabel(year)} exams these topics were studied for.` },
+        { status: 400 },
+      );
 
     const nextOrder =
       subjects.reduce((max, s) => Math.max(max, s.orderIndex), -1) + 1;
+
+    // The exam this cycle follows: the latest one already over.
+    const previous = exams
+      .filter((e) => e.examDate <= today)
+      .sort((a, b) => b.examDate.localeCompare(a.examDate))[0];
 
     const exam = await db.transaction(async (tx) => {
       // The new exam becomes the only primary one.
@@ -221,10 +223,12 @@ export const POST = withErrorHandling(
           name: examName,
           examDate,
           isPrimary: true,
+          resultsPendingFor: resultsPending ? (previous?.id ?? null) : null,
         })
         .returning();
 
-      // New subjects and all their topics: two statements each for the whole lot.
+      // New subjects and all their topics, and any missed earlier topics: two
+      // statements each for the whole lot.
       const newSubjectRows = newSubjects.map((s, i) => ({
         id: randomUUID(),
         studentId: student.id,
@@ -233,32 +237,40 @@ export const POST = withErrorHandling(
         examWeight: s.examWeight,
         orderIndex: nextOrder + i,
       }));
-      if (newSubjectRows.length > 0) {
+      if (newSubjectRows.length > 0)
         await tx.insert(schema.subjects).values(newSubjectRows);
-        await insertTopicRows(
-          tx,
-          newSubjects.flatMap((s, i) =>
-            s.topics.map((t) => ({
-              subjectId: newSubjectRows[i].id,
-              parentTopicId: null,
-              name: t.name,
-              difficultyRating: t.difficultyRating,
-            })),
-          ),
-        );
-      }
+      // Topics already taught: 4 a day from tomorrow, on school days
+      // (revision days are for the earlier topics now).
+      const taught = newSubjects.flatMap((s, i) =>
+        s.topics.map((t) => ({ subjectId: newSubjectRows[i].id, ...t })),
+      );
+      const learnFrom = spreadLearnFrom(
+        taught.length,
+        today,
+        sm2Days(student.sundayRevision, topics.length + earlierTopics.length > 0),
+      );
+      await insertTopicRows(tx, [
+        ...taught.map((t, k) => ({
+          subjectId: t.subjectId,
+          parentTopicId: null,
+          name: t.name,
+          difficultyRating: t.difficultyRating,
+          examId: created.id,
+          examName: created.name,
+          learnFrom: learnFrom[k],
+        })),
+        ...earlierTopics.map((t) => ({
+          subjectId: t.subjectId,
+          parentTopicId: null,
+          name: t.name,
+          examId: t.examId ?? null,
+          examName: t.examId ? examById.get(t.examId)!.name : t.examName,
+          selfRating: t.selfRating ?? null,
+        })),
+      ]);
 
       // One marksheet for the cycle, all its marks saved together.
-      const sheetMarks: Omit<NewMark, 'assessmentId'>[] = [
-        ...marks,
-        ...newSubjects.map((s, i) => ({
-          subjectId: newSubjectRows[i].id,
-          obtainedMarks: s.obtainedMarks,
-          fullMarks: s.fullMarks,
-          confidenceLevel: s.confidenceLevel,
-          topicIds: [],
-        })),
-      ];
+      const sheetMarks: Omit<NewMark, 'assessmentId'>[] = marks;
       if (sheetMarks.length > 0) {
         const [assessment] = await tx
           .insert(schema.assessments)
@@ -274,6 +286,8 @@ export const POST = withErrorHandling(
           sheetMarks.map((m) => ({ ...m, assessmentId: assessment.id })),
         );
       }
+      // The new exam's plan starts now; topics join it as they're taught.
+      await createPlanForExam({ student, exam: created, ex: tx });
       return created;
     });
 

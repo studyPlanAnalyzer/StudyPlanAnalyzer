@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { schema } from '@/lib/db';
 import { addDays, toDateString, appToday } from '@/lib/utils/date-utils';
-import { adjustForTestTrend } from '@/lib/utils/spaced-repetition';
+import { adjustForTestTrend, MIN_EASE } from '@/lib/utils/spaced-repetition';
 import { blendedPercent } from '@/lib/utils/scoring';
 import type { Executor } from '@/lib/utils/topic-mastery';
 
@@ -145,6 +145,7 @@ export async function applyTestTrends(
       repetition_count = CASE WHEN v.reset THEN 0 ELSE s.repetition_count END,
       interval_days = CASE WHEN v.reset THEN 1 ELSE s.interval_days END,
       status = CASE WHEN v.reset THEN 'learning' ELSE s.status END,
+      easy_streak = CASE WHEN v.reset THEN 0 ELSE s.easy_streak END,
       next_review_date = CASE WHEN v.reset THEN ${restartDate}::date ELSE s.next_review_date END
     FROM (VALUES ${values}) AS v(id, ease, reset)
     WHERE s.topic_id = v.id
@@ -269,9 +270,10 @@ export async function revertTestEffects(
   for (const e of effects) {
     const state = stateOf.get(e.topicId);
     if (!state) continue;
-    const ease = Math.min(
-      3,
-      Math.max(1.3, Number(state.easeFactor) - Number(e.easeDelta)),
+    // SM-2's floor; like SM-2, no ceiling.
+    const ease = Math.max(
+      MIN_EASE,
+      Number(state.easeFactor) - Number(e.easeDelta),
     );
     const untouched =
       e.restart &&

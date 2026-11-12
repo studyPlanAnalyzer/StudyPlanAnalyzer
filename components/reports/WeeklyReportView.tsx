@@ -109,33 +109,65 @@ export function WeeklyReportView({
       </section>
 
       {/* STUDY */}
-      <section className={card}>
-        <h2 className={h2}>{L.studyTime}</h2>
-        <Row
-          k={L.studyTime}
-          v={v.minutesValue(
-            formatMinutes(r.studyTime.minutes),
-            r.studyTime.lastWeekMinutes === null ? null : formatMinutes(r.studyTime.lastWeekMinutes),
+      {r.studyTime ? (
+        // A version 2 report: minutes and planned sessions, as it was made.
+        <section className={card}>
+          <h2 className={h2}>{L.studyTime}</h2>
+          <Row
+            k={L.studyTime}
+            v={v.minutesValue(
+              formatMinutes(r.studyTime.minutes),
+              r.studyTime.lastWeekMinutes === null ? null : formatMinutes(r.studyTime.lastWeekMinutes),
+            )}
+          />
+          <Row
+            k={L.studyDays}
+            v={
+              r.consistency.plannedDays === 0
+                ? v.noPlannedDays
+                : v.daysValue(r.consistency.plannedDaysStudied, r.consistency.plannedDays, r.consistency.extraDaysStudied)
+            }
+          />
+          <Row k={L.studyDayStreak} v={v.streakValue(r.consistency.studyDayStreak)} />
+          <Row
+            k={L.sessions}
+            v={r.adherence.required === 0 ? v.noSessions : v.sessionsValue(r.adherence.finished, r.adherence.required)}
+          />
+          {r.adherence.notDone > 0 && <Row k={L.notDone} v={String(r.adherence.notDone)} />}
+          <p className={note}>
+            {s.studyTimeNote} {v.streakNote} {v.optionalNote}
+          </p>
+        </section>
+      ) : (
+        <section className={card}>
+          <h2 className={h2}>{L.study}</h2>
+          {r.topicsDone && (
+            <Row
+              k={L.topicsDone}
+              v={v.minutesValue(
+                String(r.topicsDone.count),
+                r.topicsDone.lastWeek === null ? null : String(r.topicsDone.lastWeek),
+              )}
+            />
           )}
-        />
-        <Row
-          k={L.studyDays}
-          v={
-            r.consistency.plannedDays === 0
-              ? v.noPlannedDays
-              : v.daysValue(r.consistency.plannedDaysStudied, r.consistency.plannedDays, r.consistency.extraDaysStudied)
-          }
-        />
-        <Row k={L.studyDayStreak} v={v.streakValue(r.consistency.studyDayStreak)} />
-        <Row
-          k={L.sessions}
-          v={r.adherence.required === 0 ? v.noSessions : v.sessionsValue(r.adherence.finished, r.adherence.required)}
-        />
-        {r.adherence.notDone > 0 && <Row k={L.notDone} v={String(r.adherence.notDone)} />}
-        <p className={note}>
-          {s.studyTimeNote} {v.streakNote} {v.optionalNote}
-        </p>
-      </section>
+          {r.adherence.required > 0 && (
+            <Row k={L.listed} v={v.listedValue(r.adherence.finished, r.adherence.required)} />
+          )}
+          {r.revised && <Row k={L.revisedEarlier} v={v.revisedValue(r.revised.count, r.revised.hard)} />}
+          <Row
+            k={L.studyDays}
+            v={
+              r.consistency.plannedDays === 0
+                ? v.noPlannedDays
+                : v.daysValue(r.consistency.plannedDaysStudied, r.consistency.plannedDays, r.consistency.extraDaysStudied)
+            }
+          />
+          <Row k={L.studyDayStreak} v={v.streakValue(r.consistency.studyDayStreak)} />
+          <p className={note}>
+            {s.listNote} {v.streakNote}
+          </p>
+        </section>
+      )}
 
       {/* REVISION */}
       <section className={card}>
@@ -243,7 +275,9 @@ export function WeeklyReportView({
               <>
                 <Row k={v.soFarLabel} v={s.readiness(r.exam.readiness)} />
                 {r.exam.readiness !== 'too_early' && (
-                  <p className={note}>{v.readinessRule(r.exam.toDate.finished, r.exam.toDate.required)}</p>
+                  <p className={note}>
+                    {v.readinessRule(r.exam.toDate.finished, r.exam.toDate.required)}
+                  </p>
                 )}
               </>
             )}
@@ -277,7 +311,13 @@ export function WeeklyReportView({
       {r.nextWeek && (
         <section className={card}>
           <h2 className={h2}>{L.nextWeek}</h2>
-          <Row k={L.studyTime} v={v.nextWeekValue(formatMinutes(r.nextWeek.plannedMinutes))} />
+          {r.nextWeek.topics !== undefined ? (
+            <Row k={L.topicsDue} v={v.nextWeekTopics(r.nextWeek.topics)} />
+          ) : (
+            r.nextWeek.plannedMinutes !== undefined && (
+              <Row k={L.studyTime} v={v.nextWeekValue(formatMinutes(r.nextWeek.plannedMinutes))} />
+            )
+          )}
           {r.nextWeek.focusTopics.length > 0 && (
             <div className="mt-3">
               <p className="text-sm font-semibold">{v.focusTitle}</p>

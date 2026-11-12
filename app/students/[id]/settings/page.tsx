@@ -1,5 +1,6 @@
 'use client';
 
+import { academicYearText } from '@/lib/utils/academic-year';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -13,11 +14,6 @@ import {
   BufferWeekToggle,
   hasBufferRunway,
 } from '@/components/plan/BufferWeekToggle';
-import {
-  MIN_SCHOOL_DAY_MINUTES,
-  MIN_HOLIDAY_DAY_MINUTES,
-  MAX_DAILY_MINUTES,
-} from '@/lib/utils/study-limits';
 import { cardClass } from '@/components/ui/Card';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
 import { AppHeader, BackLink, headerLinkClass } from '@/components/ui/AppHeader';
@@ -28,15 +24,11 @@ import { Modal } from '@/components/ui/Modal';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 import { formatDay } from '@/lib/utils/date-utils';
 
-const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 interface Student {
   id: string;
   name: string;
   grade: string;
-  studyDays: string[];
-  schoolDayMinutes: number;
-  holidayDayMinutes: number;
+  sundayRevision: boolean;
 }
 
 interface Exam {
@@ -98,9 +90,7 @@ export default function StudentSettingsPage(
   const params = use(props.params);
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
-  const [studyDays, setStudyDays] = useState<string[]>([]);
-  const [schoolDayMinutes, setSchoolDayMinutes] = useState(45);
-  const [holidayDayMinutes, setHolidayDayMinutes] = useState(90);
+  const [sundayRevision, setSundayRevision] = useState(true);
   const [examDate, setExamDate] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -117,9 +107,7 @@ export default function StudentSettingsPage(
       .get<StudentDetail>(`/api/students/${params.id}`)
       .then((data) => {
         setDetail(data);
-        setStudyDays(data.student.studyDays);
-        setSchoolDayMinutes(data.student.schoolDayMinutes);
-        setHolidayDayMinutes(data.student.holidayDayMinutes);
+        setSundayRevision(data.student.sundayRevision);
         const primaryExam = data.exams.find((e) => e.id === data.currentExamId);
         if (primaryExam) setExamDate(primaryExam.examDate);
       })
@@ -132,35 +120,9 @@ export default function StudentSettingsPage(
       });
   }, [params.id, router]);
 
-  function toggleDay(day: string) {
-    setStudyDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
-    );
-  }
-
   // Validates before opening either confirmation dialog, so the parent
   // sees the problem immediately instead of after clicking Continue.
   function handleSaveClick() {
-    let problem: string | null = null;
-    if (studyDays.length === 0) {
-      problem = 'Select at least one study day.';
-    } else if (schoolDayMinutes < MIN_SCHOOL_DAY_MINUTES) {
-      problem = `School days need at least ${MIN_SCHOOL_DAY_MINUTES} minutes of study time.`;
-    } else if (holidayDayMinutes < MIN_HOLIDAY_DAY_MINUTES) {
-      problem = `Weekends and holidays need at least ${MIN_HOLIDAY_DAY_MINUTES} minutes (1.5 hours) of study time.`;
-    } else if (
-      schoolDayMinutes > MAX_DAILY_MINUTES ||
-      holidayDayMinutes > MAX_DAILY_MINUTES
-    ) {
-      problem = `A day can have at most ${MAX_DAILY_MINUTES} minutes (2 hours) of study time.`;
-    }
-
-    if (problem) {
-      setError(problem);
-      setMessage(null);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
     setError(null);
     if (detail?.latestPlan) setShowConfirm(true);
     else setShowBufferChoice(true);
@@ -178,9 +140,7 @@ export default function StudentSettingsPage(
       const { planId } = await api.put<{ planId: string | null }>(
         `/api/students/${params.id}/settings`,
         {
-          studyDays,
-          schoolDayMinutes,
-          holidayDayMinutes,
+          sundayRevision,
           examDate: examDate || undefined,
           useBufferWeek: detail?.latestPlan
             ? (bufferChoice ?? undefined)
@@ -283,56 +243,55 @@ export default function StudentSettingsPage(
                 <CardTitle
                   emoji="🗓️"
                   tone="bg-[#F7CC46]"
-                  title="Study availability"
-                  description="Pick the days and how long each one can be."
+                  title="Study and revision days"
+                  description="Every day is a study day. Weekends have more time, so they're for revising topics from earlier exams: those days list no new work."
                 />
 
-                <p className="mb-3 text-sm font-bold uppercase tracking-wide">
-                  Study days
-                </p>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#F0EFED] p-4">
+                    <div>
+                      <p className="text-sm font-bold sm:text-base">Saturday</p>
+                      <p className="text-sm text-[#65615D]">Always a revision day.</p>
+                    </div>
+                    <span className="inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white">
+                      Revision day
+                    </span>
+                  </div>
 
-                <div className="mb-7 flex flex-wrap gap-2">
-                  {ALL_DAYS.map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      aria-pressed={studyDays.includes(day)}
-                      onClick={() => toggleDay(day)}
-                      className={clsx(
-                        'inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold transition-all duration-200 active:scale-95 sm:text-base',
-                        studyDays.includes(day)
-                          ? 'bg-black text-white'
-                          : 'bg-[#F0EFED] text-black hover:bg-[#E7E5E2]',
-                      )}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#F0EFED] p-4">
+                    <div>
+                      <p className="text-sm font-bold sm:text-base">Sunday</p>
+                      <p className="text-sm text-[#65615D]">
+                        A school day if your child&apos;s school is open on Sundays.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {[
+                        { label: 'Revision day', value: true },
+                        { label: 'School day', value: false },
+                      ].map((o) => (
+                        <button
+                          key={o.label}
+                          type="button"
+                          aria-pressed={sundayRevision === o.value}
+                          onClick={() => setSundayRevision(o.value)}
+                          className={clsx(
+                            'inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-all duration-200 active:scale-95',
+                            sundayRevision === o.value
+                              ? 'bg-black text-white'
+                              : 'bg-white text-black hover:bg-[#E7E5E2]',
+                          )}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Input
-                    label="Minutes on school days"
-                    hint={`Minimum ${MIN_SCHOOL_DAY_MINUTES} minutes (45 minutes)`}
-                    type="number"
-                    min={MIN_SCHOOL_DAY_MINUTES}
-                    max={MAX_DAILY_MINUTES}
-                    value={schoolDayMinutes}
-                    onChange={(e) =>
-                      setSchoolDayMinutes(Number(e.target.value))
-                    }
-                  />
-                  <Input
-                    label="Minutes on weekends & holidays"
-                    hint={`Minimum ${MIN_HOLIDAY_DAY_MINUTES} minutes (1.5 hours)`}
-                    type="number"
-                    min={MIN_HOLIDAY_DAY_MINUTES}
-                    max={MAX_DAILY_MINUTES}
-                    value={holidayDayMinutes}
-                    onChange={(e) =>
-                      setHolidayDayMinutes(Number(e.target.value))
-                    }
-                  />
+                  <p className="text-sm leading-6 text-[#65615D]">
+                    In the first term of the year there is nothing from earlier exams yet, so
+                    weekends follow the daily list like any other day.
+                  </p>
                 </div>
               </section>
 
@@ -371,6 +330,7 @@ export default function StudentSettingsPage(
                     label="Exam date"
                     type="date"
                     value={examDate}
+                    hint={academicYearText(examDate) ?? undefined}
                     onChange={(e) => setExamDate(e.target.value)}
                   />
                 </section>
@@ -401,8 +361,8 @@ export default function StudentSettingsPage(
                 {isSaving
                   ? 'Saving…'
                   : detail.latestPlan
-                    ? 'Save & regenerate plan'
-                    : 'Save & generate plan'}
+                    ? 'Save & update plan'
+                    : 'Save & start plan'}
               </button>
             </div>
           </>
@@ -412,7 +372,7 @@ export default function StudentSettingsPage(
         {showConfirm && detail?.latestPlan && (
           <Modal className="max-w-md">
               <h2 className="mb-2 text-lg font-bold">
-                Regenerate the study plan?
+                Save and update the study plan?
               </h2>
 
               <p className="mb-5 text-sm leading-6 text-[#65615D]">
