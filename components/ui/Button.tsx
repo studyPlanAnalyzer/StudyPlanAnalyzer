@@ -44,7 +44,7 @@ const SIZE_WRAP: Record<Size, string> = {
 };
 
 const BASE =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60';
 
 /**
  * Button classes, for links and other elements that look like a button.
@@ -56,7 +56,9 @@ export function buttonClass(
   className = '',
   wrap = false,
 ) {
-  return `${BASE} ${wrap ? 'text-center' : 'whitespace-nowrap'} ${VARIANT[variant]} ${(wrap ? SIZE_WRAP : SIZE)[size]} ${className}`;
+  // A wrapping button may shrink to the screen and wrap its label; any other
+  // keeps its width on one line.
+  return `${BASE} ${wrap ? 'max-w-full min-w-0 text-center' : 'shrink-0 whitespace-nowrap'} ${VARIANT[variant]} ${(wrap ? SIZE_WRAP : SIZE)[size]} ${className}`;
 }
 
 /** A Next.js link that looks like a Button. */

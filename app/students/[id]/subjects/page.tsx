@@ -453,7 +453,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
 
   return (
     <ExamChoicesContext.Provider value={examChoices}>
-    <PageShell className="pb-16 sm:pb-8">
+    <PageShell className={draftCount > 0 ? 'pb-44 sm:pb-32' : 'pb-16 sm:pb-8'}>
 
       <StudentHeader studentId={params.id} current="subjects" />
 
@@ -502,28 +502,30 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                 </div>
               )}
 
+              {/* With changes waiting, Save stays on screen at the bottom:
+                  add everything first, then save once. */}
               {draftCount > 0 && (
-                <div className="mb-5 rounded-[28px] border-2 border-dashed border-[#F7CC46] bg-[#fdf4d8] p-5">
-                  <p className="text-base font-bold text-black">
-                    {draftCount} change{draftCount === 1 ? '' : 's'} waiting
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-black">
-                    Add as many as you need. None of them are in the plan or
-                    analysis until you press Save and update plan. If you leave
-                    this page, you will be asked to confirm, and they are
-                    discarded.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button onClick={save} isLoading={isSaving}>
-                      {detail.latestPlan ? 'Save and update plan' : 'Save'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={isSaving}
-                      onClick={() => setDraft(EMPTY_DRAFT)}
-                    >
-                      Discard all
-                    </Button>
+                <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#fdf4d8] px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:px-7">
+                  <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
+                    <p className="min-w-0 text-sm leading-6 text-black">
+                      <span className="font-bold">
+                        {draftCount} change{draftCount === 1 ? '' : 's'} not saved yet.
+                      </span>{' '}
+                      Add everything you need, then save once.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="white"
+                        className="border-[1.5px] border-black/15"
+                        disabled={isSaving}
+                        onClick={() => setDraft(EMPTY_DRAFT)}
+                      >
+                        Discard
+                      </Button>
+                      <Button onClick={save} isLoading={isSaving}>
+                        {detail.latestPlan ? 'Save and update plan' : 'Save'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -735,6 +737,9 @@ function SubjectCard({
   const [name, setName] = useState(subject.name);
   const [fullMarks, setFullMarks] = useState(subject.fullMarks);
   const [examWeight, setExamWeight] = useState<ExamWeight>(subject.examWeight);
+  // The open "add" form: a new topic ('topic'), a sub-topic under a topic
+  // (its id), or none. Only one is open at a time.
+  const [adding, setAdding] = useState<string | null>(null);
   const topLevel = topics.filter((t) => !t.parentTopicId);
   const subTopicsOf = (id: string) =>
     topics.filter((t) => t.parentTopicId === id);
@@ -814,9 +819,13 @@ function SubjectCard({
               {topLevel.length} topic{topLevel.length === 1 ? '' : 's'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BookIcon className="h-[22px] w-[22px] text-black" />
-            <Button onClick={() => setIsEditing(true)}>
+            <Button onClick={() => setAdding('topic')}>
+              <PlusIcon />
+              Add topic
+            </Button>
+            <Button variant="white" onClick={() => setIsEditing(true)}>
               <PencilIcon />
               Edit
             </Button>
@@ -883,13 +892,27 @@ function SubjectCard({
                       )}
                       onRemove={onRemoveDraftTopic}
                     />
-                    <AddTopicInput
-                      placeholder="Add a sub-topic (optional)"
-                      buttonLabel="Sub-topic"
-                      ariaLabel="Add sub-topic"
-                      parentExam={t}
-                      onAdd={(name, d, earlier) => onAddDraftTopic(t.id, name, d, earlier)}
-                    />
+                    {adding === t.id ? (
+                      <AddTopicInput
+                        title={`New sub-topic under ${t.name}`}
+                        buttonLabel="Add sub-topic"
+                        parentExam={t}
+                        onCancel={() => setAdding(null)}
+                        onAdd={(name, d, earlier) => {
+                          onAddDraftTopic(t.id, name, d, earlier);
+                          setAdding(null);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAdding(t.id)}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-black/75 underline-offset-4 hover:underline"
+                      >
+                        <PlusIcon />
+                        Add a sub-topic
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -900,11 +923,17 @@ function SubjectCard({
           items={draftTopics.filter((d) => !d.parentTopicId)}
           onRemove={onRemoveDraftTopic}
         />
-        <AddTopicInput
-          buttonLabel="Topic"
-          ariaLabel="Add topic"
-          onAdd={(name, d, earlier) => onAddDraftTopic(null, name, d, earlier)}
-        />
+        {adding === 'topic' && (
+          <AddTopicInput
+            title={`New topic in ${subject.name}`}
+            buttonLabel="Add topic"
+            onCancel={() => setAdding(null)}
+            onAdd={(name, d, earlier) => {
+              onAddDraftTopic(null, name, d, earlier);
+              setAdding(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -976,9 +1005,10 @@ function TopicRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3">
+    <div className="min-w-0">
+    <div className="flex items-start justify-between gap-2">
       <span
-        className={`flex min-w-[8rem] flex-1 items-center gap-2 break-words text-black ${
+        className={`flex min-w-0 flex-1 items-center gap-2 break-words pt-2.5 text-black ${
           isSub ? 'text-sm font-normal' : 'text-base font-bold'
         }`}
       >
@@ -987,18 +1017,7 @@ function TopicRow({
           {topic.name} {edited && <Unsaved />}
         </span>
       </span>
-      <div className="ml-auto flex shrink-0 items-center">
-        <EarlierTag topic={topic} />
-        {!hasSubTopics &&
-          (isSub ? (
-            <span className="mr-1.5 text-sm font-bold text-black">
-              Difficulty {topic.difficultyRating}
-            </span>
-          ) : (
-            <span className="mr-1.5 inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-sm font-bold text-black">
-              Difficulty {topic.difficultyRating}
-            </span>
-          ))}
+      <div className="flex shrink-0 items-center">
         <IconBtn
           label={`Edit ${topic.name}`}
           onClick={() => setIsEditing(true)}
@@ -1021,6 +1040,16 @@ function TopicRow({
         </IconBtn>
       </div>
     </div>
+      {/* Its exam and difficulty, on their own line so they wrap on a phone. */}
+      <div className={`flex flex-wrap items-center gap-1.5 ${isSub ? 'pl-6' : ''}`}>
+        <EarlierTag topic={topic} />
+        {!hasSubTopics && (
+          <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-black sm:text-sm">
+            Difficulty {topic.difficultyRating}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1041,7 +1070,7 @@ function DraftChips({
           className="flex items-center gap-1 rounded-full border-[1.5px] border-dashed border-black/30 bg-white/70 pl-4 text-sm font-semibold text-black"
         >
           {d.name} · difficulty {d.difficultyRating}
-          {d.earlier ? ` · ${d.earlier.examName}` : ''} · added
+          {d.earlier ? ` · ${d.earlier.examName}` : ''} · not saved yet
           <button
             type="button"
             aria-label={`Remove ${d.name}`}
@@ -1063,26 +1092,29 @@ function EarlierTag({ topic }: { topic: Topic }) {
   return (
     <span
       title="Studied for an earlier exam: revised on weekends"
-      className="mr-1.5 inline-flex items-center rounded-full bg-black/80 px-2.5 py-0.5 text-xs font-bold text-white"
+      className="inline-flex max-w-full items-center rounded-full bg-black/80 px-2.5 py-0.5 text-xs font-bold text-white"
     >
       {topic.examName}
     </span>
   );
 }
 
+// The form for a new topic or sub-topic, opened from "Add topic" or "Add a
+// sub-topic". Adding puts it in the list as unsaved; Save and update plan
+// saves everything at once.
 function AddTopicInput({
-  placeholder = 'Add a topic',
-  buttonLabel = 'Topic',
-  ariaLabel,
+  title,
+  buttonLabel,
   parentExam,
   onAdd,
+  onCancel,
 }: {
-  placeholder?: string;
-  buttonLabel?: string;
-  ariaLabel?: string;
+  title: string;
+  buttonLabel: string;
   /** For a sub-topic: its topic, whose exam it starts on. */
   parentExam?: Pick<Topic, 'examId' | 'examName'>;
   onAdd: (name: string, difficultyRating: number, earlier?: Earlier) => void;
+  onCancel: () => void;
 }) {
   const choices = useContext(ExamChoicesContext);
   const parentKey =
@@ -1117,87 +1149,84 @@ function AddTopicInput({
   }
 
   return (
-    <div className="min-w-0">
-      {/* flex-wrap: on narrow screens the text box takes a full row and the
-          difficulty picker + button sit together on the row below. */}
-      <div className="flex flex-wrap gap-2">
-        <input
-          className={`${fieldOnColourShapeClass} w-full min-w-0 sm:w-auto sm:flex-1`}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            setError(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
-        />
-        <Select
-          onColour
-          className="min-w-[150px] flex-1 sm:w-[150px] sm:flex-none"
-          value={difficulty}
-          onChange={(e) => {
-            setDifficulty(e.target.value);
-            setError(null);
-          }}
-        >
-          <option value="" disabled>
-            Difficulty…
-          </option>
-          {[1, 2, 3, 4, 5].map((d) => (
-            <option key={d} value={d}>
-              Difficulty {d}
+    <div className="mt-2 min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+      <p className="mb-3 text-base font-bold text-black">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name" className="min-w-0 sm:col-span-2">
+          <input
+            autoFocus
+            className={fieldClass}
+            placeholder="e.g. Quadratic equations"
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                add();
+              }
+            }}
+          />
+        </Field>
+        <Field label="Difficulty" className="min-w-0">
+          <Select
+            value={difficulty}
+            onChange={(e) => {
+              setDifficulty(e.target.value);
+              setError(null);
+            }}
+          >
+            <option value="" disabled>
+              Choose…
             </option>
-          ))}
-        </Select>
-        <Button variant="outline" aria-label={ariaLabel} onClick={add}>
+            {[1, 2, 3, 4, 5].map((d) => (
+              <option key={d} value={d}>
+                Difficulty {d}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="When was it taught?" className="min-w-0">
+          <Select value={when} onChange={(e) => setWhen(e.target.value)}>
+            <option value="now">
+              Taught now{choices.currentExamName ? ` (for ${choices.currentExamName})` : ''}
+            </option>
+            {choices.earlier.map((c) => (
+              <option key={c.key} value={c.key}>
+                Studied for {c.examName}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {earlierChoice && (
+          <Field label="Confidence" className="min-w-0">
+            <Select value={selfRating} onChange={(e) => setSelfRating(e.target.value as SelfRating)}>
+              <option value="not_sure">Low confidence</option>
+              <option value="ok">Confident</option>
+              <option value="know_well">Highly confident</option>
+            </Select>
+          </Field>
+        )}
+      </div>
+      <p className="mt-3 text-sm text-[#65615D]">
+        {earlierChoice
+          ? 'Earlier topics are revised on weekends, with suggestions.'
+          : 'It comes onto the list the day after you save.'}
+      </p>
+      {error && (
+        <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{error}</p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={add}>
           <PlusIcon />
           {buttonLabel}
         </Button>
+        <Button variant="white" className="border-[1.5px] border-black/15" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Select
-          onColour
-          aria-label="When was it taught?"
-          className="min-w-[220px] flex-1 sm:flex-none"
-          value={when}
-          onChange={(e) => setWhen(e.target.value)}
-        >
-          <option value="now">
-            Taught now{choices.currentExamName ? ` (for ${choices.currentExamName})` : ''}
-          </option>
-          {choices.earlier.map((c) => (
-            <option key={c.key} value={c.key}>
-              Studied for {c.examName}
-            </option>
-          ))}
-        </Select>
-        {earlierChoice && (
-          <Select
-            onColour
-            aria-label="How well is it known?"
-            className="min-w-[150px] flex-1 sm:flex-none"
-            value={selfRating}
-            onChange={(e) => setSelfRating(e.target.value as SelfRating)}
-          >
-            <option value="not_sure">Low confidence</option>
-            <option value="ok">Confident</option>
-            <option value="know_well">Highly confident</option>
-          </Select>
-        )}
-      </div>
-      <p className="mt-1.5 text-sm text-black/70">
-        {earlierChoice
-          ? 'Earlier topics are revised on weekends, with suggestions.'
-          : 'It comes onto the list tomorrow.'}
-      </p>
-      {error && (
-        <p className="mt-1.5 text-sm font-semibold text-red-700">{error}</p>
-      )}
     </div>
   );
 }
