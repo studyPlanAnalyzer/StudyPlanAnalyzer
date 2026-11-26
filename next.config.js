@@ -47,6 +47,8 @@ const nextConfig = {
   // The app doesn't use next/image. Turning the optimizer off removes the
   // /_next/image endpoint, which has had several security advisories.
   images: { unoptimized: true },
+  // Next.js offers security upgrades only (not every new release).
+  experimental: { agentUpgrade: 'security' },
   // Changes with every build, so every deploy changes /sw.js (app/sw.js/route.ts).
   env: { SW_BUILD_VERSION: String(Date.now()) },
   async headers() {
