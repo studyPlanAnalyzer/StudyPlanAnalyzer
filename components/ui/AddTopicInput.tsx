@@ -6,29 +6,42 @@ import clsx from 'clsx';
 import { Button } from './Button';
 import { fieldClass } from './Field';
 
+type Elsewhere = { names: string[]; message: (name: string) => string };
+const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** Why `name` can't be added (already listed here or elsewhere), or null. */
+export function duplicateMessage(name: string, existing: string[], elsewhere: Elsewhere[] = []): string | null {
+  if (existing.some((n) => norm(n) === norm(name))) return `“${name}” is already in the list. Tick it there instead.`;
+  const other = elsewhere.find((e) => e.names.some((n) => norm(n) === norm(name)));
+  return other ? other.message(name) : null;
+}
+
 /**
  * "Add a custom topic" field with an Add button; Enter also adds. A name
- * already in `existing` (ignoring case and spaces) isn't added twice: the
- * field says so instead, as the Subjects page does.
+ * already in `existing` (the list shown right above it) or in one of
+ * `elsewhere` (topics added on another step) isn't added twice: the field
+ * says where it already is instead, as the Subjects page does.
  */
 export function AddTopicInput({
   onAdd,
   existing = [],
+  elsewhere = [],
   className,
 }: {
   onAdd: (name: string) => void;
   existing?: string[];
+  elsewhere?: Elsewhere[];
   className?: string;
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
 
   function add() {
     const name = value.trim().replace(/\s+/g, ' ');
     if (!name) return;
-    if (existing.some((n) => norm(n) === norm(name))) {
-      setError(`“${name}” is already in the list. Tick it there instead.`);
+    const problem = duplicateMessage(name, existing, elsewhere);
+    if (problem) {
+      setError(problem);
       return;
     }
     onAdd(name);

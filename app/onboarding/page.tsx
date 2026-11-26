@@ -536,7 +536,12 @@ export default function OnboardingPage() {
                         <p className="text-sm text-[#65615D]">No suggestions for this subject — add a topic below.</p>
                       )}
                     </div>
-                    <AddTopicInput className="mt-4" existing={[...s.earlier, ...s.current].map((t) => t.name)} onAdd={(name) => addPick(i, 'earlier', name)} />
+                    <AddTopicInput
+                      className="mt-4"
+                      existing={s.earlier.map((t) => t.name)}
+                      elsewhere={[{ names: s.current.filter((t) => t.selected).map((t) => t.name), message: (n) => `“${n}” is already added as taught for this exam.` }]}
+                      onAdd={(name) => addPick(i, 'earlier', name)}
+                    />
                   </div>
                 ))}
               </div>
@@ -579,7 +584,16 @@ export default function OnboardingPage() {
                         </p>
                       )}
                     </div>
-                    <AddTopicInput className="mt-4" existing={[...s.earlier, ...s.current].map((t) => t.name)} onAdd={(name) => addPick(i, 'current', name)} />
+                    <AddTopicInput
+                      className="mt-4"
+                      existing={s.current.map((t) => t.name)}
+                      elsewhere={
+                        isFirstExam
+                          ? []
+                          : [{ names: s.earlier.filter((t) => t.selected).map((t) => t.name), message: (n) => `“${n}” is already added as an earlier topic. Untick it there to add it here.` }]
+                      }
+                      onAdd={(name) => addPick(i, 'current', name)}
+                    />
                   </div>
                 ))}
                 <Notice tone="info">
