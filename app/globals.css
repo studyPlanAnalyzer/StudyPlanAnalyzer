@@ -22,6 +22,23 @@ html {
   scroll-behavior: smooth;
 }
 
+/* iPhone Safari draws date and time fields with its own minimum width and
+   ignores width: 100%, so in a narrow card they poke out of it. Without the
+   native look they size like any other field; the date picker still opens
+   on tap. The value is left-aligned like other fields' text. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 @keyframes pulse-soft {
   0%,
   100% {
