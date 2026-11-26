@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Field, Select } from '@/components/ui/Field';
 import { MAX_FULL_MARKS } from '@/lib/validation';
@@ -135,6 +138,16 @@ export function MarksheetFields({
   onChange: (key: string, patch: Partial<MarkEntry>) => void;
   emptyText: string;
 }) {
+  // A tap on Obtained or Confidence before "Out of" is filled: that row's
+  // "Out of" box shakes, gets focus, and a line says to fill it first. `n`
+  // restarts the animation on every tap.
+  const [nudge, setNudge] = useState<{ key: string; n: number } | null>(null);
+  function nudgeOutOf(key: string) {
+    setNudge((prev) => ({ key, n: (prev?.n ?? 0) + 1 }));
+    // After the re-render that restarts the shake.
+    requestAnimationFrame(() => document.getElementById(`out-of-${key}`)?.focus());
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {subjects.map((subject) => {
@@ -181,12 +194,14 @@ export function MarksheetFields({
                         </div>
 
                         <Input
+                          key={nudge?.key === m.key ? `nudge-${nudge.n}` : 'out-of'}
+                          id={`out-of-${m.key}`}
                           label="Out of"
                           type="number"
                           min={0}
                           max={MAX_FULL_MARKS}
                           placeholder="—"
-                          className="w-24"
+                          className={`w-24 ${nudge?.key === m.key && notInExam ? 'animate-nudge !border-black' : ''}`}
                           value={m.fullMarks}
                           onChange={(e) =>
                             onChange(m.key, {
@@ -194,6 +209,9 @@ export function MarksheetFields({
                             })
                           }
                         />
+                        {/* Obtained and Confidence wait for "Out of". Tapping
+                            them before then points to it instead. */}
+                        <div className="relative flex flex-wrap items-end gap-3">
                         <Input
                           label="Obtained"
                           type="number"
@@ -227,12 +245,21 @@ export function MarksheetFields({
                             <option value="high">High</option>
                           </Select>
                         </Field>
+                        {notInExam && (
+                          <button
+                            type="button"
+                            aria-label={`Fill in “Out of” for ${entryPath(m)} first`}
+                            className="absolute inset-0 cursor-pointer rounded-2xl"
+                            onClick={() => nudgeOutOf(m.key)}
+                          />
+                        )}
+                        </div>
                       </div>
 
-                      {notInExam && (
-                        <p className="mt-3 text-sm font-semibold text-[#65615D]">
-                          Not in this exam. Nothing will be
-                          recorded for it.
+                      {notInExam && nudge?.key === m.key && (
+                        <p role="status" className="mt-3 text-sm font-semibold text-black">
+                          Fill in “Out of” first, then the marks. Leave it
+                          blank if this wasn&apos;t in the exam.
                         </p>
                       )}
                     </div>

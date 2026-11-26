@@ -142,6 +142,9 @@ export async function loadRevision(student: Student, todayKey: string): Promise<
       selfRating,
       ratings: ratingHistory(topic.id),
       lowMarks: hasMarks && (scored?.weaknessPercent ?? 0) > 50,
+      // Its own marks only (not the subject's): 80% or more. Low confidence
+      // raises the weakness above 20, so those marks don't count.
+      highMarks: !!input && input.t.estimatedMastery != null && (scored?.weaknessPercent ?? 100) <= 20,
     });
     return {
       id: topic.id,

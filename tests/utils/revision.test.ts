@@ -99,6 +99,14 @@ describe('Revision headings', () => {
     assert.deepEqual(standing({ selfRating: 'ok' }), { standing: null, reason: null });
   });
 
+  test('high test marks (80%+, not with low confidence) make a topic known well, before the parent\'s sense or difficulty', () => {
+    const standing = (args: Partial<Parameters<typeof revisionStanding>[0]>) =>
+      revisionStanding({ difficulty: 2, selfRating: null, ratings: [], lowMarks: false, ...args });
+    assert.deepEqual(standing({ highMarks: true }), { standing: 'known', reason: 'High test marks' });
+    assert.deepEqual(standing({ highMarks: true, selfRating: 'not_sure', difficulty: 5 }), { standing: 'known', reason: 'High test marks' });
+    assert.deepEqual(standing({ highMarks: true, ratings: [3, 2] }), { standing: 'needs', reason: 'Rated hard last time' }, 'a Hard since then still wins');
+  });
+
   test("the parent's mark counts only until the child rates the topic", () => {
     const standing = (selfRating: 'not_sure' | 'know_well', ratings: number[]) =>
       revisionStanding({ difficulty: 2, selfRating, ratings, lowMarks: false }).standing;

@@ -33,7 +33,7 @@ const HEADING: Record<RevisionHeading, { title: string; note: string }> = {
   },
   known: {
     title: 'Known well, not revised yet',
-    note: 'Marked highly confident, or always easy so far. A quick check is enough.',
+    note: 'High test marks, marked highly confident, or always easy so far. A quick check is enough.',
   },
   revised: { title: 'Revised for this exam', note: 'Done recently. They come back after 4 weeks.' },
   easy: { title: 'What you found easy', note: 'Felt easy. They come back after 4 weeks.' },

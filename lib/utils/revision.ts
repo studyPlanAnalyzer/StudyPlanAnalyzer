@@ -72,11 +72,15 @@ export type SelfRating = 'not_sure' | 'ok' | 'know_well';
  * under "Needs it most" or "Known well, not revised yet" (null: neither), with
  * the reason shown beside it.
  *
- * Needs it most, the first that applies: its latest rating was Hard or Again;
- * the parent marked it Low confidence; its test marks are low; it is difficulty 4
- * or 5 (unless the parent marked it Highly confident).
- * Known well: the parent marked it Highly confident, or every rating so far was
- * Easy.
+ * The first that applies:
+ * - Needs it most: its latest rating was Hard or Again.
+ * - Known well: its own test marks are high (80% or more, and not given with
+ *   Low confidence). Marks are evidence, so they come before the parent's
+ *   sense and the topic's difficulty.
+ * - Needs it most: the parent marked it Low confidence; its test marks are
+ *   low; it is difficulty 4 or 5 (unless marked Highly confident).
+ * - Known well: the parent marked it Highly confident, or every rating so
+ *   far was Easy.
  * The parent's mark (from adding an earlier topic) counts only until the
  * child has rated the topic: after that, its ratings speak for it.
  */
@@ -87,11 +91,14 @@ export function revisionStanding(args: {
   ratings: number[];
   /** Its test marks put it in the plan's weak tier (below 50%). */
   lowMarks: boolean;
+  /** Its own test marks are 80% or more, not given with Low confidence. */
+  highMarks?: boolean;
 }): { standing: 'needs' | 'known' | null; reason: string | null } {
-  const { difficulty, ratings, lowMarks } = args;
+  const { difficulty, ratings, lowMarks, highMarks = false } = args;
   const self = ratings.length ? null : args.selfRating;
   const latest = ratings[ratings.length - 1];
   if (latest !== undefined && latest <= 2) return { standing: 'needs', reason: 'Rated hard last time' };
+  if (highMarks) return { standing: 'known', reason: 'High test marks' };
   if (self === 'not_sure') return { standing: 'needs', reason: 'Marked low confidence' };
   if (lowMarks) return { standing: 'needs', reason: 'Low test marks' };
   if (difficulty >= 4 && self !== 'know_well') return { standing: 'needs', reason: `Difficulty ${difficulty}` };
