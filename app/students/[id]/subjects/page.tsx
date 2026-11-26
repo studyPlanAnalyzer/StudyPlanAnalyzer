@@ -4,7 +4,6 @@ import { subjectClashFor } from '@/lib/subject-name';
 import { createContext, useCallback, useContext, useEffect, useState, use } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { MAX_FULL_MARKS } from '@/lib/validation';
@@ -15,7 +14,7 @@ import { cardClass } from '@/components/ui/Card';
 import { Tag } from '@/components/ui/Tag';
 import { Field, Select, fieldClass, fieldOnColourClass, fieldOnColourShapeClass } from '@/components/ui/Field';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, headerLinkClass } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Notice } from '@/components/ui/Notice';
 
@@ -451,23 +450,12 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
     await load();
   }
 
-  const navItems = [
-    { href: `/students/${params.id}/plan`, label: 'Plan' },
-    { href: `/students/${params.id}/tests`, label: 'Test history' },
-    { href: `/students/${params.id}/settings`, label: 'Settings' },
-  ];
 
   return (
     <ExamChoicesContext.Provider value={examChoices}>
     <PageShell className="pb-16 sm:pb-8">
 
-      <AppHeader menu={{ items: navItems, breakpoint: 'lg' }}>
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href} className={headerLinkClass}>
-            {item.label}
-          </Link>
-        ))}
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="subjects" />
 
       <PageMain>
         {!detail && !error && (
@@ -1196,9 +1184,9 @@ function AddTopicInput({
             value={selfRating}
             onChange={(e) => setSelfRating(e.target.value as SelfRating)}
           >
-            <option value="not_sure">Not sure</option>
-            <option value="ok">OK</option>
-            <option value="know_well">Know it well</option>
+            <option value="not_sure">Low confidence</option>
+            <option value="ok">Confident</option>
+            <option value="know_well">Highly confident</option>
           </Select>
         )}
       </div>

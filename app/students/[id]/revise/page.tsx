@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 import { RevisionPanel } from '@/components/revision/RevisionPanel';
@@ -12,9 +12,7 @@ export default function RevisePage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   return (
     <PageShell withBottomNav>
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/today`} label="Back to today" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="revise" />
       <PageMain>
         <section className="mb-8 sm:mb-10">
           <PageTitle>Revise earlier topics.</PageTitle>

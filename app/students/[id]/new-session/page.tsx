@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { subjectClashFor } from '@/lib/subject-name';
 import { AddTopicInput } from '@/components/ui/AddTopicInput';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
@@ -223,9 +223,7 @@ export default function NewSessionPage(props: {
 
   return (
     <PageShell className="pb-16 sm:pb-8">
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/analysis`} label="Back to analysis" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} />
 
       <PageMain>
         {!detail && !error && (
@@ -519,6 +517,7 @@ export default function NewSessionPage(props: {
                               </div>
                               <AddTopicInput
                                 className="mt-3"
+                                existing={s.topics.map((t) => t.name)}
                                 onAdd={(name) => addCustomTopic(i, name)}
                               />
                             </div>

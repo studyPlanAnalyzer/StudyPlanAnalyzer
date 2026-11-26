@@ -27,6 +27,17 @@ export function sm2Days(sundayRevision: boolean, hasEarlierTopics: boolean): str
   return ALL_DAYS.filter((d) => !off.includes(d));
 }
 
+/**
+ * The shortest gap the exam limit may cut a review to. 5 days, except when
+ * the list runs Monday to Friday (Saturday and Sunday are both revision
+ * days): then 7. A 5-day gap on a 5-day week keeps landing on the weekend and
+ * moving to Monday, so reviews pile up on Mondays in the last month; a week
+ * keeps each topic on its own weekday.
+ */
+export function minimumGapDays(sundayRevision: boolean, hasEarlierTopics: boolean): number {
+  return sm2Days(sundayRevision, hasEarlierTopics).length === 5 ? 7 : 5;
+}
+
 export function isRevisionDay(dayKey: string, sundayRevision: boolean): boolean {
   return revisionDays(sundayRevision).includes(dayAbbreviation(fromDateString(dayKey)));
 }

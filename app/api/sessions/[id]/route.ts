@@ -18,6 +18,8 @@ import {
   appToday,
 } from '@/lib/utils/date-utils';
 import { rebuildPlan } from '@/lib/plan-rebuild';
+import { hasEarlierTopics } from '@/lib/plan-schedule';
+import { minimumGapDays } from '@/lib/utils/revision-days';
 import { withErrorHandling, logError } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 
@@ -59,6 +61,7 @@ function nextSpacedState(
   state: typeof schema.topicSpacedState.$inferSelect | undefined,
   rating: Rating,
   examDate: string | undefined,
+  minimumDays: number,
 ) {
   const currentState: SpacedState = state
     ? {
@@ -73,7 +76,7 @@ function nextSpacedState(
     : defaultSpacedState();
   // Keep review gaps proportional to the time left before the exam.
   const cap = examDate
-    ? intervalCapForExam(diffInDays(fromDateString(examDate), appToday()))
+    ? intervalCapForExam(diffInDays(fromDateString(examDate), appToday()), minimumDays)
     : undefined;
   return updateTopicSpacedState(currentState, rating, cap);
 }
@@ -146,6 +149,11 @@ export const PUT = withErrorHandling(
           .where(eq(schema.exams.id, plan.examId))
           .limit(1)
       : [];
+    // The shortest gap the exam limit allows: 7 days on a Monday-to-Friday
+    // list (lib/utils/revision-days.ts minimumGapDays), else 5.
+    const minimumDays = reviewTopicId
+      ? minimumGapDays(student.sundayRevision, await hasEarlierTopics(student.id, plan.examId))
+      : 5;
 
     // The session, its review state and the review log are saved together, or
     // not at all, so a half-recorded session can't be left behind. The session
@@ -185,7 +193,7 @@ export const PUT = withErrorHandling(
           .from(schema.topicSpacedState)
           .where(eq(schema.topicSpacedState.topicId, reviewTopicId))
           .for('update');
-        const nextState = nextSpacedState(state, rating as Rating, exam?.examDate);
+        const nextState = nextSpacedState(state, rating as Rating, exam?.examDate, minimumDays);
         const values = {
           intervalDays: nextState.intervalDays,
           easeFactor: String(nextState.easeFactor),

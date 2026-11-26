@@ -308,7 +308,13 @@ export function StudentCard({ student: s, stats, onDelete }: StudentCardProps) {
 
           <div className="min-w-0">
             <h2 className="truncate text-[25px] font-black leading-tight tracking-tight text-black sm:text-[29px]">
-              {s.name}
+              {/* The child's name opens their day (or the payment page while locked). */}
+              <Link
+                href={locked ? `/students/${s.id}/pay` : `/students/${s.id}/today`}
+                className="underline-offset-4 hover:underline"
+              >
+                {s.name}
+              </Link>
             </h2>
 
             <p className="mt-1 text-sm font-medium text-[#65615D]">

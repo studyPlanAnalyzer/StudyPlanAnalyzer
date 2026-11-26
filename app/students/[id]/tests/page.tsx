@@ -9,7 +9,7 @@ import { TopicScopeSelector } from '@/components/session/TopicScopeSelector';
 import { api, ApiError } from '@/lib/api-client';
 import { MAX_FULL_MARKS } from '@/lib/validation';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { EmptyState, emptyStateActionClass } from '@/components/ui/EmptyState';
@@ -270,9 +270,7 @@ export default function TestHistoryPage(
 
   return (
     <PageShell withBottomNav>
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="tests" />
 
       <PageMain>
         {/* LOADING STATE */}

@@ -67,29 +67,19 @@ export async function rebuildPlan({
     };
   }
 
-  // Use the requested setting if there is one, otherwise keep the plan's. If
-  // the buffer no longer fits before the exam, fall back to the full period.
+  // Use the requested setting if there is one, otherwise keep the plan's.
+  // The plan stops where the buffer week starts, even once it has begun:
+  // that week lists nothing (a rebuild then only clears what's left).
   const useBufferWeek = requestedBufferWeek ?? plan.useBufferWeek;
-  const scheduleEndDate = useBufferWeek
-    ? addDays(examDate, -BUFFER_WEEK_DAYS)
-    : examDate;
-  const effectiveEndDate =
-    scheduleEndDate.getTime() <= appToday().getTime() ? examDate : scheduleEndDate;
+  const endDate = useBufferWeek ? addDays(examDate, -BUFFER_WEEK_DAYS) : examDate;
 
-  // Nothing left to schedule (for example the last study day just finished).
-  if (fromDate.getTime() > effectiveEndDate.getTime()) {
-    return {
-      ok: true,
-      plan,
-      sessionsCreated: 0,
-      unscheduledTopicCount: plan.unscheduledTopicIds?.length ?? 0,
-    };
-  }
-
-  const result = generateStudyPlan({
-    ...(await scheduleInputFor({ student, exam, useBufferWeek, fromDate, ex })),
-    scheduleEndDate: effectiveEndDate,
-  });
+  const result =
+    fromDate.getTime() >= endDate.getTime()
+      ? null
+      : generateStudyPlan({
+          ...(await scheduleInputFor({ student, exam, useBufferWeek, fromDate, ex })),
+          scheduleEndDate: endDate,
+        });
 
   const fromKey = toDateString(fromDate);
 
@@ -119,19 +109,21 @@ export async function rebuildPlan({
         ),
       );
 
-    if (result.sessions.length > 0) {
+    if (result && result.sessions.length > 0) {
       await tx.insert(schema.studySessions).values(sessionRows(plan.id, result.sessions));
     }
 
     const [updated] = await tx
       .update(schema.studyPlans)
       .set({
-        totalDays: result.totalDays,
-        averageDailyMinutes: result.averageDailyMinutes,
-        weakFocusPercent: result.weakFocusPercent,
-        mediumFocusPercent: result.mediumFocusPercent,
-        strongFocusPercent: result.strongFocusPercent,
-        unscheduledTopicIds: result.unscheduledTopicIds,
+        ...(result && {
+          totalDays: result.totalDays,
+          averageDailyMinutes: result.averageDailyMinutes,
+          weakFocusPercent: result.weakFocusPercent,
+          mediumFocusPercent: result.mediumFocusPercent,
+          strongFocusPercent: result.strongFocusPercent,
+          unscheduledTopicIds: result.unscheduledTopicIds,
+        }),
         useBufferWeek,
         generatedAt: new Date(),
       })
@@ -146,7 +138,7 @@ export async function rebuildPlan({
   return {
     ok: true,
     plan: updatedPlan,
-    sessionsCreated: result.sessions.length,
-    unscheduledTopicCount: result.unscheduledTopicIds.length,
+    sessionsCreated: result?.sessions.length ?? 0,
+    unscheduledTopicCount: result?.unscheduledTopicIds.length ?? 0,
   };
 }

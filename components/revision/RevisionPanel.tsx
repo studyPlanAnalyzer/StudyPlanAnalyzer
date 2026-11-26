@@ -5,9 +5,10 @@ import clsx from 'clsx';
 import { api, ApiError } from '@/lib/api-client';
 import { Notice } from '@/components/ui/Notice';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { formatDay, todayKey } from '@/lib/utils/date-utils';
+import { todayKey } from '@/lib/utils/date-utils';
 import { agoText, type EarlierTopic, type RevisionHeading } from '@/lib/utils/revision';
 import type { RevisionState } from '@/lib/revision';
+import { BufferWeekNotice } from '@/components/plan/BufferWeekNotice';
 
 // Revising topics from earlier exams (lib/utils/revision.ts). Shown on the
 // Today screen on revision days, and on its own page any day.
@@ -20,7 +21,7 @@ const HEADING: Record<RevisionHeading, { title: string; note: string }> = {
   hard: { title: 'Rated hard', note: 'Felt hard last time. Start here.' },
   needs: {
     title: 'Needs it most',
-    note: 'Not revised for this exam yet, and the most likely to be weak: rated hard before, marked not sure, low test marks, or a hard topic.',
+    note: 'Not revised for this exam yet, and the most likely to be weak: rated hard before, marked low confidence, low test marks, or a hard topic.',
   },
   anotherLook: {
     title: 'Time for another look',
@@ -28,11 +29,11 @@ const HEADING: Record<RevisionHeading, { title: string; note: string }> = {
   },
   notYet: {
     title: 'Not yet revised for this exam',
-    note: 'The ones that need it most are on top.',
+    note: 'Every topic not revised for this exam yet, the ones that need it most on top. Some are also under Needs it most or Known well.',
   },
   known: {
     title: 'Known well, not revised yet',
-    note: 'Marked know it well, or always easy so far. A quick check is enough.',
+    note: 'Marked highly confident, or always easy so far. A quick check is enough.',
   },
   revised: { title: 'Revised for this exam', note: 'Done recently. They come back after 4 weeks.' },
   easy: { title: 'What you found easy', note: 'Felt easy. They come back after 4 weeks.' },
@@ -201,15 +202,10 @@ export function RevisionPanel({ studentId, weekendNote = false }: { studentId: s
         Saturdays (and Sundays), while the next exam&apos;s topics follow the daily list.
       </Notice>
     );
-  if (data.state === 'stopped')
-    return (
-      <Notice tone="neutral">
-        The week before {data.examName} ({formatDay(data.examDate)}) is a free week: no study list and
-        no revision suggestions. You can change this in Settings (buffer week).
-      </Notice>
-    );
+  if (data.state === 'stopped') return <BufferWeekNotice />;
 
-  const total = data.headings.reduce((n, h) => n + (h.heading === 'back' ? 0 : h.topics.length), 0);
+  // A topic can be under two headings: count each once.
+  const total = new Set(data.headings.filter((h) => h.heading !== 'back').flatMap((h) => h.topics.map((t) => t.id))).size;
   return (
     <div className="flex flex-col gap-4">
       {weekendNote && (

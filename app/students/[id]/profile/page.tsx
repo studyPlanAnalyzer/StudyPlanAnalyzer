@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { cardClass } from '@/components/ui/Card';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink, headerLinkClass } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { buttonClass } from '@/components/ui/Button';
@@ -159,18 +158,7 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
 
   return (
     <PageShell withBottomNav>
-      <AppHeader>
-        <Link href={`/students/${params.id}/subjects`} className={`hidden lg:block ${headerLinkClass}`}>
-          Subjects
-        </Link>
-        <Link href={`/students/${params.id}/tests`} className={`hidden lg:block ${headerLinkClass}`}>
-          Test history
-        </Link>
-        <Link href={`/students/${params.id}/settings`} className={`hidden lg:block ${headerLinkClass}`}>
-          Settings
-        </Link>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} />
 
       <PageMain>
         {/* LOADING STATE */}

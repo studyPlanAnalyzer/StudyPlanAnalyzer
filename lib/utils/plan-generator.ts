@@ -65,6 +65,7 @@ export interface SubjectInput {
 
 export interface PlanGeneratorInput {
   examDate: Date;
+  /** Where the plan stops early (the buffer week's first day): its last day is the day before. */
   scheduleEndDate?: Date;
   studyDays: string[];
   subjects: SubjectInput[];
@@ -322,8 +323,10 @@ export function generateStudyPlan(
   // The last study day is the day before the exam (the plan is gone from the
   // start of exam day), and a schedule never runs longer than the furthest an
   // exam can be set, whatever dates reach this function.
+  // scheduleEndDate is where the plan stops (the buffer week's first day),
+  // like the exam: the last study day is the day before either.
   const scheduleEnd = [
-    input.scheduleEndDate ?? input.examDate,
+    addDays(input.scheduleEndDate ?? input.examDate, -1),
     addDays(input.examDate, -1),
     addDays(start, MAX_EXAM_DAYS_AHEAD),
   ].reduce((a, b) => (b.getTime() < a.getTime() ? b : a));

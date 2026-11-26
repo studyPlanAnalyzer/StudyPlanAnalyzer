@@ -10,7 +10,8 @@ import {
   revisionWeakness,
   type EarlierTopic,
 } from '@/lib/utils/revision';
-import { isRevisionDay, revisionDays, sm2Days, spreadLearnFrom, tomorrowKey } from '@/lib/utils/revision-days';
+import { isRevisionDay, minimumGapDays, revisionDays, sm2Days, spreadLearnFrom, tomorrowKey } from '@/lib/utils/revision-days';
+import { intervalCapForExam } from '@/lib/utils/spaced-repetition';
 import { EXAM_NAMES, examNamesBefore, nextExamName } from '@/lib/exam-names';
 
 // Revising earlier-exam topics on revision days, and the days themselves.
@@ -66,7 +67,7 @@ describe('Revision headings', () => {
     );
   });
 
-  test('not yet revised for this exam: by how it has gone so far', () => {
+  test('not yet revised for this exam: every unrated topic, and also by how it has gone so far', () => {
     assert.deepEqual(
       headingsOf([
         topic('known', { standing: 'known' }),
@@ -78,7 +79,7 @@ describe('Revision headings', () => {
       [
         ['hard', ['hard']],
         ['needs', ['needs']],
-        ['notYet', ['plain']],
+        ['notYet', ['known', 'needs', 'plain']],
         ['known', ['known']],
         ['revised', ['needsButRevised']],
       ],
@@ -90,10 +91,10 @@ describe('Revision headings', () => {
       revisionStanding({ difficulty: 2, selfRating: null, ratings: [], lowMarks: false, ...args });
     assert.deepEqual(standing({ ratings: [4, 4, 2] }), { standing: 'needs', reason: 'Rated hard last time' });
     assert.deepEqual(standing({ ratings: [2, 3] }).standing, null, 'only the latest rating counts');
-    assert.deepEqual(standing({ selfRating: 'not_sure' }), { standing: 'needs', reason: 'Marked not sure' });
+    assert.deepEqual(standing({ selfRating: 'not_sure' }), { standing: 'needs', reason: 'Marked low confidence' });
     assert.deepEqual(standing({ lowMarks: true, selfRating: 'know_well' }), { standing: 'needs', reason: 'Low test marks' });
     assert.deepEqual(standing({ difficulty: 4 }), { standing: 'needs', reason: 'Difficulty 4' });
-    assert.deepEqual(standing({ difficulty: 5, selfRating: 'know_well' }), { standing: 'known', reason: 'Marked know it well' });
+    assert.deepEqual(standing({ difficulty: 5, selfRating: 'know_well' }), { standing: 'known', reason: 'Marked highly confident' });
     assert.deepEqual(standing({ ratings: [4, 4] }), { standing: 'known', reason: 'Always easy so far' });
     assert.deepEqual(standing({ selfRating: 'ok' }), { standing: null, reason: null });
   });
@@ -181,6 +182,15 @@ describe('Revision days', () => {
     assert.equal(sm2Days(true, false).length, 7, 'first term: weekends follow SM-2 too');
     assert.deepEqual(sm2Days(true, true), ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
     assert.deepEqual(sm2Days(false, true), ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+  });
+
+  test('the shortest review gap: 7 days on a Monday-to-Friday list, else 5', () => {
+    assert.equal(minimumGapDays(true, true), 7, 'Saturday and Sunday both revision days');
+    assert.equal(minimumGapDays(false, true), 5, 'Sunday is a school day');
+    assert.equal(minimumGapDays(true, false), 5, 'first term: every day');
+    assert.equal(intervalCapForExam(30, 7), 7);
+    assert.equal(intervalCapForExam(30), 5);
+    assert.equal(intervalCapForExam(100, 7), 15);
   });
 
   test('a setup batch starts tomorrow, 4 a day, skipping days with no SM-2', () => {

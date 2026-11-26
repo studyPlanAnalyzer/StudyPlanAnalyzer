@@ -9,7 +9,7 @@ import { api, ApiError, getErrorMessage } from '@/lib/api-client';
 import { formatMinutes, formatWeekRange, reportStrings } from '@/lib/reports/strings';
 import type { HeadlineKind } from '@/lib/reports/types';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { cardClass } from '@/components/ui/Card';
@@ -54,9 +54,7 @@ export default function ReportsPage(props: { params: Promise<{ id: string }> }) 
 
   return (
     <PageShell className="pb-24 sm:pb-8">
-      <AppHeader width="narrow">
-        <BackLink href="/dashboard" label="Back to dashboard" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="reports" width="narrow" />
 
       <PageMain width="narrow">
         {!data && !error && (

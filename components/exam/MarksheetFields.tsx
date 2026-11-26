@@ -87,15 +87,16 @@ export function entryPath(m: MarkEntry): string {
 }
 
 /**
- * What's wrong with the marksheet, or null. Every lowest-level item needs an
- * entry. "Out of" 0 means it isn't in this exam, so nothing is recorded for it.
+ * What's wrong with the marksheet, or null. Only the items that were in the
+ * exam are filled in: a blank (or 0) "Out of" means it wasn't, and nothing is
+ * recorded for it. A filled-in "Out of" needs a mark.
  */
 export function marksheetError(marks: MarkEntry[]): string | null {
   for (const m of marks) {
     const full = Number(m.fullMarks);
-    if (m.fullMarks.trim() === '' || !Number.isInteger(full) || full < 0)
-      return `Enter the full marks for ${entryPath(m)} (enter 0 if it isn't in this exam).`;
-    if (full === 0) continue;
+    if (m.fullMarks.trim() === '' || full === 0) continue;
+    if (!Number.isInteger(full) || full < 0)
+      return `Enter whole-number full marks for ${entryPath(m)}, or leave it blank if it wasn't in this exam.`;
     if (full > MAX_FULL_MARKS)
       return `Full marks for ${entryPath(m)} can be at most ${MAX_FULL_MARKS}.`;
     const val = Number(m.obtainedMarks);
@@ -156,7 +157,7 @@ export function MarksheetFields({
                   m.groupName !== null &&
                   m.groupName !== lastGroup;
                 lastGroup = m.groupName;
-                const notInExam = m.fullMarks.trim() === '0';
+                const notInExam = m.fullMarks.trim() === '' || m.fullMarks.trim() === '0';
                 return (
                   <div key={m.key}>
                     {showGroup && (
@@ -184,6 +185,7 @@ export function MarksheetFields({
                           type="number"
                           min={0}
                           max={MAX_FULL_MARKS}
+                          placeholder="—"
                           className="w-24"
                           value={m.fullMarks}
                           onChange={(e) =>

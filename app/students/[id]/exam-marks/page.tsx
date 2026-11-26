@@ -9,7 +9,7 @@ import { formatDay } from '@/lib/utils/date-utils';
 import { cardClass } from '@/components/ui/Card';
 import { buttonClass } from '@/components/ui/Button';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { EmptyState, emptyStateActionClass } from '@/components/ui/EmptyState';
@@ -104,9 +104,7 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
 
   return (
     <PageShell className="pb-10">
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/analysis`} label="Back to analysis" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} />
 
       <PageMain>
         {!detail && !error && (
@@ -162,9 +160,9 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
 
             <section className={`${cardClass} p-6 sm:p-8`}>
               <p className="mb-5 max-w-3xl text-sm leading-6 text-[#65615D] sm:text-base">
-                Enter the result for every topic and sub-topic. If something
-                wasn&apos;t in this exam, set its &ldquo;Out of&rdquo; to 0 and
-                nothing is recorded for it.
+                Fill in only the topics this exam tested. Leave &ldquo;Out
+                of&rdquo; blank for anything that wasn&apos;t in it, and nothing
+                is recorded for it.
               </p>
               <MarksheetFields
                 subjects={detail.subjects}

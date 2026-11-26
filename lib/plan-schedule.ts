@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { BUFFER_WEEK_DAYS } from '@/lib/utils/study-limits';
-import { addDays, appToday, fromDateString } from '@/lib/utils/date-utils';
+import { addDays, fromDateString } from '@/lib/utils/date-utils';
 import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { sm2Days } from '@/lib/utils/revision-days';
 import type { PlanGeneratorInput } from '@/lib/utils/plan-generator';
@@ -34,13 +34,13 @@ export async function hasEarlierTopics(
 }
 
 /**
- * The last day the plan runs to: the start of the buffer week when it is on
- * and still ahead, else the exam itself (the generator stops the day before).
+ * Where the plan stops: the start of the buffer week when it is on, else the
+ * exam itself. The generator's last day is the day before. Once the buffer
+ * week has begun nothing is listed, whatever was missed before it.
  */
 export function scheduleEndFor(examDate: string, useBufferWeek: boolean): Date {
   const exam = fromDateString(examDate);
-  const bufferStart = addDays(exam, -BUFFER_WEEK_DAYS);
-  return useBufferWeek && bufferStart.getTime() > appToday().getTime() ? bufferStart : exam;
+  return useBufferWeek ? addDays(exam, -BUFFER_WEEK_DAYS) : exam;
 }
 
 /** Everything the generator needs for this exam's plan, from `fromDate`. */

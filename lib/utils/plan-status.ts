@@ -20,10 +20,11 @@ export const ON_TRACK_SHARE = 0.9;
  * The plan's last study day: the day before the exam, or the start of the
  * buffer week while that is still ahead (as lib/plan-rebuild.ts schedules).
  */
-export function planLastDay(examDate: string, useBufferWeek: boolean, todayKey: string): string {
+export function planLastDay(examDate: string, useBufferWeek: boolean, _todayKey: string): string {
+  // The day before the exam, or the day before the buffer week. Once the
+  // buffer week has begun the plan is over (nothing is listed in it).
   const exam = fromDateString(examDate);
-  const bufferStart = toDateString(addDays(exam, -BUFFER_WEEK_DAYS));
-  return useBufferWeek && bufferStart > todayKey ? bufferStart : toDateString(addDays(exam, -1));
+  return toDateString(addDays(exam, useBufferWeek ? -BUFFER_WEEK_DAYS - 1 : -1));
 }
 
 /** Study days from `fromKey` to `toKey`, both included. */

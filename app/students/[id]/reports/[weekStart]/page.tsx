@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { WeeklyReportView } from '@/components/reports/WeeklyReportView';
 import { api, ApiError, getErrorMessage } from '@/lib/api-client';
-import { reportStrings } from '@/lib/reports/strings';
 import type { WeeklyReportSnapshot } from '@/lib/reports/types';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 
 export default function WeeklyReportPage(props: {
@@ -16,7 +15,6 @@ export default function WeeklyReportPage(props: {
 }) {
   const params = use(props.params);
   const router = useRouter();
-  const s = reportStrings('en');
   const [report, setReport] = useState<WeeklyReportSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const markedRead = useRef(false);
@@ -49,9 +47,7 @@ export default function WeeklyReportPage(props: {
 
   return (
     <PageShell className="pb-24 sm:pb-8">
-      <AppHeader width="narrow">
-        <BackLink href={`/students/${params.id}/reports`} label={s.view.allReports} short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} width="narrow" />
 
       <PageMain width="narrow">
         {!report && !error && (

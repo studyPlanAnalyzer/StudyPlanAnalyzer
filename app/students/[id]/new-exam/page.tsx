@@ -14,7 +14,7 @@ import { nextExamName } from '@/lib/exam-names';
 import { cardClass } from '@/components/ui/Card';
 import { buttonClass } from '@/components/ui/Button';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Field, Select } from '@/components/ui/Field';
@@ -365,9 +365,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
   return (
     <PageShell className="pb-10">
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/analysis`} label="Back to analysis" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="new-exam" />
 
       <PageMain>
         {/* LOADING STATE */}
@@ -512,7 +510,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                       emoji="📝"
                       tone="bg-[#F7CC46]"
                       title="Latest marks"
-                      description="Enter the latest result for every topic and sub-topic. If something won't be in this exam, set its “Out of” to 0 and nothing is recorded for it."
+                      description="Fill in only the topics this exam tested. Leave “Out of” blank for anything that wasn't in it, and nothing is recorded for it."
                     />
 
                     <label className="mb-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-[#F0EFED] p-4">
@@ -713,6 +711,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
                               <AddTopicInput
                                 className="mt-4"
+                                existing={s.topics.map((t) => t.name)}
                                 onAdd={(name) =>
                                   addCustomNewSubjectTopic(i, name)
                                 }

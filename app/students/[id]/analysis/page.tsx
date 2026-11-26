@@ -11,7 +11,7 @@ import { DailyChallengeStatsCard } from '@/components/daily-challenge/DailyChall
 import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { Modal } from '@/components/ui/Modal';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { buttonClass } from '@/components/ui/Button';
@@ -391,14 +391,7 @@ export default function AnalysisPage(props: {
 
   return (
     <PageShell withBottomNav>
-      <AppHeader
-        menu={{
-          breakpoint: 'lg',
-          items: [{ href: '/dashboard', label: '← Back to dashboard' }, ...menuItems],
-        }}
-      >
-        <BackLink href="/dashboard" label="Back to dashboard" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="analysis" />
 
       <PageMain>
         {/* ERROR MESSAGE */}

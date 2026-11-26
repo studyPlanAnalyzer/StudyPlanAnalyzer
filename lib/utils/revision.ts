@@ -73,9 +73,9 @@ export type SelfRating = 'not_sure' | 'ok' | 'know_well';
  * the reason shown beside it.
  *
  * Needs it most, the first that applies: its latest rating was Hard or Again;
- * the parent marked it Not sure; its test marks are low; it is difficulty 4
- * or 5 (unless the parent marked it Know it well).
- * Known well: the parent marked it Know it well, or every rating so far was
+ * the parent marked it Low confidence; its test marks are low; it is difficulty 4
+ * or 5 (unless the parent marked it Highly confident).
+ * Known well: the parent marked it Highly confident, or every rating so far was
  * Easy.
  * The parent's mark (from adding an earlier topic) counts only until the
  * child has rated the topic: after that, its ratings speak for it.
@@ -92,10 +92,10 @@ export function revisionStanding(args: {
   const self = ratings.length ? null : args.selfRating;
   const latest = ratings[ratings.length - 1];
   if (latest !== undefined && latest <= 2) return { standing: 'needs', reason: 'Rated hard last time' };
-  if (self === 'not_sure') return { standing: 'needs', reason: 'Marked not sure' };
+  if (self === 'not_sure') return { standing: 'needs', reason: 'Marked low confidence' };
   if (lowMarks) return { standing: 'needs', reason: 'Low test marks' };
   if (difficulty >= 4 && self !== 'know_well') return { standing: 'needs', reason: `Difficulty ${difficulty}` };
-  if (self === 'know_well') return { standing: 'known', reason: 'Marked know it well' };
+  if (self === 'know_well') return { standing: 'known', reason: 'Marked highly confident' };
   if (ratings.length && ratings.every((r) => r === 4)) return { standing: 'known', reason: 'Always easy so far' };
   return { standing: null, reason: null };
 }
@@ -141,7 +141,12 @@ const byLatestOldest = (a: EarlierTopic, b: EarlierTopic) =>
 const byStudiedOldest = (a: EarlierTopic, b: EarlierTopic) =>
   (a.lastStudied ?? '').localeCompare(b.lastStudied ?? '') || byWeakness(a, b);
 
-/** Every earlier topic under its heading, in order. Empty headings are left out. */
+/**
+ * Every earlier topic under its heading(s), in order. Empty headings are left
+ * out. A topic not revised for this exam yet is always under "Not yet
+ * revised", and also under "Needs it most" or "Known well" when it has a
+ * standing, so it can show twice. Every other topic has one heading.
+ */
 export function revisionHeadings(
   topics: EarlierTopic[],
   todayKey: string,
@@ -151,14 +156,14 @@ export function revisionHeadings(
   const ageOf = (t: EarlierTopic) =>
     t.latest ? diffInDays(fromDateString(todayKey), fromDateString(t.latest.on)) : Infinity;
   for (const t of topics) {
-    let heading: RevisionHeading;
-    if (t.backOnDailyList) heading = 'back';
-    else if (finalLook) heading = 'final';
-    else if (!t.latest) heading = t.standing ?? 'notYet';
-    else if (t.latest.rating <= 2) heading = 'hard';
-    else if (ageOf(t) >= ANOTHER_LOOK_AFTER_DAYS) heading = 'anotherLook';
-    else heading = t.latest.rating === 4 ? 'easy' : 'revised';
-    groups.get(heading)!.push(t);
+    let headings: RevisionHeading[];
+    if (t.backOnDailyList) headings = ['back'];
+    else if (finalLook) headings = ['final'];
+    else if (!t.latest) headings = t.standing ? [t.standing, 'notYet'] : ['notYet'];
+    else if (t.latest.rating <= 2) headings = ['hard'];
+    else if (ageOf(t) >= ANOTHER_LOOK_AFTER_DAYS) headings = ['anotherLook'];
+    else headings = [t.latest.rating === 4 ? 'easy' : 'revised'];
+    for (const h of headings) groups.get(h)!.push(t);
   }
   const sorters: Record<RevisionHeading, (a: EarlierTopic, b: EarlierTopic) => number> = {
     final: byStudiedOldest,

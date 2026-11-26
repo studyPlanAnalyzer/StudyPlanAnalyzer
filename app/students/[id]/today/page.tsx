@@ -10,7 +10,7 @@ import { formatDay, todayKey } from '@/lib/utils/date-utils';
 import { DailyTodoPanel } from '@/components/todo/DailyTodoPanel';
 import { ExamOverNotice } from '@/components/exam/ExamOverNotice';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { EmptyState, emptyStateActionClass } from '@/components/ui/EmptyState';
@@ -19,6 +19,7 @@ import { Tag } from '@/components/ui/Tag';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 import { RevisionPanel } from '@/components/revision/RevisionPanel';
 import { ensurePlanId } from '@/lib/ensure-plan';
+import { BufferWeekNotice, TaughtTodayPrompt } from '@/components/plan/BufferWeekNotice';
 
 interface StudentDetail {
   latestPlan: { id: string } | null;
@@ -139,23 +140,10 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
 
   const doneToday = (sessions ?? []).filter(isDone).length;
 
-  // Shown in the phone/tablet hamburger menu. Laptops keep "Back to full plan".
-  const menuItems = [
-    { href: `/students/${params.id}/plan`, label: 'Back to full plan' },
-    { href: `/students/${params.id}/analysis`, label: 'Analysis' },
-    {
-      href: `/students/${params.id}/daily-challenge`,
-      label: 'Daily Challenge',
-    },
-    { href: `/students/${params.id}/revise`, label: 'Revise earlier topics' },
-    { href: `/students/${params.id}/add-test-marks`, label: 'Log a test' },
-  ];
 
   return (
     <PageShell withBottomNav>
-      <AppHeader menu={{ items: menuItems, breakpoint: 'lg' }}>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to full plan" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="today" />
 
       <PageMain>
         {/* HERO SECTION */}
@@ -197,7 +185,13 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
           </Notice>
         )}
 
+        {/* BUFFER WEEK: the plan has ended; the notice is all there is. */}
+        {sessions !== null && bufferWeek && <BufferWeekNotice />}
+
+        {!bufferWeek && (
         <div className="flex flex-col gap-6">
+          {sessions !== null && planId && !overExam && !revisionDay && <TaughtTodayPrompt studentId={params.id} />}
+
           {/* DAILY TO-DO */}
           <DailyTodoPanel studentId={params.id} />
 
@@ -223,16 +217,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
               />
             )}
 
-            {sessions !== null && bufferWeek && sessions.length === 0 && (
-              <EmptyState
-                titleAs="h2"
-                icon="🌿"
-                title="The week before the exam is free"
-                description="The buffer week is on: no study list and no revision suggestions this week. You can change this in Settings."
-              />
-            )}
-
-            {sessions !== null && !revisionDay && !bufferWeek && sessions.length === 0 && !overExam && (
+            {sessions !== null && !revisionDay && sessions.length === 0 && !overExam && (
               <EmptyState
                 titleAs="h2"
                 icon="🌤️"
@@ -298,6 +283,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
             )}
           </div>
         </div>
+        )}
       </PageMain>
 
       <StudentBottomNav studentId={params.id} active="today" />

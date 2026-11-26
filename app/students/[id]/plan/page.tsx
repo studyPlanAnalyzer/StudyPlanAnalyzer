@@ -18,7 +18,7 @@ import type { PlanStatus } from '@/lib/utils/plan-status';
 import { api, ApiError } from '@/lib/api-client';
 import { ExamOverNotice } from '@/components/exam/ExamOverNotice';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, headerLinkClass } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
@@ -26,6 +26,7 @@ import { cardClass } from '@/components/ui/Card';
 import { StudentBottomNav } from '@/components/ui/StudentBottomNav';
 import { daysUntil, formatDay } from '@/lib/utils/date-utils';
 import { ensurePlanId } from '@/lib/ensure-plan';
+import { BufferWeekNotice, TaughtTodayPrompt } from '@/components/plan/BufferWeekNotice';
 
 interface PlanResponse {
   plan: {
@@ -37,7 +38,7 @@ interface PlanResponse {
   };
   exam: { name: string; examDate: string } | null;
   student: { id: string; name: string };
-  today: { listed: number; done: number; revisionDay: boolean };
+  today: { listed: number; done: number; revisionDay: boolean; bufferWeek: boolean };
   thisWeek: WeekDay[];
   comingUp: ComingUpTopic[];
   status: PlanStatus | null;
@@ -132,34 +133,10 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  const navItems = [
-    { href: `/students/${params.id}/analysis`, label: 'Analysis' },
-    { href: `/students/${params.id}/today`, label: 'Today' },
-    {
-      href: `/students/${params.id}/daily-challenge`,
-      label: 'Daily Challenge',
-    },
-    { href: `/students/${params.id}/subjects`, label: 'Subjects' },
-    { href: `/students/${params.id}/tests`, label: 'Test history' },
-    { href: `/students/${params.id}/settings`, label: 'Settings' },
-    {
-      href: `/students/${params.id}/add-test-marks`,
-      label: 'Log a test',
-    },
-    { href: `/students/${params.id}/new-exam`, label: 'New exam' },
-  ];
 
   return (
     <PageShell withBottomNav>
-      <AppHeader menu={{ items: navItems, breakpoint: 'xl' }}>
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className={headerLinkClass}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="plan" />
 
       <PageMain>
         {/* ERROR MESSAGE */}
@@ -202,6 +179,12 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
         {/* ACTUAL PLAN */}
         {data && (
           <>
+            {data.today.bufferWeek ? (
+              <BufferWeekNotice className="mb-6" />
+            ) : (
+              <TaughtTodayPrompt studentId={params.id} className="mb-6" />
+            )}
+
             {/* HERO SECTION */}
             <section className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0 flex-1">
@@ -247,6 +230,13 @@ export default function PlanPage(props: { params: Promise<{ id: string }> }) {
                   className={buttonClass('secondary', 'lg', 'w-fit')}
                 >
                   Revise earlier topics
+                </Link>
+
+                <Link
+                  href={`/students/${params.id}/reports`}
+                  className={buttonClass('secondary', 'lg', 'w-fit')}
+                >
+                  Reports
                 </Link>
 
                 <Link

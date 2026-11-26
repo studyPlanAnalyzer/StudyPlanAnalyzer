@@ -144,10 +144,12 @@ describe('exam cycles', { skip: SKIP_DB }, () => {
         h.topics.map((t) => `${t.name}${t.standingReason ? `: ${t.standingReason}` : ''}`).sort(),
       ]),
     );
+    // Every unrated topic is under Not yet revised; some are also under
+    // Needs it most or Known well.
     assert.deepEqual(names, {
-      needs: ['Grammar: Low test marks', 'Vectors: Marked not sure'],
-      notYet: ['Algebra', 'Geometry', 'Statistics'],
-      known: ['Sets: Marked know it well'],
+      needs: ['Grammar: Low test marks', 'Vectors: Marked low confidence'],
+      notYet: ['Algebra', 'Geometry', 'Grammar: Low test marks', 'Sets: Marked highly confident', 'Statistics', 'Vectors: Marked low confidence'],
+      known: ['Sets: Marked highly confident'],
     });
   });
 

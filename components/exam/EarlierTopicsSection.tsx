@@ -40,9 +40,9 @@ interface Props {
 }
 
 const SELF_RATING_TEXT: Record<SelfRating, string> = {
-  not_sure: 'Not sure',
-  ok: 'OK',
-  know_well: 'Know it well',
+  not_sure: 'Low confidence',
+  ok: 'Confident',
+  know_well: 'Highly confident',
 };
 
 /** The academic year of the new exam (from its date, or the last exam's until one is typed). */

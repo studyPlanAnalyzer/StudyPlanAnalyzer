@@ -16,7 +16,7 @@ import {
 } from '@/components/plan/BufferWeekToggle';
 import { cardClass } from '@/components/ui/Card';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink, headerLinkClass } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { buttonClass } from '@/components/ui/Button';
@@ -167,15 +167,7 @@ export default function StudentSettingsPage(
 
   return (
     <PageShell withBottomNav>
-      <AppHeader>
-        <Link
-          href={`/students/${params.id}/profile`}
-          className={`hidden sm:flex ${headerLinkClass}`}
-        >
-          Profile
-        </Link>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="settings" />
 
       <PageMain>
         {/* ERROR MESSAGE */}

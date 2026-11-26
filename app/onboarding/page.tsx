@@ -524,9 +524,9 @@ export default function OnboardingPage() {
                                 value={t.selfRating}
                                 onChange={(e) => updatePick(i, 'earlier', j, { selfRating: e.target.value as SelfRating })}
                               >
-                                <option value="not_sure">Not sure</option>
-                                <option value="ok">OK</option>
-                                <option value="know_well">Know it well</option>
+                                <option value="not_sure">Low confidence</option>
+                                <option value="ok">Confident</option>
+                                <option value="know_well">Highly confident</option>
                               </Select>
                             </>
                           )}
@@ -536,7 +536,7 @@ export default function OnboardingPage() {
                         <p className="text-sm text-[#65615D]">No suggestions for this subject — add a topic below.</p>
                       )}
                     </div>
-                    <AddTopicInput className="mt-4" onAdd={(name) => addPick(i, 'earlier', name)} />
+                    <AddTopicInput className="mt-4" existing={[...s.earlier, ...s.current].map((t) => t.name)} onAdd={(name) => addPick(i, 'earlier', name)} />
                   </div>
                 ))}
               </div>
@@ -579,7 +579,7 @@ export default function OnboardingPage() {
                         </p>
                       )}
                     </div>
-                    <AddTopicInput className="mt-4" onAdd={(name) => addPick(i, 'current', name)} />
+                    <AddTopicInput className="mt-4" existing={[...s.earlier, ...s.current].map((t) => t.name)} onAdd={(name) => addPick(i, 'current', name)} />
                   </div>
                 ))}
                 <Notice tone="info">

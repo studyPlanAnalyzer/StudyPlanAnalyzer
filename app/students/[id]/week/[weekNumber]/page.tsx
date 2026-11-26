@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { AppHeader, BackLink } from "@/components/ui/AppHeader";
+import { StudentHeader } from "@/components/ui/StudentHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { cardClass } from "@/components/ui/Card";
 import { Notice } from "@/components/ui/Notice";
@@ -71,9 +71,7 @@ export default function WeekSummaryPage(props: { params: Promise<{ id: string; w
 
   return (
     <PageShell className="pb-10">
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to full plan" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} />
 
       <PageMain>
         <section className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">

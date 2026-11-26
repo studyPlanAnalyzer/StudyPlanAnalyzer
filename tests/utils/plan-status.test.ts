@@ -17,10 +17,10 @@ const ALL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const NO_SAT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 describe('Plan status: the window', () => {
-  test('the plan ends the day before the exam, or at the buffer week while it is ahead', () => {
+  test('the plan ends the day before the exam, or the day before the buffer week', () => {
     assert.equal(planLastDay('2026-12-20', false, '2026-11-12'), '2026-12-19');
-    assert.equal(planLastDay('2026-12-20', true, '2026-11-12'), '2026-12-13');
-    assert.equal(planLastDay('2026-12-20', true, '2026-12-13'), '2026-12-19', 'in the buffer week: as the rebuild does');
+    assert.equal(planLastDay('2026-12-20', true, '2026-11-12'), '2026-12-12');
+    assert.equal(planLastDay('2026-12-20', true, '2026-12-15'), '2026-12-12', 'in the buffer week the plan stays over');
   });
 
   test('a week from today, cut at the plan end', () => {

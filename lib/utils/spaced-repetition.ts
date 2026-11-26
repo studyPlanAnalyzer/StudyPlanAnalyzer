@@ -126,12 +126,13 @@ export function updateTopicSpacedState(
  * Longest allowed review gap, proportional to the time left before the exam:
  * about 15% of it, kept between 5 and 21 days. With 60 days left that is 9
  * days, so a topic can be reviewed at least four or five times before the exam
- * instead of the classic ladder jumping past it. The 5-day floor never delays
- * a lapse (Again brings a topic back tomorrow anyway), and near the exam a
- * topic the child recalls isn't pulled back every 3 days.
+ * instead of the classic ladder jumping past it. The floor (5 days, or 7 for a
+ * Monday-to-Friday list: see minimumGapDays) never delays a lapse (Again
+ * brings a topic back tomorrow anyway), and near the exam a topic the child
+ * recalls isn't pulled back every 3 days.
  */
-export function intervalCapForExam(daysUntilExam: number): number {
-  return Math.max(5, Math.min(21, Math.round(daysUntilExam * 0.15)));
+export function intervalCapForExam(daysUntilExam: number, minimumDays = 5): number {
+  return Math.max(minimumDays, Math.min(21, Math.round(daysUntilExam * 0.15)));
 }
 
 /**
