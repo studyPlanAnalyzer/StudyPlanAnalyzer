@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
 import { createPlanForExam } from '@/lib/plan-create';
 import { ALL_DAYS, sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
 import { toDateString, appToday } from '@/lib/utils/date-utils';
@@ -54,14 +55,7 @@ const onboardingSchema = z.object({
           )
           .default([]),
         // This exam's topics taught so far: they start over the next days.
-        topics: z
-          .array(
-            z.object({
-              name: z.string().trim().min(1).max(200),
-              difficultyRating: z.number().int().min(1).max(5).default(2),
-            }),
-          )
-          .default([]),
+        topics: z.array(taughtTopicSchema).default([]),
       }),
     )
     .min(1),
@@ -128,22 +122,15 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     // This exam's topics taught so far start 4 a day from tomorrow, on the
     // days SM-2 runs (not revision days, once there are earlier topics).
     const hasEarlier = subjectsIn.some((s) => s.earlierTopics.length > 0);
+    // (With sub-topics, it's the sub-topics that are studied.)
     const current = subjectsIn.flatMap((s, i) => s.topics.map((t) => ({ subjectId: subjectRows[i].id, ...t })));
     const learnFrom = spreadLearnFrom(
-      current.length,
+      taughtLeafCount(current),
       toDateString(appToday()),
       sm2Days(studentIn.sundayRevision, hasEarlier),
     );
     await insertTopicRows(tx, [
-      ...current.map((t, k) => ({
-        subjectId: t.subjectId,
-        parentTopicId: null,
-        name: t.name,
-        difficultyRating: t.difficultyRating,
-        examId: exam.id,
-        examName: exam.name,
-        learnFrom: learnFrom[k],
-      })),
+      ...taughtTopicRows(current, { examId: exam.id, examName: exam.name }, learnFrom),
       ...subjectsIn.flatMap((s, i) =>
         s.earlierTopics.map((t) => ({
           subjectId: subjectRows[i].id,

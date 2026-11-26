@@ -6,6 +6,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { randomUUID } from 'crypto';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
 import { createPlanForExam } from '@/lib/plan-create';
 import { ALL_DAYS, sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
 import {
@@ -36,14 +37,7 @@ const bodySchema = z.object({
         name: subjectNameSchema,
         examWeight: level,
         // Topics already taught: they start over the next days, 4 a day.
-        topics: z
-          .array(
-            z.object({
-              name: z.string().trim().min(1).max(200),
-              difficultyRating: z.number().int().min(1).max(5).default(2),
-            }),
-          )
-          .default([]),
+        topics: z.array(taughtTopicSchema).default([]),
       }),
     )
     .min(1),
@@ -155,19 +149,8 @@ export const POST = withErrorHandling(
       const taught = newSubjects.flatMap((s, i) =>
         s.topics.map((t) => ({ subjectId: subjectRows[i].id, ...t })),
       );
-      const learnFrom = spreadLearnFrom(taught.length, today, sm2Days(student.sundayRevision, false));
-      await insertTopicRows(
-        tx,
-        taught.map((t, k) => ({
-          subjectId: t.subjectId,
-          parentTopicId: null,
-          name: t.name,
-          difficultyRating: t.difficultyRating,
-          examId: created.id,
-          examName: created.name,
-          learnFrom: learnFrom[k],
-        })),
-      );
+      const learnFrom = spreadLearnFrom(taughtLeafCount(taught), today, sm2Days(student.sundayRevision, false));
+      await insertTopicRows(tx, taughtTopicRows(taught, { examId: created.id, examName: created.name }, learnFrom));
       await tx
         .update(schema.students)
         .set({ studyDays: [...ALL_DAYS] })

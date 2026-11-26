@@ -6,6 +6,7 @@ import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
 import {
   subjectNameSchema,
   findNameClash,
@@ -42,14 +43,7 @@ const bodySchema = z.object({
         name: subjectNameSchema,
         fullMarks: fullMarksSchema.default(100),
         examWeight: level,
-        topics: z
-          .array(
-            z.object({
-              name,
-              difficultyRating: z.number().int().min(1).max(5).default(2),
-            }),
-          )
-          .default([]),
+        topics: z.array(taughtTopicSchema).default([]),
       }),
     )
     .default([]),
@@ -245,20 +239,12 @@ export const POST = withErrorHandling(
         s.topics.map((t) => ({ subjectId: newSubjectRows[i].id, ...t })),
       );
       const learnFrom = spreadLearnFrom(
-        taught.length,
+        taughtLeafCount(taught),
         today,
         sm2Days(student.sundayRevision, topics.length + earlierTopics.length > 0),
       );
       await insertTopicRows(tx, [
-        ...taught.map((t, k) => ({
-          subjectId: t.subjectId,
-          parentTopicId: null,
-          name: t.name,
-          difficultyRating: t.difficultyRating,
-          examId: created.id,
-          examName: created.name,
-          learnFrom: learnFrom[k],
-        })),
+        ...taughtTopicRows(taught, { examId: created.id, examName: created.name }, learnFrom),
         ...earlierTopics.map((t) => ({
           subjectId: t.subjectId,
           parentTopicId: null,

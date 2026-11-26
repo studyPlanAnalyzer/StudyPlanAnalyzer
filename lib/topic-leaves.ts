@@ -84,6 +84,8 @@ export async function expandManyToLeaves(
 export type SelfRating = 'not_sure' | 'ok' | 'know_well';
 
 export type NewTopicRow = {
+  /** Set when a sub-topic in the same insert needs to point at it. */
+  id?: string;
   subjectId: string;
   parentTopicId: string | null;
   name: string;
@@ -110,6 +112,7 @@ export async function insertTopicRows(
     .insert(schema.topics)
     .values(
       rows.map((r) => ({
+        ...(r.id && { id: r.id }),
         subjectId: r.subjectId,
         parentTopicId: r.parentTopicId,
         name: r.name,

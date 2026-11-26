@@ -19,6 +19,7 @@ import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Field, Select } from '@/components/ui/Field';
 import { AddTopicInput } from '@/components/ui/AddTopicInput';
+import { SubTopicsEditor, type SubTopicDraft } from '@/components/topics/SubTopicsEditor';
 import { EarlierTopicsSection, NewYearWarning, missedPayload, type MissedTopic } from '@/components/exam/EarlierTopicsSection';
 import { academicYearText } from '@/lib/utils/academic-year';
 import {
@@ -58,7 +59,7 @@ interface NewSubjectEntry {
   fullMarks: number;
   examWeight: 'low' | 'medium' | 'high';
   /** Topics already taught for the new exam (none ticked to start with). */
-  topics: { name: string; difficultyRating: number; selected: boolean }[];
+  topics: { name: string; difficultyRating: number; selected: boolean; subTopics?: SubTopicDraft[] }[];
 }
 
 const todayDateString = todayKey;
@@ -328,6 +329,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
             .map((t) => ({
               name: t.name.trim(),
               difficultyRating: t.difficultyRating,
+              subTopics: t.subTopics ?? [],
             })),
         })),
         earlierTopics: 'earlierTopics' in earlier ? earlier.earlierTopics : [],
@@ -662,10 +664,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
 
                               <div className="flex flex-col gap-2">
                                 {s.topics.map((t, j) => (
-                                  <div
-                                    key={j}
-                                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-white px-4 py-2"
-                                  >
+                                  <div key={j} className="rounded-2xl bg-white px-4 py-2">
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                     <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
                                       <input
                                         type="checkbox"
@@ -679,6 +679,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                         {t.name}
                                       </span>
                                     </label>
+                                    {!t.subTopics?.length && (
                                     <Select
                                       className="w-[150px]"
                                       value={t.difficultyRating}
@@ -697,6 +698,19 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                                         </option>
                                       ))}
                                     </Select>
+                                    )}
+                                  </div>
+                                  {t.selected && (
+                                    <SubTopicsEditor
+                                      parentName={t.name}
+                                      subTopics={t.subTopics ?? []}
+                                      onChange={(subTopics) =>
+                                        updateNewSubject(i, {
+                                          topics: s.topics.map((x, k) => (k === j ? { ...x, subTopics } : x)),
+                                        })
+                                      }
+                                    />
+                                  )}
                                   </div>
                                 ))}
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { subjectClashFor } from '@/lib/subject-name';
 import { AddTopicInput } from '@/components/ui/AddTopicInput';
+import { SubTopicsEditor, type SubTopicDraft } from '@/components/topics/SubTopicsEditor';
 import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
@@ -34,6 +35,7 @@ interface TopicForm {
   name: string;
   difficultyRating: number;
   selected: boolean;
+  subTopics?: SubTopicDraft[];
 }
 
 interface NewSubject {
@@ -201,6 +203,7 @@ export default function NewSessionPage(props: {
             .map((t) => ({
               name: t.name.trim(),
               difficultyRating: t.difficultyRating,
+              subTopics: t.subTopics ?? [],
             })),
         })),
       });
@@ -457,10 +460,8 @@ export default function NewSessionPage(props: {
                               </p>
                               <div className="flex flex-col gap-2">
                                 {s.topics.map((t, j) => (
-                                  <div
-                                    key={j}
-                                    className="flex flex-wrap items-center gap-x-3 gap-y-1"
-                                  >
+                                  <div key={j}>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                     <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
                                       <input
                                         type="checkbox"
@@ -480,6 +481,7 @@ export default function NewSessionPage(props: {
                                         {t.name}
                                       </span>
                                     </label>
+                                    {!t.subTopics?.length && (
                                     <Select
                                       onColour
                                       className="w-[150px]"
@@ -506,6 +508,18 @@ export default function NewSessionPage(props: {
                                         </option>
                                       ))}
                                     </Select>
+                                    )}
+                                  </div>
+                                  {t.selected && (
+                                    <SubTopicsEditor
+                                      onColour
+                                      parentName={t.name}
+                                      subTopics={t.subTopics ?? []}
+                                      onChange={(subTopics) =>
+                                        updateTopics(i, (ts) => ts.map((x, k) => (k === j ? { ...x, subTopics } : x)))
+                                      }
+                                    />
+                                  )}
                                   </div>
                                 ))}
                                 {s.topics.length === 0 && (

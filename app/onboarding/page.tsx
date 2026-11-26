@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { subjectClashFor } from '@/lib/subject-name';
 import { AddTopicInput } from '@/components/ui/AddTopicInput';
+import { SubTopicsEditor, type SubTopicDraft } from '@/components/topics/SubTopicsEditor';
 import { AppHeader, headerPillClass } from '@/components/ui/AppHeader';
 import { buttonClass } from '@/components/ui/Button';
 import { Field, Select } from '@/components/ui/Field';
@@ -74,6 +75,8 @@ interface TopicPick {
   /** Earlier topics: the exam it was studied for, and how well it's known. */
   examName: string;
   selfRating: SelfRating;
+  /** This exam's topics: sub-topics already taught, if any. */
+  subTopics?: SubTopicDraft[];
 }
 
 interface SubjectForm {
@@ -238,7 +241,7 @@ export default function OnboardingPage() {
                 })),
           topics: s.current
             .filter((t) => t.selected && t.name.trim())
-            .map((t) => ({ name: t.name.trim(), difficultyRating: t.difficultyRating })),
+            .map((t) => ({ name: t.name.trim(), difficultyRating: t.difficultyRating, subTopics: t.subTopics ?? [] })),
         })),
       });
       // The last step of setting up a new child is the payment.
@@ -554,28 +557,40 @@ export default function OnboardingPage() {
                     <p className="mb-4 text-base font-extrabold tracking-tight sm:text-lg">{s.name || 'Untitled'}</p>
                     <div className="flex flex-col gap-2">
                       {s.current.map((t, j) => (
-                        <div key={j} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-white px-4 py-2">
-                          <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={t.selected}
-                              onChange={() => updatePick(i, 'current', j, { selected: !t.selected })}
-                              className="h-5 w-5 shrink-0 cursor-pointer accent-black"
+                        <div key={j} className="rounded-2xl bg-white px-4 py-2">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <label className="flex min-h-11 min-w-[8rem] flex-1 cursor-pointer items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={t.selected}
+                                onChange={() => updatePick(i, 'current', j, { selected: !t.selected })}
+                                className="h-5 w-5 shrink-0 cursor-pointer accent-black"
+                              />
+                              <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">{t.name}</span>
+                            </label>
+                            {/* With sub-topics, each has its own difficulty. */}
+                            {!t.subTopics?.length && (
+                              <Select
+                                className="w-[150px]"
+                                value={t.difficultyRating}
+                                onChange={(e) => updatePick(i, 'current', j, { difficultyRating: Number(e.target.value) })}
+                                disabled={!t.selected}
+                              >
+                                {[1, 2, 3, 4, 5].map((d) => (
+                                  <option key={d} value={d}>
+                                    Difficulty {d}
+                                  </option>
+                                ))}
+                              </Select>
+                            )}
+                          </div>
+                          {t.selected && (
+                            <SubTopicsEditor
+                              parentName={t.name}
+                              subTopics={t.subTopics ?? []}
+                              onChange={(subTopics) => updatePick(i, 'current', j, { subTopics })}
                             />
-                            <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">{t.name}</span>
-                          </label>
-                          <Select
-                            className="w-[150px]"
-                            value={t.difficultyRating}
-                            onChange={(e) => updatePick(i, 'current', j, { difficultyRating: Number(e.target.value) })}
-                            disabled={!t.selected}
-                          >
-                            {[1, 2, 3, 4, 5].map((d) => (
-                              <option key={d} value={d}>
-                                Difficulty {d}
-                              </option>
-                            ))}
-                          </Select>
+                          )}
                         </div>
                       ))}
                       {s.current.length === 0 && (

@@ -26,11 +26,13 @@ export function AddTopicInput({
   onAdd,
   existing = [],
   elsewhere = [],
+  placeholder = 'Add a custom topic',
   className,
 }: {
   onAdd: (name: string) => void;
   existing?: string[];
   elsewhere?: Elsewhere[];
+  placeholder?: string;
   className?: string;
 }) {
   const [value, setValue] = useState('');
@@ -54,7 +56,7 @@ export function AddTopicInput({
       <div className={clsx('flex gap-2')}>
         <input
           className={`${fieldClass} flex-1`}
-          placeholder="Add a custom topic"
+          placeholder={placeholder}
           value={value}
           aria-invalid={!!error}
           onChange={(e) => {
