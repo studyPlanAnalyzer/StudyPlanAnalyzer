@@ -242,6 +242,26 @@ export const POST = withErrorHandling(
         );
     }
 
+    // No two topics with the same name in the same place: among a subject's
+    // topics, or among one topic's sub-topics. Renames count, deletions free
+    // a name, and two new ones can't share one either.
+    const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
+    const renamed = new Map(topicEdits.map((e) => [e.id, e.name]));
+    const used = new Set(
+      topicRows
+        .filter((t) => !removedTopicIds.has(t.id))
+        .map((t) => `${t.subjectId}/${t.parentTopicId ?? ''}/${norm(renamed.get(t.id) ?? t.name)}`),
+    );
+    for (const t of newTopics) {
+      const key = `${t.subjectId}/${t.parentTopicId ?? ''}/${norm(t.name)}`;
+      if (used.has(key))
+        return NextResponse.json(
+          { error: `“${t.name.trim()}” is already a topic there. Each name can be used once.` },
+          { status: 400 },
+        );
+      used.add(key);
+    }
+
     const plan = plans[0];
     if (planId && !plan)
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });

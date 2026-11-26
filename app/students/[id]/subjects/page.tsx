@@ -897,6 +897,11 @@ function SubjectCard({
                         title={`New sub-topic under ${t.name}`}
                         buttonLabel="Add sub-topic"
                         parentExam={t}
+                        taken={[
+                          ...subs.map((st) => st.name),
+                          ...draftTopics.filter((d) => d.parentTopicId === t.id).map((d) => d.name),
+                        ]}
+                        takenWhere={`under ${t.name}`}
                         onCancel={() => setAdding(null)}
                         onAdd={(name, d, earlier) => {
                           onAddDraftTopic(t.id, name, d, earlier);
@@ -927,6 +932,8 @@ function SubjectCard({
           <AddTopicInput
             title={`New topic in ${subject.name}`}
             buttonLabel="Add topic"
+            taken={[...topLevel.map((t) => t.name), ...draftTopics.filter((d) => !d.parentTopicId).map((d) => d.name)]}
+            takenWhere={`in ${subject.name}`}
             onCancel={() => setAdding(null)}
             onAdd={(name, d, earlier) => {
               onAddDraftTopic(null, name, d, earlier);
@@ -1106,11 +1113,17 @@ function AddTopicInput({
   title,
   buttonLabel,
   parentExam,
+  taken,
+  takenWhere,
   onAdd,
   onCancel,
 }: {
   title: string;
   buttonLabel: string;
+  /** Names already used where this one would go (saved or not), to refuse a duplicate. */
+  taken: string[];
+  /** Where those are, for the message: "in Science", "under Algebra". */
+  takenWhere: string;
   /** For a sub-topic: its topic, whose exam it starts on. */
   parentExam?: Pick<Topic, 'examId' | 'examName'>;
   onAdd: (name: string, difficultyRating: number, earlier?: Earlier) => void;
@@ -1132,6 +1145,11 @@ function AddTopicInput({
     const name = value.trim();
     if (!name) {
       setError('Enter a name.');
+      return;
+    }
+    const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (taken.some((n) => norm(n) === norm(name))) {
+      setError(`“${name}” is already a topic ${takenWhere}.`);
       return;
     }
     if (!difficulty) {
