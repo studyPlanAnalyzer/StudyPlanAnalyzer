@@ -6,7 +6,13 @@ import { db, schema } from '@/lib/db';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopicRows } from '@/lib/topic-leaves';
-import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
+import {
+  existingSubjectTopicSchema,
+  normTopicName,
+  taughtLeafCount,
+  taughtTopicRows,
+  taughtTopicSchema,
+} from '@/lib/taught-topics';
 import {
   subjectNameSchema,
   findNameClash,
@@ -47,6 +53,10 @@ const bodySchema = z.object({
       }),
     )
     .default([]),
+  // Topics already taught for the new exam in subjects the child already
+  // has: new topics (with sub-topics), or new sub-topics under their topics.
+  // Like a new subject's, they start over the next days, 4 a day.
+  taughtTopics: z.array(existingSubjectTopicSchema).max(500).default([]),
   // Topics of this academic year's earlier exams that were never listed:
   // straight onto the revision list, for the exam they were studied for (one
   // of the child's exams this year, or one from before they joined).
@@ -92,7 +102,7 @@ export const POST = withErrorHandling(
         { status: 400 },
       );
     }
-    const { name: examName, examDate, marks, newSubjects, resultsPending, earlierTopics } = parsed.data;
+    const { name: examName, examDate, marks, newSubjects, resultsPending, earlierTopics, taughtTopics } = parsed.data;
 
     // One parallel round of reads. Nothing is returned from them until the
     // ownership check below passes.
@@ -129,6 +139,8 @@ export const POST = withErrorHandling(
         .select({
           id: schema.topics.id,
           subjectId: schema.topics.subjectId,
+          parentTopicId: schema.topics.parentTopicId,
+          name: schema.topics.name,
         })
         .from(schema.topics)
         .innerJoin(
@@ -181,6 +193,31 @@ export const POST = withErrorHandling(
     // Missed earlier topics: for the child's own subjects, and for an exam of
     // the same academic year as the new one.
     const activeSubjects = new Set(subjects.filter((s) => s.isActive).map((s) => s.id));
+    // Topics taught for the new exam in existing subjects: in the child's
+    // active subjects, under a top-level topic of the same subject, and never
+    // a name already used in that place (a subject's topics, or one topic's
+    // sub-topics), on the page or among each other.
+    const topicById = new Map(topics.map((t) => [t.id, t]));
+    for (const t of taughtTopics) {
+      if (!activeSubjects.has(t.subjectId))
+        return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+      const parent = t.parentTopicId ? topicById.get(t.parentTopicId) : null;
+      if (t.parentTopicId && (!parent || parent.subjectId !== t.subjectId))
+        return NextResponse.json({ error: 'Parent topic not found' }, { status: 404 });
+      if (parent?.parentTopicId)
+        return NextResponse.json({ error: 'Sub-topics cannot have their own sub-topics' }, { status: 400 });
+    }
+    const usedNames = new Set(topics.map((t) => `${t.subjectId}/${t.parentTopicId ?? ''}/${normTopicName(t.name)}`));
+    for (const t of taughtTopics) {
+      const key = `${t.subjectId}/${t.parentTopicId ?? ''}/${normTopicName(t.name)}`;
+      if (usedNames.has(key))
+        return NextResponse.json(
+          { error: `“${t.name}” is already a topic there. Each name can be used once.` },
+          { status: 400 },
+        );
+      usedNames.add(key);
+    }
+
     if (earlierTopics.some((t) => !activeSubjects.has(t.subjectId)))
       return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
     const year = academicYearOf(examDate);
@@ -235,9 +272,12 @@ export const POST = withErrorHandling(
         await tx.insert(schema.subjects).values(newSubjectRows);
       // Topics already taught: 4 a day from tomorrow, on school days
       // (revision days are for the earlier topics now).
-      const taught = newSubjects.flatMap((s, i) =>
-        s.topics.map((t) => ({ subjectId: newSubjectRows[i].id, ...t })),
-      );
+      const taught = [
+        ...newSubjects.flatMap((s, i) =>
+          s.topics.map((t) => ({ subjectId: newSubjectRows[i].id, ...t })),
+        ),
+        ...taughtTopics,
+      ];
       const learnFrom = spreadLearnFrom(
         taughtLeafCount(taught),
         today,

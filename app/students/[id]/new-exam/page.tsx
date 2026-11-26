@@ -22,6 +22,7 @@ import { AddTopicInput } from '@/components/ui/AddTopicInput';
 import { SubTopicsEditor, type SubTopicDraft } from '@/components/topics/SubTopicsEditor';
 import { EarlierTopicsSection, NewYearWarning, missedPayload, type MissedTopic } from '@/components/exam/EarlierTopicsSection';
 import { academicYearText } from '@/lib/utils/academic-year';
+import { TaughtInExistingSubjects, type TaughtEntry } from '@/components/exam/TaughtInExistingSubjects';
 import {
   buildMarkEntries,
   MarksheetFields,
@@ -151,6 +152,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
   const [newSubjects, setNewSubjects] = useState<NewSubjectEntry[]>([]);
   // Topics of this academic year's earlier exams that were never listed.
   const [missed, setMissed] = useState<MissedTopic[]>([]);
+  // Topics taught for the new exam in subjects the child already has.
+  const [taught, setTaught] = useState<TaughtEntry[]>([]);
   // The last exam's results aren't out yet: start now, add the marks later.
   const [resultsPending, setResultsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -333,6 +336,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
             })),
         })),
         earlierTopics: 'earlierTopics' in earlier ? earlier.earlierTopics : [],
+        taughtTopics: taught,
       });
       router.push(`/students/${params.id}/plan`);
     } catch (err) {
@@ -568,13 +572,29 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                     />
                   </section>
 
+                  {/* TAUGHT FOR THIS EXAM, IN EXISTING SUBJECTS */}
+                  <section className={sectionCard}>
+                    <CardTitle
+                      emoji="✏️"
+                      tone="bg-[#F7CC46]"
+                      title="Taught for this exam so far"
+                      description="Topics the child has already been taught for this exam, in subjects they already have: a new topic (Physics › Light), or a sub-topic under an existing one. They start from tomorrow, 4 a day. You can also add them later on the Subjects page."
+                    />
+                    <TaughtInExistingSubjects
+                      subjects={detail.subjects}
+                      topics={detail.topics}
+                      value={taught}
+                      onChange={setTaught}
+                    />
+                  </section>
+
                   {/* NEW SUBJECTS */}
                   <section className={sectionCard}>
                     <CardTitle
                       emoji="📚"
                       tone="bg-[#a4e5c7]"
-                      title="New subjects (optional)"
-                      description="Only needed if a subject is being tested for the first time."
+                      title="New subjects"
+                      description="Add new subjects if they've already been taught for this upcoming exam."
                       action={
                         <button
                           type="button"

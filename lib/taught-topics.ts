@@ -11,18 +11,32 @@ const nameSchema = z.string().trim().min(1).max(200);
 const difficultySchema = z.number().int().min(1).max(5).default(2);
 const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
 
-export const taughtTopicSchema = z
-  .object({
-    name: nameSchema,
-    difficultyRating: difficultySchema,
-    subTopics: z.array(z.object({ name: nameSchema, difficultyRating: difficultySchema })).max(50).default([]),
-  })
-  .refine((t) => new Set(t.subTopics.map((s) => norm(s.name))).size === t.subTopics.length, {
-    message: 'A sub-topic name can be used once under its topic',
+const taughtTopicBase = z.object({
+  name: nameSchema,
+  difficultyRating: difficultySchema,
+  subTopics: z.array(z.object({ name: nameSchema, difficultyRating: difficultySchema })).max(50).default([]),
+});
+const uniqueSubTopics = (t: { subTopics: { name: string }[] }) =>
+  new Set(t.subTopics.map((s) => norm(s.name))).size === t.subTopics.length;
+const uniqueMessage = { message: 'A sub-topic name can be used once under its topic', path: ['subTopics'] };
+
+export const taughtTopicSchema = taughtTopicBase.refine(uniqueSubTopics, uniqueMessage);
+
+/**
+ * A topic taught for the new exam in a subject the child already has (new
+ * exam cycle): a new topic with optional sub-topics, or, with parentTopicId,
+ * a new sub-topic under one of the subject's topics.
+ */
+export const existingSubjectTopicSchema = taughtTopicBase
+  .extend({ subjectId: z.string().uuid(), parentTopicId: z.string().uuid().nullable().default(null) })
+  .refine(uniqueSubTopics, uniqueMessage)
+  .refine((t) => !t.parentTopicId || t.subTopics.length === 0, {
+    message: 'A sub-topic cannot have its own sub-topics',
     path: ['subTopics'],
   });
 
 export type TaughtTopic = z.infer<typeof taughtTopicSchema>;
+export { norm as normTopicName };
 
 /** The topics that get studied: sub-topics, or a topic that has none. */
 export function taughtLeafCount(topics: TaughtTopic[]): number {
@@ -35,7 +49,7 @@ export function taughtLeafCount(topics: TaughtTopic[]): number {
  * taughtLeafCount), in order; a topic with sub-topics isn't studied itself.
  */
 export function taughtTopicRows(
-  items: (TaughtTopic & { subjectId: string })[],
+  items: (TaughtTopic & { subjectId: string; parentTopicId?: string | null })[],
   tag: { examId: string; examName: string },
   learnFrom: string[],
 ): NewTopicRow[] {
@@ -46,7 +60,7 @@ export function taughtTopicRows(
     rows.push({
       id,
       subjectId: t.subjectId,
-      parentTopicId: null,
+      parentTopicId: t.parentTopicId ?? null,
       name: t.name,
       difficultyRating: t.difficultyRating,
       ...tag,
