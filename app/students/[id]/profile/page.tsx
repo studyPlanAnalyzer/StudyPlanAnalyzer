@@ -168,8 +168,9 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
           </div>
         )}
 
-        {/* ERROR MESSAGE */}
-        {error && (
+        {/* ERROR MESSAGE: here only if the profile couldn't load; a save
+            problem shows by the Save button. */}
+        {error && !saved && (
           <Notice className="mb-6">
             {error}
           </Notice>
@@ -245,6 +246,11 @@ export default function ProfilePage(props: { params: Promise<{ id: string }> }) 
             </section>
 
             {/* SAVE BAR */}
+            {error && (
+              <Notice role="alert" className="mt-8 sm:mt-10">
+                {error}
+              </Notice>
+            )}
             <div className="mt-8 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-black/65 sm:text-base">
                 {dirty ? 'You have unsaved changes.' : ''}

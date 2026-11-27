@@ -16,7 +16,8 @@ import { EmptyState, emptyStateActionClass } from '@/components/ui/EmptyState';
 import {
   buildMarkEntries,
   MarksheetFields,
-  marksheetError,
+  marksheetProblem,
+  showMarksheetRow,
   marksheetPayload,
   type MarkEntry,
 } from '@/components/exam/MarksheetFields';
@@ -38,6 +39,7 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
   const router = useRouter();
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [marks, setMarks] = useState<MarkEntry[]>([]);
+  const [marksProblem, setMarksProblem] = useState<{ key: string; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canRetry, setCanRetry] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,12 +65,17 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
   }, [params.id, router]);
 
   function updateMark(key: string, patch: Partial<MarkEntry>) {
+    if (marksProblem?.key === key) setMarksProblem(null);
     setMarks((prev) => prev.map((m) => (m.key === key ? { ...m, ...patch } : m)));
   }
 
   async function handleSubmit() {
+    // A row's problem points at that row; the message also shows by the button.
+    const rowProblem = marksheetProblem(marks);
+    setMarksProblem(rowProblem);
+    if (rowProblem) showMarksheetRow(rowProblem.key);
     const problem =
-      marksheetError(marks) ??
+      rowProblem?.message ??
       (marksheetPayload(marks).length === 0
         ? 'Enter the marks for at least one subject or topic.'
         : null);
@@ -114,7 +121,7 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
           </div>
         )}
 
-        {error && (
+        {error && !detail && (
           <Notice className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <span>{error}</span>
             {detail && canRetry && (
@@ -168,11 +175,28 @@ export default function AddExamMarksPage(props: { params: Promise<{ id: string }
                 subjects={detail.subjects}
                 marks={marks}
                 onChange={updateMark}
+                problem={marksProblem}
                 emptyText="No subjects yet. Add them on the Subjects page first."
               />
             </section>
 
-            <div className="mt-8 flex justify-end sm:mt-10">
+            {/* Any problem shows here, by the button that was just pressed. */}
+            {error && (
+              <Notice className="mt-8 flex flex-wrap items-center justify-between gap-3 sm:mt-10">
+                <span>{error}</span>
+                {canRetry && (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className={buttonClass('white', 'md', 'text-red-700')}
+                  >
+                    {isSubmitting ? 'Retrying…' : 'Try again'}
+                  </button>
+                )}
+              </Notice>
+            )}
+            <div className="mt-6 flex justify-end">
               <button
                 type="button"
                 onClick={handleSubmit}

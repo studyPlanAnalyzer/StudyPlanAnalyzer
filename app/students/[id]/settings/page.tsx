@@ -170,8 +170,9 @@ export default function StudentSettingsPage(
       <StudentHeader studentId={params.id} current="settings" />
 
       <PageMain>
-        {/* ERROR MESSAGE */}
-        {error && (
+        {/* ERROR MESSAGE: here only if settings couldn't load; a save
+            problem shows by the Save button. */}
+        {error && !detail && (
           <Notice className="mb-6">
             {error}
           </Notice>
@@ -337,6 +338,11 @@ export default function StudentSettingsPage(
             )}
 
             {/* SAVE */}
+            {error && (
+              <Notice role="alert" className="mt-8 sm:mt-10">
+                {error}
+              </Notice>
+            )}
             <div className="mt-8 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:items-center sm:justify-between">
               <p className="max-w-2xl text-sm leading-6 text-[#65615D] sm:text-base">
                 {detail.latestPlan

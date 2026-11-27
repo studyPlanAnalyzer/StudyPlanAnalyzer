@@ -6,7 +6,7 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { randomUUID } from 'crypto';
 import { insertTopicRows } from '@/lib/topic-leaves';
-import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
+import { repeatedTopicName, taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
 import { createPlanForExam } from '@/lib/plan-create';
 import { ALL_DAYS, sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
 import {
@@ -91,6 +91,11 @@ export const POST = withErrorHandling(
     );
     if (clash)
       return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
+    for (const s of newSubjects) {
+      const twice = repeatedTopicName(s.topics.map((t) => t.name));
+      if (twice)
+        return NextResponse.json({ error: `“${twice}” is listed twice in ${s.name}. Keep it once.` }, { status: 400 });
+    }
 
     const exam = await db.transaction(async (tx) => {
       // Only one exam is active at a time: a new session starts after the last

@@ -50,6 +50,11 @@ describe('new exam cycle: taught topics in existing subjects', { skip: SKIP_DB }
     assert.equal(exams[0].n, 1);
   });
 
+  test('a missed earlier topic with a name already used in the subject is refused', async () => {
+    const res = await cycle({ ...base, earlierTopics: [{ subjectId: ids.physics, name: 'Force and Motion', examName: 'First Terminal Examination' }] });
+    assert.equal(res.status, 400);
+  });
+
   test('Light (with Refraction) and Force > Friction are added for the new exam and start from tomorrow', async () => {
     const res = await cycle({ ...base, taughtTopics: [
       { subjectId: ids.physics, name: 'Light', subTopics: [{ name: 'Refraction', difficultyRating: 3 }] },

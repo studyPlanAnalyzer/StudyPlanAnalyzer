@@ -94,24 +94,35 @@ export function entryPath(m: MarkEntry): string {
  * exam are filled in: a blank (or 0) "Out of" means it wasn't, and nothing is
  * recorded for it. A filled-in "Out of" needs a mark.
  */
-export function marksheetError(marks: MarkEntry[]): string | null {
+export function marksheetProblem(marks: MarkEntry[]): { key: string; message: string } | null {
   for (const m of marks) {
     const full = Number(m.fullMarks);
     if (m.fullMarks.trim() === '' || full === 0) continue;
     if (!Number.isInteger(full) || full < 0)
-      return `Enter whole-number full marks for ${entryPath(m)}, or leave it blank if it wasn't in this exam.`;
+      return { key: m.key, message: `Enter whole-number full marks for ${entryPath(m)}, or leave it blank if it wasn't in this exam.` };
     if (full > MAX_FULL_MARKS)
-      return `Full marks for ${entryPath(m)} can be at most ${MAX_FULL_MARKS}.`;
+      return { key: m.key, message: `Full marks for ${entryPath(m)} can be at most ${MAX_FULL_MARKS}.` };
     const val = Number(m.obtainedMarks);
-    if (
-      m.obtainedMarks.trim() === '' ||
-      !Number.isInteger(val) ||
-      val < 0 ||
-      val > full
-    )
-      return `Enter valid marks for ${entryPath(m)} (0–${full}).`;
+    if (m.obtainedMarks.trim() === '')
+      return { key: m.key, message: `Enter the marks obtained for ${entryPath(m)}, out of ${full}. Or clear “Out of” if it wasn't in this exam.` };
+    if (!Number.isInteger(val) || val < 0)
+      return { key: m.key, message: `Enter whole-number marks for ${entryPath(m)}, from 0 to ${full}.` };
+    if (val > full)
+      return { key: m.key, message: `${entryPath(m)}: ${val} obtained is more than the ${full} it's out of.` };
   }
   return null;
+}
+
+/** The marksheet's first problem as a message, or null. */
+export function marksheetError(marks: MarkEntry[]): string | null {
+  return marksheetProblem(marks)?.message ?? null;
+}
+
+/** Brings a marksheet row into view and puts the cursor in its first box. */
+export function showMarksheetRow(key: string) {
+  const row = document.getElementById(`mark-row-${key}`);
+  row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
 }
 
 /** One mark per lowest-level item that is in this exam, as the API takes them. */
@@ -132,11 +143,14 @@ export function MarksheetFields({
   marks,
   onChange,
   emptyText,
+  problem,
 }: {
   subjects: Subject[];
   marks: MarkEntry[];
   onChange: (key: string, patch: Partial<MarkEntry>) => void;
   emptyText: string;
+  /** A row that stopped saving (marksheetProblem): outlined, with its message under it. */
+  problem?: { key: string; message: string } | null;
 }) {
   // A tap on Obtained or Confidence before "Out of" is filled: that row's
   // "Out of" box shakes, gets focus, and a line says to fill it first. `n`
@@ -179,7 +193,10 @@ export function MarksheetFields({
                       </p>
                     )}
 
-                    <div className="rounded-2xl bg-white p-4">
+                    <div
+                      id={`mark-row-${m.key}`}
+                      className={`scroll-mt-24 rounded-2xl bg-white p-4 ${problem?.key === m.key ? 'ring-2 ring-red-500' : ''}`}
+                    >
                       <div className="flex flex-wrap items-end gap-3">
                         <div className="min-w-[8rem] flex-1 self-center text-sm font-semibold sm:text-base">
                           {m.topicId
@@ -256,6 +273,11 @@ export function MarksheetFields({
                         </div>
                       </div>
 
+                      {problem?.key === m.key && (
+                        <p role="alert" className="mt-3 text-sm font-semibold text-red-700">
+                          {problem.message}
+                        </p>
+                      )}
                       {notInExam && nudge?.key === m.key && (
                         <p role="status" className="mt-3 text-sm font-semibold text-black">
                           Fill in “Out of” first, then the marks. Leave it

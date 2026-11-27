@@ -26,7 +26,8 @@ import { TaughtInExistingSubjects, type TaughtEntry } from '@/components/exam/Ta
 import {
   buildMarkEntries,
   MarksheetFields,
-  marksheetError,
+  marksheetProblem,
+  showMarksheetRow,
   marksheetPayload,
   type MarkEntry,
 } from '@/components/exam/MarksheetFields';
@@ -152,6 +153,8 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
   const [newSubjects, setNewSubjects] = useState<NewSubjectEntry[]>([]);
   // Topics of this academic year's earlier exams that were never listed.
   const [missed, setMissed] = useState<MissedTopic[]>([]);
+  // The marksheet row that stopped the last save, outlined until it's changed.
+  const [marksProblem, setMarksProblem] = useState<{ key: string; message: string } | null>(null);
   // Topics taught for the new exam in subjects the child already has.
   const [taught, setTaught] = useState<TaughtEntry[]>([]);
   // The last exam's results aren't out yet: start now, add the marks later.
@@ -185,6 +188,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
   }, [params.id, router]);
 
   function updateMark(key: string, patch: Partial<MarkEntry>) {
+    if (marksProblem?.key === key) setMarksProblem(null);
     setMarks((prev) =>
       prev.map((m) => (m.key === key ? { ...m, ...patch } : m)),
     );
@@ -285,8 +289,12 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
     const examDateError = examDateProblem(examDate);
     if (examDateError) return `${examDateError}.`;
     if (!resultsPending) {
-      const marksError = marksheetError(marks);
-      if (marksError) return marksError;
+      const problem = marksheetProblem(marks);
+      if (problem) {
+        setMarksProblem(problem);
+        showMarksheetRow(problem.key);
+        return problem.message;
+      }
     }
     for (const s of newSubjects) {
       if (!s.name.trim()) return 'Every new subject needs a name.';
@@ -475,8 +483,6 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                   </p>
                 </section>
 
-                {errorBox}
-
                 <div className="flex flex-col gap-6">
                   {/* NEXT EXAM */}
                   <section className={sectionCard}>
@@ -547,6 +553,7 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                         subjects={detail.subjects}
                         marks={marks}
                         onChange={updateMark}
+                        problem={marksProblem}
                         emptyText="No subjects yet — add one below."
                       />
                     )}
@@ -758,8 +765,10 @@ export default function NewExamPage(props: { params: Promise<{ id: string }> }) 
                   </section>
                 </div>
 
-                {/* SAVE BAR */}
-                <div className="mt-8 flex justify-end sm:mt-10">
+                {/* SAVE BAR: any problem is shown right here, by the button
+                    that was just pressed. */}
+                <div className="mt-8 sm:mt-10">{errorBox}</div>
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={handleSubmit}

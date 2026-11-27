@@ -141,6 +141,30 @@ export default function OnboardingPage() {
   function updateSubject(index: number, patch: Partial<SubjectForm>) {
     setSubjects((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
+  // A tick refused because the same topic is ticked on the other step.
+  const [tickError, setTickError] = useState<{ i: number; list: 'earlier' | 'current'; j: number; message: string } | null>(null);
+  const sameName = (a: string, b: string) => a.trim().replace(/\s+/g, ' ').toLowerCase() === b.trim().replace(/\s+/g, ' ').toLowerCase();
+  /** Ticks or unticks a topic; never the same topic as both earlier and this exam's. */
+  function togglePick(i: number, list: 'earlier' | 'current', j: number) {
+    const s = subjects[i];
+    const t = s[list][j];
+    const other = list === 'earlier' ? 'current' : 'earlier';
+    const counts = other === 'current' || !isFirstExam;
+    if (!t.selected && counts && s[other].some((o) => o.selected && sameName(o.name, t.name))) {
+      setTickError({
+        i,
+        list,
+        j,
+        message:
+          list === 'earlier'
+            ? `“${t.name}” is already ticked as taught for this exam. Untick it there to add it here.`
+            : `“${t.name}” is already ticked as an earlier topic. Untick it there to add it here.`,
+      });
+      return;
+    }
+    setTickError(null);
+    updatePick(i, list, j, { selected: !t.selected });
+  }
   function updatePick(index: number, list: 'earlier' | 'current', j: number, patch: Partial<TopicPick>) {
     setSubjects((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [list]: s[list].map((t, k) => (k === j ? { ...t, ...patch } : t)) } : s)),
@@ -502,7 +526,7 @@ export default function OnboardingPage() {
                             <input
                               type="checkbox"
                               checked={t.selected}
-                              onChange={() => updatePick(i, 'earlier', j, { selected: !t.selected })}
+                              onChange={() => togglePick(i, 'earlier', j)}
                               className="h-5 w-5 shrink-0 cursor-pointer accent-black"
                             />
                             <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">{t.name}</span>
@@ -532,6 +556,9 @@ export default function OnboardingPage() {
                                 <option value="know_well">Highly confident</option>
                               </Select>
                             </>
+                          )}
+                          {tickError?.i === i && tickError.list === 'earlier' && tickError.j === j && (
+                            <p role="alert" className="w-full text-sm font-semibold text-red-700">{tickError.message}</p>
                           )}
                         </div>
                       ))}
@@ -563,7 +590,7 @@ export default function OnboardingPage() {
                               <input
                                 type="checkbox"
                                 checked={t.selected}
-                                onChange={() => updatePick(i, 'current', j, { selected: !t.selected })}
+                                onChange={() => togglePick(i, 'current', j)}
                                 className="h-5 w-5 shrink-0 cursor-pointer accent-black"
                               />
                               <span className="min-w-0 flex-1 text-sm font-semibold sm:text-base">{t.name}</span>
@@ -584,6 +611,9 @@ export default function OnboardingPage() {
                               </Select>
                             )}
                           </div>
+                          {tickError?.i === i && tickError.list === 'current' && tickError.j === j && (
+                            <p role="alert" className="mt-1 text-sm font-semibold text-red-700">{tickError.message}</p>
+                          )}
                           {t.selected && (
                             <SubTopicsEditor
                               parentName={t.name}

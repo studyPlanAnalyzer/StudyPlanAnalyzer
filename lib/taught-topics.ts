@@ -36,6 +36,16 @@ export const existingSubjectTopicSchema = taughtTopicBase
   });
 
 export type TaughtTopic = z.infer<typeof taughtTopicSchema>;
+
+/** The first name used twice in a list (ignoring case and spaces), or null. */
+export function repeatedTopicName(names: string[]): string | null {
+  const seen = new Set<string>();
+  for (const n of names) {
+    if (seen.has(norm(n))) return n.trim();
+    seen.add(norm(n));
+  }
+  return null;
+}
 export { norm as normTopicName };
 
 /** The topics that get studied: sub-topics, or a topic that has none. */

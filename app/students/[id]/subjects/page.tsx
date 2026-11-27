@@ -506,6 +506,11 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                   add everything first, then save once. */}
               {draftCount > 0 && (
                 <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#fdf4d8] px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:px-7">
+                  {error && (
+                    <p role="alert" className="mx-auto mb-2 max-w-[1400px] text-sm font-semibold text-red-700">
+                      {error}
+                    </p>
+                  )}
                   <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
                     <p className="min-w-0 text-sm leading-6 text-black">
                       <span className="font-bold">
@@ -530,7 +535,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                 </div>
               )}
 
-              {error && (
+              {error && draftCount === 0 && (
                 <Notice className="mb-5">
                   {error}
                 </Notice>

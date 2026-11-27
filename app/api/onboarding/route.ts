@@ -7,7 +7,7 @@ import {
 } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { insertTopicRows } from '@/lib/topic-leaves';
-import { taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
+import { repeatedTopicName, taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
 import { createPlanForExam } from '@/lib/plan-create';
 import { ALL_DAYS, sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
 import { toDateString, appToday } from '@/lib/utils/date-utils';
@@ -89,6 +89,17 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   );
   if (clash)
     return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
+
+  // A topic is listed once per subject: never both as an earlier topic and
+  // as this exam's, and never twice in either list.
+  for (const s of subjectsIn) {
+    const twice = repeatedTopicName([...s.earlierTopics.map((t) => t.name), ...s.topics.map((t) => t.name)]);
+    if (twice)
+      return NextResponse.json(
+        { error: `“${twice}” is listed twice in ${s.name}. Keep it once: as an earlier topic or as this exam’s.` },
+        { status: 400 },
+      );
+  }
 
   const studentId = await db.transaction(async (tx) => {
     const [student] = await tx

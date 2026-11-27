@@ -47,6 +47,9 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
   const [revisionDay, setRevisionDay] = useState(false);
   const [bufferWeek, setBufferWeek] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rating or skip that didn't save: shown at the bottom of the screen,
+  // next to where the child tapped, until dismissed or the next try.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [planUpdated, setPlanUpdated] = useState(false);
   // Set when there is no plan because the exam is over.
   const [overExam, setOverExam] = useState<{
@@ -115,6 +118,7 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
 
   async function handleComplete(sessionId: string, rating: number) {
     try {
+      setActionError(null);
       const res = (await api.put(`/api/sessions/${sessionId}`, {
         status: 'completed',
         rating,
@@ -122,19 +126,20 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
       if (res?.planUpdated) setPlanUpdated(true);
       if (planId) await loadSessions(planId);
     } catch {
-      setError("Couldn't save that session. Please try again.");
+      setActionError("Couldn't save that rating. Please try again.");
     }
   }
 
   async function handleSkip(sessionId: string) {
     try {
+      setActionError(null);
       const res = (await api.put(`/api/sessions/${sessionId}`, {
         status: 'skipped',
       })) as unknown as { planUpdated?: boolean } | undefined;
       if (res?.planUpdated) setPlanUpdated(true);
       if (planId) await loadSessions(planId);
     } catch {
-      setError("Couldn't skip that session. Please try again.");
+      setActionError("Couldn't skip that session. Please try again.");
     }
   }
 
@@ -285,6 +290,17 @@ export default function TodayPage(props: { params: Promise<{ id: string }> }) {
         </div>
         )}
       </PageMain>
+
+      {actionError && (
+        <div className="fixed inset-x-0 bottom-24 z-40 px-4 sm:bottom-6">
+          <Notice role="alert" className="mx-auto flex max-w-xl items-center justify-between gap-3 shadow-lg">
+            <span>{actionError}</span>
+            <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => setActionError(null)}>
+              OK
+            </button>
+          </Notice>
+        </div>
+      )}
 
       <StudentBottomNav studentId={params.id} active="today" />
     </PageShell>

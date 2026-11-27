@@ -9,6 +9,7 @@ import { insertTopicRows } from '@/lib/topic-leaves';
 import {
   existingSubjectTopicSchema,
   normTopicName,
+  repeatedTopicName,
   taughtLeafCount,
   taughtTopicRows,
   taughtTopicSchema,
@@ -207,8 +208,14 @@ export const POST = withErrorHandling(
       if (parent?.parentTopicId)
         return NextResponse.json({ error: 'Sub-topics cannot have their own sub-topics' }, { status: 400 });
     }
+    for (const s of newSubjects) {
+      const twice = repeatedTopicName(s.topics.map((t) => t.name));
+      if (twice)
+        return NextResponse.json({ error: `“${twice}” is listed twice in ${s.name}. Keep it once.` }, { status: 400 });
+    }
+    // Missed earlier topics count too: they are topics of the subject as well.
     const usedNames = new Set(topics.map((t) => `${t.subjectId}/${t.parentTopicId ?? ''}/${normTopicName(t.name)}`));
-    for (const t of taughtTopics) {
+    for (const t of [...taughtTopics, ...earlierTopics.map((e) => ({ ...e, parentTopicId: null }))]) {
       const key = `${t.subjectId}/${t.parentTopicId ?? ''}/${normTopicName(t.name)}`;
       if (usedNames.has(key))
         return NextResponse.json(
