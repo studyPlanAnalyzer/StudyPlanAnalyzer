@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Button } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
 import { Field, Select, fieldClass, fieldOnColourShapeClass } from '@/components/ui/Field';
@@ -300,7 +300,7 @@ export default function AddTestMarksPage(
       router.push(`/students/${params.id}/plan?planId=${detail.latestPlan.id}`);
     } catch {
       setError(
-        "Your marks were saved, but the plan couldn't be updated just now. Open the plan and press regenerate, or try again below.",
+        "Your marks were saved, but the plan couldn't be updated just now. Try again below.",
       );
       setIsSubmitting(false);
     }
@@ -316,7 +316,7 @@ export default function AddTestMarksPage(
       router.push(`/students/${params.id}/plan?planId=${detail.latestPlan.id}`);
     } catch {
       setError(
-        "The plan still couldn't be updated. Your marks are saved; you can regenerate the plan from its page.",
+        "The plan still couldn't be updated. Your marks are saved, and the plan picks them up the next time it changes.",
       );
       setIsSubmitting(false);
     }
@@ -324,9 +324,7 @@ export default function AddTestMarksPage(
 
   return (
     <PageShell className="pb-16 sm:pb-8">
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="add-test-marks" />
 
       <PageMain>
         {!detail && !error && (

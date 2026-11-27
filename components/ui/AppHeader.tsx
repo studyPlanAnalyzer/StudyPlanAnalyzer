@@ -16,6 +16,8 @@ const BREAKPOINT = {
   sm: { desktop: 'hidden sm:flex', mobile: 'sm:hidden' },
   lg: { desktop: 'hidden lg:flex', mobile: 'lg:hidden' },
   xl: { desktop: 'hidden xl:flex', mobile: 'xl:hidden' },
+  // The menu button at every width (for menus too long for a header row).
+  always: { desktop: 'hidden', mobile: '' },
 };
 
 /** The StudyPlan Analyzer mark (an S around an open book). Decorative: the
@@ -84,11 +86,15 @@ export function AppHeader({
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             className={clsx(
-              'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F0EFED] text-black transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14 sm:w-14',
+              'flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#F0EFED] text-black transition hover:bg-[#E7E5E2] active:scale-95 sm:h-14',
+              menu.breakpoint === 'always' ? 'min-w-12 px-3 sm:px-5' : 'w-12 sm:w-14',
               bp.mobile,
             )}
           >
             {menuOpen ? <CloseIcon /> : <MenuIcon />}
+            {menu.breakpoint === 'always' && (
+              <span className="hidden text-sm font-semibold sm:inline sm:text-base">Menu</span>
+            )}
           </button>
         )}
       </div>
@@ -97,6 +103,8 @@ export function AppHeader({
         <nav
           className={clsx(
             'absolute left-0 right-0 top-full mx-5 flex flex-col gap-1 rounded-[26px] bg-white p-3 shadow-2xl sm:mx-7',
+            // A long menu on a wide screen: a panel under the button, not a full-width sheet.
+            menu.breakpoint === 'always' && 'max-h-[75vh] overflow-y-auto sm:left-auto sm:w-80 lg:right-[max(0px,calc((100%-1400px)/2))]',
             bp.mobile,
           )}
         >

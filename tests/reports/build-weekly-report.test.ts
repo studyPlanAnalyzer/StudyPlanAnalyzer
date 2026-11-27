@@ -69,6 +69,7 @@ function input(p: Partial<ReportInput> = {}): ReportInput {
     exam: { id: 'exam-1', name: 'Finals', examDate: '2026-12-20' },
     plan: { id: PLAN, generatedAt: '2026-09-01T09:00:00.000Z' },
     sessions: [],
+    revisions: [],
     topicReviews: [],
     quizAttempts: [],
     firstQuizAttemptAt: null,
@@ -129,37 +130,56 @@ describe('report week (lib/reports/week.ts)', () => {
   });
 });
 
-describe('study time', () => {
-  test('planned minutes of completed and partly completed sessions finished in the week', () => {
+describe('topics done', () => {
+  test('completed and partly completed sessions finished in the week; old optional ones are not counted', () => {
     const r = buildWeeklyReport(input({
       sessions: [
-        done('2026-10-12', { durationMinutes: 40 }),
-        done('2026-10-13', { durationMinutes: 25, status: 'partly_completed' }),
-        done('2026-10-14', { durationMinutes: 15, isFiller: true }),
+        done('2026-10-12'),
+        done('2026-10-13', { status: 'partly_completed' }),
+        done('2026-10-14', { isFiller: true }),
         session({ scheduledDate: '2026-10-15', status: 'skipped' }),
         session({ scheduledDate: '2026-10-16' }),
       ],
     }));
-    assert.equal(r.studyTime.minutes, 80);
+    assert.equal(r.topicsDone?.count, 2);
+    assert.equal(r.version, 3);
+    assert.equal(r.studyTime, undefined, 'no minutes any more');
   });
   test('counted by completedAt, at the week boundary in Nepal', () => {
     const r = buildWeeklyReport(input({
       sessions: [
         // Saturday 23:59:59 in Nepal: this week.
-        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:14:59.000Z', durationMinutes: 10 }),
+        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:14:59.000Z' }),
         // Sunday 00:00 in Nepal: next week.
-        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:15:00.000Z', durationMinutes: 99 }),
+        session({ scheduledDate: '2026-10-17', status: 'completed', completedAt: '2026-10-17T18:15:00.000Z' }),
         // Sunday 00:00 in Nepal, start of this week (still Saturday in UTC).
-        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:15:00.000Z', durationMinutes: 5 }),
+        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:15:00.000Z' }),
         // Saturday 23:59:59 in Nepal, end of last week.
-        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:14:59.000Z', durationMinutes: 7 }),
+        session({ scheduledDate: '2026-10-10', status: 'completed', completedAt: '2026-10-10T18:14:59.000Z' }),
       ],
     }));
-    assert.equal(r.studyTime.minutes, 15);
+    assert.equal(r.topicsDone?.count, 2);
   });
   test('last week shown when the child existed all of last week', () => {
-    const r = buildWeeklyReport(input({ sessions: [done('2026-10-12'), done('2026-10-05', { durationMinutes: 50 })] }));
-    assert.equal(r.studyTime.lastWeekMinutes, 50);
+    const r = buildWeeklyReport(input({ sessions: [done('2026-10-12'), done('2026-10-05')] }));
+    assert.equal(r.topicsDone?.lastWeek, 1);
+  });
+});
+
+describe('earlier topics revised', () => {
+  test('revisions in the week are counted, and how many still felt hard', () => {
+    const r = buildWeeklyReport(input({
+      revisions: [
+        { revisedOn: '2026-10-17', rating: 2 },
+        { revisedOn: '2026-10-17', rating: 4 },
+        { revisedOn: '2026-10-11', rating: 1 },
+        { revisedOn: '2026-10-10', rating: 3 }, // last week
+      ],
+    }));
+    assert.deepEqual(r.revised, { count: 3, hard: 2 });
+  });
+  test('none: zero, not left out', () => {
+    assert.deepEqual(buildWeeklyReport(input()).revised, { count: 0, hard: 0 });
   });
 });
 
@@ -256,12 +276,12 @@ describe('revision quality', () => {
     }));
     assert.deepEqual(r.revision.ratings, { again: 1, hard: 1, good: 2, easy: 1 });
   });
-  test('needs attention: two Again/Hard ratings in 28 days, then weak topics, at most 3', () => {
+  test('needs attention: Needs practice topics (the badge\'s rule), then weak topics, at most 3', () => {
     const r = buildWeeklyReport(input({
       topicReviews: [
-        review('alg', '2026-09-20', 1), review('alg', '2026-10-15', 2), // both inside the 28 days
+        review('alg', '2026-09-20', 1), review('alg', '2026-10-15', 2), // 2 of the last 3
         review('geo', '2026-10-14', 1), // once only
-        review('stat', '2026-09-19', 1), review('stat', '2026-10-16', 1), // one just outside
+        review('stat', '2026-08-19', 1), review('stat', '2026-10-16', 1), // however far apart
       ],
       subjectInputs: [{
         ...MATHS,
@@ -270,8 +290,18 @@ describe('revision quality', () => {
     }));
     assert.deepEqual(
       r.revision.needsAttention.map((t) => [t.topicName, t.reason]),
-      [['Algebra', 'hard_ratings'], ['Geometry', 'weak'], ['Probability', 'weak']],
+      [['Algebra', 'needs_practice'], ['Statistics', 'needs_practice'], ['Geometry', 'weak']],
     );
+  });
+  test('a topic that got easier no longer needs practice; ratings after the week are not looked at', () => {
+    const r = buildWeeklyReport(input({
+      topicReviews: [
+        review('alg', '2026-10-01', 2), review('alg', '2026-10-05', 2),
+        review('alg', '2026-10-12', 3), review('alg', '2026-10-14', 3), // last 3: Good, Good, Hard
+        review('geo', '2026-10-12', 3), review('geo', '2026-10-18', 1), review('geo', '2026-10-19', 1), // after the week
+      ],
+    }));
+    assert.deepEqual(r.revision.needsAttention, []);
   });
   test('a subject with no marks does not make its topics "weak"', () => {
     assert.deepEqual(buildWeeklyReport(input()).revision.needsAttention, []);
@@ -346,7 +376,7 @@ describe('tests and marks', () => {
 });
 
 describe('exam readiness', () => {
-  test('thresholds: too early below 5 sessions, then 85% and 65%', () => {
+  test('thresholds: too early below 5 study days with a goal, then 85% and 65% of them met', () => {
     assert.equal(readinessFor(4, 4), 'too_early');
     assert.equal(readinessFor(20, 17), 'on_track'); // 85%
     assert.equal(readinessFor(20, 16), 'slightly_behind'); // 80%
@@ -367,6 +397,14 @@ describe('exam readiness', () => {
     assert.deepEqual(r.exam.toDate, { required: 4, finished: 3 });
     assert.equal(r.exam.readiness, 'too_early');
   });
+  test('readiness is the share of listed topics done, since the plan started', () => {
+    const days = ['01', '02', '03', '05', '06', '07', '08', '12', '13', '14'];
+    const r = buildWeeklyReport(input({
+      sessions: days.map((d, i) => (i < 8 ? done(`2026-10-${d}`) : session({ scheduledDate: `2026-10-${d}`, status: 'skipped' }))),
+    }));
+    assert.deepEqual(r.exam.toDate, { required: 10, finished: 8 });
+    assert.equal(r.exam.readiness, 'slightly_behind'); // 80%
+  });
   test('the exam falling inside the week: over, no readiness, no next week', () => {
     const r = buildWeeklyReport(input({
       exam: { id: 'exam-1', name: 'Finals', examDate: '2026-10-15' },
@@ -377,7 +415,7 @@ describe('exam readiness', () => {
     assert.equal(r.nextWeek, null);
     assert.equal(r.headline, 'exam_finished');
     assert.equal(r.action.kind, 'start_new_exam_cycle');
-    assert.equal(r.studyTime.minutes, 60); // the week's work still shows
+    assert.equal(r.topicsDone?.count, 2); // the week's work still shows
   });
   test('the exam on the report date counts as over', () => {
     assert.equal(buildWeeklyReport(input({ exam: { id: 'e', name: 'F', examDate: '2026-10-18' } })).exam.state, 'over');
@@ -401,7 +439,7 @@ describe('exam readiness', () => {
 });
 
 describe('next week', () => {
-  test('required minutes; focus only on planned topics, by the generator\'s priority', () => {
+  test('topics coming up; focus only on planned topics, by the generator\'s priority', () => {
     const r = buildWeeklyReport(input({
       subjectInputs: [{
         ...MATHS,
@@ -415,7 +453,8 @@ describe('next week', () => {
         session({ scheduledDate: '2026-10-25', topicId: 'prob' }), // the week after
       ],
     }));
-    assert.equal(r.nextWeek?.plannedMinutes, 90);
+    assert.equal(r.nextWeek?.topics, 3);
+    assert.equal(r.nextWeek?.plannedMinutes, undefined);
     assert.deepEqual(r.nextWeek?.focusTopics.map((t) => t.topicName), ['Geometry', 'Statistics', 'Algebra']);
   });
 });
@@ -429,7 +468,7 @@ describe('headline', () => {
     const r = buildWeeklyReport(input({ student: { id: 'k', name: 'Aarav', createdAt: '2026-10-08T10:00:00.000Z' }, sessions: [done('2026-10-12')] }));
     assert.equal(r.headline, 'first_week');
   });
-  test('every required session finished', () => {
+  test('every topic on the list done', () => {
     assert.equal(buildWeeklyReport(input({ sessions: week.map((d) => done(d)) })).headline, 'all_sessions_done');
   });
   test('consistent: at least 80% of planned days studied', () => {
@@ -444,7 +483,7 @@ describe('headline', () => {
     }));
     assert.equal(r.headline, 'strong_challenge_week');
   });
-  test('a lighter week: under half the required sessions', () => {
+  test('a lighter week: under half the listed topics done', () => {
     const r = buildWeeklyReport(input({ sessions: [done('2026-10-12'), ...week.slice(2).map((d) => session({ scheduledDate: d }))] }));
     assert.equal(r.headline, 'lighter_week');
   });
@@ -465,7 +504,7 @@ describe('one thing to do', () => {
   test('nothing happened: start together', () => {
     assert.equal(buildWeeklyReport(input()).action.kind, 'start_together');
   });
-  test('a topic rated Again/Hard repeatedly: explain it back', () => {
+  test('a topic that Needs practice: explain it back', () => {
     const r = buildWeeklyReport(input({
       sessions: [done('2026-10-12')], marks: recentTest,
       topicReviews: [review('geo', '2026-10-12', 1), review('geo', '2026-10-13', 2)],
@@ -480,7 +519,7 @@ describe('one thing to do', () => {
     }));
     assert.deepEqual(r.action, { kind: 'log_test', subjectName: 'Science' });
   });
-  test('under 85% of required sessions: agree a fixed study time', () => {
+  test('under 85% of the listed topics done: agree a fixed study time', () => {
     const r = buildWeeklyReport(input({ marks: recentTest, sessions: [done('2026-10-12'), done('2026-10-13'), session({ scheduledDate: '2026-10-14' })] }));
     assert.equal(r.action.kind, 'fix_study_time');
   });
@@ -495,7 +534,7 @@ describe('milestones', () => {
     assert.ok(buildWeeklyReport(input({ awardedMilestones: [] })).milestonesUnlocked.includes('first_report'));
     assert.ok(!buildWeeklyReport(input()).milestonesUnlocked.includes('first_report'));
   });
-  test('7-day study-day streak, all required sessions (3+), 10 reviews on time', () => {
+  test('7-day study-day streak, every listed topic done (3+), 10 reviews on time', () => {
     const days = ['06', '07', '08', '09', '11', '12', '13'].map((d) => done(`2026-10-${d}`));
     const r = buildWeeklyReport(input({ sessions: days, onTimeReviewsAllTime: 10 }));
     assert.deepEqual(r.milestonesUnlocked.sort(), ['all_required_sessions_week', 'reviews_on_time_10', 'study_day_streak_7']);
@@ -520,7 +559,7 @@ describe('edge cases', () => {
     }));
     assert.equal(r.context.isFirstReport, true);
     assert.equal(r.context.hasComparison, false);
-    assert.equal(r.studyTime.lastWeekMinutes, null);
+    assert.equal(r.topicsDone?.lastWeek, null);
     assert.equal(r.challenge.lastWeek, null);
     assert.equal(r.revision.gettingStronger, null);
   });
@@ -541,9 +580,9 @@ describe('edge cases', () => {
     assert.ok(numbers(r).every((n) => Number.isFinite(n) && n >= 0));
   });
   test('several children: each report only uses its own input', () => {
-    const a = buildWeeklyReport(input({ sessions: [done('2026-10-12', { durationMinutes: 45 })] }));
+    const a = buildWeeklyReport(input({ sessions: [done('2026-10-12')] }));
     const b = buildWeeklyReport(input({ student: { id: 'kid-2', name: 'Maya', createdAt: '2026-09-01T08:00:00.000Z' }, sessions: [] }));
-    assert.deepEqual([a.studentName, a.studyTime.minutes, b.studentName, b.studyTime.minutes], ['Aarav', 45, 'Maya', 0]);
+    assert.deepEqual([a.studentName, a.topicsDone?.count, b.studentName, b.topicsDone?.count], ['Aarav', 1, 'Maya', 0]);
   });
   test('the snapshot survives a JSON round trip unchanged', () => {
     const r = buildWeeklyReport(input({ sessions: [done('2026-10-12')], intervalDays: { alg: 6 } }));
@@ -578,11 +617,11 @@ describe('built later (a missed week caught up on)', () => {
     assert.equal(r.context.builtLater, true);
     assert.equal(r.revision.gettingStronger, null);
     // Ratings from that week are history and stay; "weak" is today's state.
-    assert.deepEqual(r.revision.needsAttention.map((t) => [t.topicName, t.reason]), [['Statistics', 'hard_ratings']]);
+    assert.deepEqual(r.revision.needsAttention.map((t) => [t.topicName, t.reason]), [['Statistics', 'needs_practice']]);
     assert.equal(r.nextWeek, null);
     assert.deepEqual(r.intervalDays, {});
     // What happened that week is still all there.
-    assert.equal(r.studyTime.minutes, 30);
+    assert.equal(r.topicsDone?.count, 1);
     assert.equal(r.adherence.finished, 1);
   });
 });

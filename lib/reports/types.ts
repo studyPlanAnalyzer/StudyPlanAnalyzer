@@ -80,7 +80,10 @@ export interface ReportInput {
   plan: { id: string; generatedAt: string } | null;
   /** Every session of every plan the child has. */
   sessions: SessionRow[];
-  /** Ratings, at least the ATTENTION_RATING_WINDOW_DAYS before the week end. */
+  /** Earlier-exam topics revised in the week, and how (lib/revision.ts). */
+  revisions: { revisedOn: string; rating: number }[];
+  /** Ratings from RATING_HISTORY_DAYS before the week end up to it, oldest
+   * first (a day's ratings in the order they were made). */
   topicReviews: TopicReviewRow[];
   /** Daily challenge attempts in this week and the one before. */
   quizAttempts: QuizAttemptRow[];
@@ -117,7 +120,14 @@ export interface ReportInput {
 // parent's preferredLanguage) without changing any stored report.
 // ===========================================================================
 
-export const SNAPSHOT_VERSION = 2;
+/**
+ * 3: topics done instead of minutes (the plan lists every due topic, with
+ * no minutes budget), earlier-exam topics revised on revision days, Needs
+ * practice in "needs attention", topics coming up next week. Version 2
+ * reports are still stored and shown as they were made: the fields marked
+ * "v2" are theirs.
+ */
+export const SNAPSHOT_VERSION = 3;
 
 export type HeadlineKind =
   | 'exam_finished'
@@ -159,7 +169,7 @@ export interface TopicRef {
 }
 
 export interface WeeklyReportSnapshot {
-  version: typeof SNAPSHOT_VERSION;
+  version: 2 | typeof SNAPSHOT_VERSION;
   studentId: string;
   studentName: string;
   week: { start: string; end: string };
@@ -184,9 +194,17 @@ export interface WeeklyReportSnapshot {
 
   headline: HeadlineKind;
 
-  /** Planned length (minutes) of sessions marked completed or partly
+  /** v2: planned length (minutes) of sessions marked completed or partly
    * completed whose completedAt falls in the week. Not a stopwatch. */
-  studyTime: { minutes: number; lastWeekMinutes: number | null };
+  studyTime?: { minutes: number; lastWeekMinutes: number | null };
+
+  /** Topics done: sessions marked completed or partly completed whose
+   * completedAt falls in the week (one per topic per day). */
+  topicsDone?: { count: number; lastWeek: number | null };
+
+  /** Earlier-exam topics revised in the week (revision days, lib/revision.ts),
+   * and how many of those revisions were rated Hard or Again. */
+  revised?: { count: number; hard: number };
 
   /** Study days: days with at least one required session scheduled. */
   consistency: {
@@ -200,7 +218,7 @@ export interface WeeklyReportSnapshot {
     studyDayStreak: number;
   };
 
-  /** Required (non-optional) sessions scheduled in the week. */
+  /** Topics listed in the week (v2: required sessions). */
   adherence: {
     required: number;
     /** Of those, marked completed or partly completed (whenever). */
@@ -225,7 +243,10 @@ export interface WeeklyReportSnapshot {
     gettingStronger:
       | (TopicRef & { everyDays: number; lastWeekEveryDays: number })[]
       | null;
-    needsAttention: (TopicRef & { reason: 'hard_ratings' | 'weak' })[];
+    /** reason: 'needs_practice' (rated Hard or Again on 2 of its last 3
+     * sessions, as the badge), 'weak' (test results), or v2's
+     * 'hard_ratings' (Hard or Again twice in 28 days). */
+    needsAttention: (TopicRef & { reason: 'needs_practice' | 'weak' | 'hard_ratings' })[];
   };
 
   challenge: {
@@ -268,9 +289,10 @@ export interface WeeklyReportSnapshot {
     readiness: ReadinessStatus | null;
   };
 
-  /** Required sessions planned for the next week. null if no plan, the
-   * exam is over, or built later. */
-  nextWeek: { plannedMinutes: number; focusTopics: TopicRef[] } | null;
+  /** The plan's next week. null if no plan, the exam is over, or built
+   * later. v2: plannedMinutes; v3: topics, how many topics come up (a
+   * forecast: each topic's next review). */
+  nextWeek: { plannedMinutes?: number; topics?: number; focusTopics: TopicRef[] } | null;
 
   action: { kind: ActionKind; topic?: TopicRef; subjectName?: string };
 

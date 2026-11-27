@@ -6,6 +6,9 @@ import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
 import { withErrorHandling } from '@/lib/api/handler';
 import { randomUUID } from 'crypto';
 import { insertTopicRows } from '@/lib/topic-leaves';
+import { repeatedTopicName, taughtLeafCount, taughtTopicRows, taughtTopicSchema } from '@/lib/taught-topics';
+import { createPlanForExam } from '@/lib/plan-create';
+import { ALL_DAYS, sm2Days, spreadLearnFrom } from '@/lib/utils/revision-days';
 import {
   subjectNameSchema,
   findNameClash,
@@ -33,15 +36,8 @@ const bodySchema = z.object({
       z.object({
         name: subjectNameSchema,
         examWeight: level,
-        estimatedConfidence: level,
-        topics: z
-          .array(
-            z.object({
-              name: z.string().trim().min(1).max(200),
-              difficultyRating: z.number().int().min(1).max(5).default(2),
-            }),
-          )
-          .default([]),
+        // Topics already taught: they start over the next days, 4 a day.
+        topics: z.array(taughtTopicSchema).default([]),
       }),
     )
     .min(1),
@@ -51,8 +47,8 @@ const bodySchema = z.object({
  * Starts a new academic session for an existing child. A new session is a
  * fresh start: everything from the old one (subjects, topics, test history,
  * exams and study plans) is deleted, and the new exam, subjects, topics and
- * estimates are saved, all in ONE transaction. If anything fails, nothing is
- * deleted and nothing is saved.
+ * its study plan are saved, all in ONE transaction. If anything fails,
+ * nothing is deleted and nothing is saved.
  */
 export const POST = withErrorHandling(
   async (req: NextRequest, props: { params: Promise<{ id: string }> }) => {
@@ -61,11 +57,7 @@ export const POST = withErrorHandling(
     if (!userId) return unauthorizedResponse();
 
     const [student] = await db
-      .select({
-        id: schema.students.id,
-        paidUntil: schema.students.paidUntil,
-        paymentStatus: schema.students.paymentStatus,
-      })
+      .select()
       .from(schema.students)
       .where(
         and(
@@ -99,6 +91,11 @@ export const POST = withErrorHandling(
     );
     if (clash)
       return NextResponse.json({ error: clashMessage(clash) }, { status: 400 });
+    for (const s of newSubjects) {
+      const twice = repeatedTopicName(s.topics.map((t) => t.name));
+      if (twice)
+        return NextResponse.json({ error: `“${twice}” is listed twice in ${s.name}. Keep it once.` }, { status: 400 });
+    }
 
     const exam = await db.transaction(async (tx) => {
       // Only one exam is active at a time: a new session starts after the last
@@ -144,7 +141,8 @@ export const POST = withErrorHandling(
         })
         .returning();
 
-      // All subjects, estimates and topics in four statements in total.
+      // All subjects and topics in a few statements in total. A new year
+      // has nothing from earlier exams, so every day is an SM-2 day.
       const subjectRows = newSubjects.map((s, i) => ({
         id: randomUUID(),
         studentId: student.id,
@@ -153,23 +151,16 @@ export const POST = withErrorHandling(
         orderIndex: i,
       }));
       await tx.insert(schema.subjects).values(subjectRows);
-      await tx.insert(schema.subjectEstimatedConfidence).values(
-        newSubjects.map((s, i) => ({
-          subjectId: subjectRows[i].id,
-          level: s.estimatedConfidence,
-        })),
+      const taught = newSubjects.flatMap((s, i) =>
+        s.topics.map((t) => ({ subjectId: subjectRows[i].id, ...t })),
       );
-      await insertTopicRows(
-        tx,
-        newSubjects.flatMap((s, i) =>
-          s.topics.map((t) => ({
-            subjectId: subjectRows[i].id,
-            parentTopicId: null,
-            name: t.name,
-            difficultyRating: t.difficultyRating,
-          })),
-        ),
-      );
+      const learnFrom = spreadLearnFrom(taughtLeafCount(taught), today, sm2Days(student.sundayRevision, false));
+      await insertTopicRows(tx, taughtTopicRows(taught, { examId: created.id, examName: created.name }, learnFrom));
+      await tx
+        .update(schema.students)
+        .set({ studyDays: [...ALL_DAYS] })
+        .where(eq(schema.students.id, student.id));
+      await createPlanForExam({ student, exam: created, ex: tx });
       return created;
     });
 

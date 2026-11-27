@@ -13,6 +13,8 @@ import { leafTopics } from '@/lib/topic-leaves';
 import { withErrorHandling } from '@/lib/api/handler';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
 import { loadLeafConfidence } from '@/lib/leaf-confidence';
+import { loadStrugglingTopicIds } from '@/lib/topic-struggling';
+import { sortForFocus, topFocusTopics } from '@/lib/utils/topic-status';
 
 type StrengthLevel = 'weak' | 'medium' | 'strong';
 
@@ -80,11 +82,18 @@ export const GET = withErrorHandling(
             ),
           ),
         db
-          .select({ topic: schema.topics })
+          .select({
+            topic: schema.topics,
+            spacedStatus: schema.topicSpacedState.status,
+          })
           .from(schema.topics)
           .innerJoin(
             schema.subjects,
             eq(schema.subjects.id, schema.topics.subjectId),
+          )
+          .leftJoin(
+            schema.topicSpacedState,
+            eq(schema.topicSpacedState.topicId, schema.topics.id),
           )
           .where(
             and(
@@ -107,6 +116,12 @@ export const GET = withErrorHandling(
     // Analysed at the lowest level: sub-topics where there are any, else topics.
     const relevantTopics = leafTopics(allTopics);
     const topicNameById = new Map(allTopics.map((t) => [t.id, t.name]));
+    const masteredTopicIds = new Set(
+      topicRows.filter((r) => r.spacedStatus === 'mastered').map((r) => r.topic.id),
+    );
+    const strugglingTopicIds = await loadStrugglingTopicIds(
+      relevantTopics.map((t) => t.id),
+    );
 
     // A parent's gut-sense estimate, only for subjects with no marks at all.
     const [estimates, leafConfidence] = await Promise.all([
@@ -184,6 +199,8 @@ export const GET = withErrorHandling(
           difficultyRating: t.difficultyRating,
           estimatedMastery: t.estimatedMastery,
           latestConfidence: leafConfidence.get(t.id) ?? null,
+          mastered: masteredTopicIds.has(t.id),
+          struggling: strugglingTopicIds.has(t.id),
           priority: leafPriority(subjectInput, {
             id: t.id,
             subjectId: t.subjectId,
@@ -191,8 +208,9 @@ export const GET = withErrorHandling(
             estimatedMastery: t.estimatedMastery,
             latestConfidence: leafConfidence.get(t.id) ?? null,
           }).priority,
-        }))
-        .sort((a, b) => b.priority - a.priority);
+        }));
+      // Struggling topics first, mastered ones last; by priority within each.
+      const topicsForSubjectSorted = sortForFocus(topicsForSubject);
 
       return {
         subjectId: subject.id,
@@ -209,7 +227,7 @@ export const GET = withErrorHandling(
             ? strengthFromPercent(latestPercent)
             : 'unknown',
         priority,
-        topics: topicsForSubject,
+        topics: topicsForSubjectSorted,
       };
     });
 
@@ -228,10 +246,12 @@ export const GET = withErrorHandling(
           )
         : null;
 
-    const topPriorityTopics = subjectAnalyses
-      .flatMap((s) => s.topics.map((t) => ({ ...t, subjectName: s.name })))
-      .sort((a, b) => b.priority - a.priority)
-      .slice(0, 3);
+    // Struggling topics lead; mastered ones are never a focus.
+    const topPriorityTopics = topFocusTopics(
+      subjectAnalyses.flatMap((s) =>
+        s.topics.map((t) => ({ ...t, subjectName: s.name })),
+      ),
+    );
 
     return NextResponse.json({
       student: { id: student.id, name: student.name, grade: student.grade },

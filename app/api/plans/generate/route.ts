@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
+import { BUFFER_WEEK_DAYS } from '@/lib/utils/study-limits';
+import { createPlanForExam } from '@/lib/plan-create';
 import { and, eq } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
-import { generateStudyPlan } from '@/lib/utils/plan-generator';
-import { loadSubjectInputs } from '@/lib/plan-inputs';
 import { addDays, appToday, fromDateString, toDateString } from '@/lib/utils/date-utils';
 import { isExamOver } from '@/lib/plan-expiry';
 import { withErrorHandling } from '@/lib/api/handler';
@@ -18,7 +18,6 @@ const generatePlanSchema = z.object({
   useBufferWeek: z.boolean().optional().default(false),
 });
 
-const BUFFER_DAYS = 7;
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const userId = await getAuthUserId(req);
@@ -79,7 +78,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   const scheduleEndDate = useBufferWeek
-    ? addDays(examDate, -BUFFER_DAYS)
+    ? addDays(examDate, -BUFFER_WEEK_DAYS)
     : examDate;
   if (scheduleEndDate.getTime() <= appToday().getTime()) {
     return NextResponse.json(
@@ -93,69 +92,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   if (existingPlan) return planExists(existingPlan.id);
 
-  const subjectInputs = await loadSubjectInputs(studentId, examId);
-  if (subjectInputs.length === 0) {
-    return NextResponse.json(
-      { error: 'Add at least one subject before generating a plan' },
-      { status: 400 },
-    );
-  }
-  const totalTopics = subjectInputs.reduce(
-    (sum, s) => sum + s.topics.length,
-    0,
-  );
-  if (totalTopics === 0) {
-    return NextResponse.json(
-      { error: 'Add topics to at least one subject before generating a plan' },
-      { status: 400 },
-    );
-  }
-
-  const result = generateStudyPlan({
-    examDate,
-    scheduleEndDate,
-    studyDays: student.studyDays,
-    schoolDayMinutes: student.schoolDayMinutes,
-    holidayDayMinutes: student.holidayDayMinutes,
-    subjects: subjectInputs,
-  });
-
-  // One plan per exam is enforced by a unique index, so two requests at once
-  // (a double click) can't both create one: the second gets the same 409.
+  // A plan exists from the start, with or without topics yet: they join it
+  // as they are added. One plan per exam is enforced by a unique index, so
+  // two requests at once (a double click) can't both create one: the second
+  // gets the same 409.
   let plan;
   try {
-    plan = await db.transaction(async (tx) => {
-      const [insertedPlan] = await tx
-        .insert(schema.studyPlans)
-        .values({
-          studentId,
-          examId,
-          totalDays: result.totalDays,
-          averageDailyMinutes: result.averageDailyMinutes,
-          weakFocusPercent: result.weakFocusPercent,
-          mediumFocusPercent: result.mediumFocusPercent,
-          strongFocusPercent: result.strongFocusPercent,
-          unscheduledTopicIds: result.unscheduledTopicIds,
-          useBufferWeek,
-        })
-        .returning();
-
-      if (result.sessions.length > 0) {
-        await tx.insert(schema.studySessions).values(
-          result.sessions.map((s) => ({
-            planId: insertedPlan.id,
-            topicId: s.topicId,
-            subjectId: s.subjectId,
-            scheduledDate: s.scheduledDate,
-            durationMinutes: s.durationMinutes,
-            sessionType: s.sessionType,
-            isFiller: s.isFiller ?? false,
-          })),
-        );
-      }
-
-      return insertedPlan;
-    });
+    plan = await db.transaction((tx) => createPlanForExam({ student, exam, useBufferWeek, ex: tx }));
   } catch (err: any) {
     const code = err?.code ?? err?.cause?.code;
     if (code !== '23505') throw err;
@@ -167,14 +110,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     if (!winner) throw err;
     return planExists(winner.id);
   }
+  if (!plan)
+    return NextResponse.json({ error: 'Exam date must be in the future' }, { status: 400 });
 
   return NextResponse.json(
-    {
-      plan,
-      sessionsCreated: result.sessions.length,
-      unscheduledTopicCount: result.unscheduledTopicIds.length,
-      scheduleEndDate: toDateString(scheduleEndDate),
-    },
+    { plan, scheduleEndDate: toDateString(scheduleEndDate) },
     { status: 201 },
   );
 });

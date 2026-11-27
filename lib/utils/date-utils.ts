@@ -14,9 +14,37 @@ export function startOfDayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** The app's (Nepal) calendar day that `instant` falls on, as a UTC-midnight Date. */
-export function appDay(instant: Date = new Date()): Date {
-  return startOfDayUTC(new Date(instant.getTime() + APP_UTC_OFFSET_MS));
+/**
+ * A fake "today" set with the dev clock (lib/dev-clock.ts,
+ * components/dev/DevClock.tsx), so days can be stepped through by hand. Only
+ * the dev clock sets it, and only in development or on a preview deployment:
+ * the server installs a reader (lib/dev-clock.ts), and the browser gets the
+ * value from an inline script in the root layout. In production, tests and
+ * scripts it is never set.
+ */
+export type DevTodaySource = string | null | (() => string | null);
+declare global {
+  // eslint-disable-next-line no-var
+  var __devToday: DevTodaySource | undefined;
+}
+
+function devToday(): Date | null {
+  const source = globalThis.__devToday;
+  if (source == null) return null;
+  const value = typeof source === 'function' ? source() : source;
+  return value && isRealDateString(value) ? fromDateString(value) : null;
+}
+
+/** The app's (Nepal) calendar day that `instant` falls on, as a UTC-midnight
+ * Date. With no `instant` it is today, which the dev clock can fake; an
+ * explicit `instant` (a stored timestamp) is always converted as is. */
+export function appDay(instant?: Date): Date {
+  if (!instant) {
+    const fake = devToday();
+    if (fake) return fake;
+  }
+  const at = instant ?? new Date();
+  return startOfDayUTC(new Date(at.getTime() + APP_UTC_OFFSET_MS));
 }
 
 /** Today in the app's time zone, as a UTC-midnight Date. */

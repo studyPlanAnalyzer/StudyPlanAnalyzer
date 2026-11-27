@@ -81,11 +81,22 @@ export async function expandManyToLeaves(
   });
 }
 
+export type SelfRating = 'not_sure' | 'ok' | 'know_well';
+
 export type NewTopicRow = {
+  /** Set when a sub-topic in the same insert needs to point at it. */
+  id?: string;
   subjectId: string;
   parentTopicId: string | null;
   name: string;
   difficultyRating?: number;
+  /** The exam it was taught for (schema.topics.examId / examName). */
+  examId?: string | null;
+  examName?: string | null;
+  /** When its learn session may be (topics of the current exam). */
+  learnFrom?: string | null;
+  /** An earlier topic's "how well do you know it", from a mid-year joiner. */
+  selfRating?: SelfRating | null;
 };
 
 /**
@@ -101,10 +112,15 @@ export async function insertTopicRows(
     .insert(schema.topics)
     .values(
       rows.map((r) => ({
+        ...(r.id && { id: r.id }),
         subjectId: r.subjectId,
         parentTopicId: r.parentTopicId,
         name: r.name,
         difficultyRating: r.difficultyRating ?? 2,
+        examId: r.examId ?? null,
+        examName: r.examName ?? null,
+        learnFrom: r.learnFrom ?? null,
+        selfRating: r.selfRating ?? null,
       })),
     )
     .returning();
@@ -125,7 +141,7 @@ export async function insertTopics(
   ex: Pick<typeof db, 'insert'>,
   subjectId: string,
   parentTopicId: string | null,
-  rows: { name: string; difficultyRating?: number }[],
+  rows: Omit<NewTopicRow, 'subjectId' | 'parentTopicId'>[],
 ) {
   await insertTopicRows(
     ex,

@@ -10,8 +10,6 @@ import {
 import { withErrorHandling } from '@/lib/api/handler';
 import { billingInfoFor } from '@/lib/billing/pricing';
 import {
-  holidayDayMinutesSchema,
-  schoolDayMinutesSchema,
   gradeSchema,
   schoolNameSchema,
   studyDaysSchema,
@@ -22,8 +20,6 @@ const createStudentSchema = z.object({
   grade: gradeSchema,
   schoolName: schoolNameSchema,
   studyDays: studyDaysSchema.default(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun']),
-  schoolDayMinutes: schoolDayMinutesSchema.default(45),
-  holidayDayMinutes: holidayDayMinutesSchema.default(90),
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {

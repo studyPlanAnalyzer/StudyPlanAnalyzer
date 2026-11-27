@@ -15,8 +15,6 @@ import {
 } from '@/lib/utils/date-utils';
 import {
   examDateProblem,
-  holidayDayMinutesSchema,
-  schoolDayMinutesSchema,
   studyDaysSchema,
 } from '@/lib/validation';
 import { isExamOver } from '@/lib/plan-expiry';
@@ -68,20 +66,11 @@ describe('exam date rule', () => {
   });
 });
 
-describe('study day and minute limits', () => {
+describe('study day limits', () => {
   test('only Sun..Sat, each once', () => {
     assert.deepEqual(studyDaysSchema.parse(['Mon', 'Mon', 'Sun']), ['Mon', 'Sun']);
     for (const bad of [['mon'], ['Funday'], []])
       assert.equal(studyDaysSchema.safeParse(bad).success, false, JSON.stringify(bad));
-  });
-  test('45-120 minutes on school days, 90-120 on holidays', () => {
-    assert.equal(schoolDayMinutesSchema.safeParse(44).success, false);
-    assert.equal(schoolDayMinutesSchema.safeParse(45).success, true);
-    assert.equal(schoolDayMinutesSchema.safeParse(120).success, true);
-    assert.equal(schoolDayMinutesSchema.safeParse(121).success, false);
-    assert.equal(holidayDayMinutesSchema.safeParse(89).success, false);
-    assert.equal(holidayDayMinutesSchema.safeParse(120).success, true);
-    assert.equal(holidayDayMinutesSchema.safeParse(121).success, false);
   });
 });
 
@@ -101,14 +90,17 @@ describe('plan generator calendar', () => {
   const ALL_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const start = fromDateString('2026-11-01');
 
-  test('no session is scheduled on the exam day', () => {
+  test('no session is scheduled on the exam day: the day before is the last', () => {
     const examDate = fromDateString('2026-11-05');
+    // Topics taught on the 3rd and the 4th: learned the next day, the second
+    // one's follow-up would fall on the exam day itself.
     const r = generateStudyPlan({
       examDate,
       studyDays: ALL_DAYS,
-      schoolDayMinutes: 120,
-      holidayDayMinutes: 120,
-      subjects: [subject],
+      subjects: [{
+        ...subject,
+        topics: subject.topics.map((t, i) => ({ ...t, learnFrom: i % 2 ? '2026-11-04' : '2026-11-03' })),
+      }],
       startDate: start,
     });
     assert.ok(r.sessions.length > 0);
@@ -120,8 +112,6 @@ describe('plan generator calendar', () => {
     const r = generateStudyPlan({
       examDate: fromDateString('2099-01-01'),
       studyDays: ALL_DAYS,
-      schoolDayMinutes: 45,
-      holidayDayMinutes: 90,
       subjects: [subject],
       startDate: start,
     });

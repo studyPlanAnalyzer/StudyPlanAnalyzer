@@ -15,7 +15,7 @@ import {
 import { cardClass } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, BackLink } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { Notice } from '@/components/ui/Notice';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Tag } from '@/components/ui/Tag';
@@ -148,9 +148,7 @@ export default function DailyChallengePage(
 
   return (
     <PageShell withBottomNav>
-      <AppHeader>
-        <BackLink href={`/students/${params.id}/plan`} label="Back to plan" short="Back" />
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="daily-challenge" />
 
       <PageMain>
         {/* HERO SECTION */}

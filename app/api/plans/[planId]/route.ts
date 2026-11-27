@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { getAuthUserId, unauthorizedResponse } from '@/lib/auth/middleware';
-import { appDay, fromDateString, weekNumberFromStart } from '@/lib/utils/date-utils';
+import {
+  addDays,
+  appDay,
+  fromDateString,
+  toDateString,
+  todayKey,
+  weekNumberFromStart,
+} from '@/lib/utils/date-utils';
 import { withErrorHandling } from '@/lib/api/handler';
 import { isExamOver } from '@/lib/plan-expiry';
 import { paymentRequiredResponse } from '@/lib/billing/guard';
+import { loadStrugglingTopicIds } from '@/lib/topic-struggling';
+import { loadStudyDays } from '@/lib/study-history';
+import { loadPlanStatus } from '@/lib/plan-status';
+import { hasEarlierTopics } from '@/lib/plan-schedule';
+import { isRevisionDay } from '@/lib/utils/revision-days';
+import { BUFFER_WEEK_DAYS } from '@/lib/utils/study-limits';
+import { daysOf, weekContaining } from '@/lib/reports/week';
+
+/** "Coming up" on the plan page: the days after today it covers. */
+const COMING_UP_DAYS = 7;
 
 export const GET = withErrorHandling(
   async (req: NextRequest, props: { params: Promise<{ planId: string }> }) => {
@@ -47,17 +64,25 @@ export const GET = withErrorHandling(
         .select()
         .from(schema.studySessions)
         .where(eq(schema.studySessions.planId, params.planId))
-        .orderBy(asc(schema.studySessions.scheduledDate)),
+        // Each day in the plan's own order: the goal is the top of the list.
+        .orderBy(asc(schema.studySessions.scheduledDate), asc(schema.studySessions.position)),
       db
         .select()
         .from(schema.subjects)
         .where(inArray(schema.subjects.studentId, owner)),
       db
-        .select({ topic: schema.topics })
+        .select({
+          topic: schema.topics,
+          spacedStatus: schema.topicSpacedState.status,
+        })
         .from(schema.topics)
         .innerJoin(
           schema.subjects,
           eq(schema.subjects.id, schema.topics.subjectId),
+        )
+        .leftJoin(
+          schema.topicSpacedState,
+          eq(schema.topicSpacedState.topicId, schema.topics.id),
         )
         .where(inArray(schema.subjects.studentId, owner)),
     ]);
@@ -77,30 +102,92 @@ export const GET = withErrorHandling(
       );
     }
 
+    // Optional (filler) sessions are no longer made; any left from older
+    // plans aren't part of the list.
+    const rows = sessionRows.filter((s) => !s.isFiller);
     const topicById = new Map(topicRows.map((r) => [r.topic.id, r.topic]));
+    // The topic's mastery as it is now (not when a past session was done).
+    const masteredTopicIds = new Set(
+      topicRows.filter((r) => r.spacedStatus === 'mastered').map((r) => r.topic.id),
+    );
+    const today = todayKey();
+    const week = weekContaining(today);
+    const [strugglingTopicIds, pastDays, status, earlier, revisedRows] = await Promise.all([
+      loadStrugglingTopicIds(
+        Array.from(new Set(rows.flatMap((s) => (s.topicId ? [s.topicId] : [])))),
+      ),
+      // This week's days so far.
+      loadStudyDays(student.id, today, 7),
+      exam
+        ? loadPlanStatus({
+            studentId: student.id,
+            sundayRevision: student.sundayRevision,
+            plan,
+            examDate: exam.examDate,
+            todayKey: today,
+          })
+        : null,
+      hasEarlierTopics(student.id, plan.examId),
+      // Earlier-exam topics revised on each day of this week.
+      db
+        .select({ day: schema.topicRevisions.revisedOn, n: sql<number>`count(*)` })
+        .from(schema.topicRevisions)
+        .where(
+          and(
+            eq(schema.topicRevisions.examId, plan.examId),
+            gte(schema.topicRevisions.revisedOn, week.start),
+            lte(schema.topicRevisions.revisedOn, week.end),
+          ),
+        )
+        .groupBy(schema.topicRevisions.revisedOn),
+    ]);
+    // Today: everything on the list, and how much of it is done.
+    const todays = rows.filter((s) => s.scheduledDate === today);
+    const doneToday = todays.filter(
+      (s) => s.status === 'completed' || s.status === 'partly_completed',
+    ).length;
     const subjectById = new Map(subjectRows.map((s) => [s.id, s]));
+    const topicName = (id: string | null) => (id ? (topicById.get(id)?.name ?? null) : null);
+    const subjectName = (id: string | null) => (id ? (subjectById.get(id)?.name ?? null) : null);
 
-    // The exact list of topics the generator couldn't fit anywhere on the
-    // calendar is stored at generation time (see generate/regenerate), not
-    // recomputed here — a topic that's simply "not due yet" (its next spaced
-    // review falls after the exam date) is intentionally absent from the
-    // plan and must not be confused with one that genuinely ran out of room.
-    const unscheduledTopics = (plan.unscheduledTopicIds ?? [])
-      .map((topicId) => topicById.get(topicId))
-      .filter((t): t is NonNullable<typeof t> => !!t)
-      .map((t) => ({
-        id: t.id,
-        name: t.name,
-        subjectName: subjectById.get(t.subjectId)?.name ?? 'Unknown subject',
+    // "This week", Sunday to Saturday: each day's list and how much of it was
+    // done. Revision days (once there are earlier topics) count the earlier
+    // topics revised instead; days ahead are just study or revision days.
+    const pastByDate = new Map(pastDays.map((d) => [d.date, d]));
+    const revisedOn = new Map(revisedRows.map((r) => [r.day, Number(r.n)]));
+    const thisWeek = daysOf(week).map((date) => {
+      const revisionDay = earlier && isRevisionDay(date, student.sundayRevision);
+      const revised = revisedOn.get(date) ?? 0;
+      if (date === today)
+        return { date, revisionDay, when: 'today' as const, listed: todays.length, done: doneToday, revised };
+      if (date > today) return { date, revisionDay, when: 'ahead' as const, listed: 0, done: 0, revised: 0 };
+      const past = pastByDate.get(date);
+      return { date, revisionDay, when: 'past' as const, listed: past?.listed ?? 0, done: past?.done ?? 0, revised };
+    });
+
+    // "Coming up": the topics the plan expects over the next 7 days, once
+    // each, in the order they come. A forecast: ratings move them.
+    const comingUpEnd = toDateString(addDays(fromDateString(today), COMING_UP_DAYS));
+    const seen = new Set<string>();
+    const comingUp = rows
+      .filter((s) => s.scheduledDate > today && s.scheduledDate <= comingUpEnd && s.status === 'planned' && s.topicId)
+      .filter((s) => !seen.has(s.topicId!) && !!seen.add(s.topicId!))
+      .map((s) => ({
+        topicId: s.topicId!,
+        topicName: topicName(s.topicId),
+        subjectName: subjectName(s.subjectId),
+        sessionType: s.sessionType,
+        topicMastered: masteredTopicIds.has(s.topicId!),
+        topicStruggling: strugglingTopicIds.has(s.topicId!),
       }));
 
     const planStart =
-      sessionRows.length > 0
-        ? fromDateString(sessionRows[0].scheduledDate)
+      rows.length > 0
+        ? fromDateString(rows[0].scheduledDate)
         : appDay(plan.generatedAt);
 
-    const weeksMap = new Map<number, typeof sessionRows>();
-    for (const session of sessionRows) {
+    const weeksMap = new Map<number, typeof rows>();
+    for (const session of rows) {
       const week = weekNumberFromStart(
         fromDateString(session.scheduledDate),
         planStart,
@@ -127,12 +214,10 @@ export const GET = withErrorHandling(
             ),
             sessions: daySessions.map((s) => ({
               ...s,
-              topicName: s.topicId
-                ? (topicById.get(s.topicId)?.name ?? null)
-                : null,
-              subjectName: s.subjectId
-                ? (subjectById.get(s.subjectId)?.name ?? null)
-                : null,
+              topicName: topicName(s.topicId),
+              topicMastered: !!s.topicId && masteredTopicIds.has(s.topicId),
+              topicStruggling: !!s.topicId && strugglingTopicIds.has(s.topicId),
+              subjectName: subjectName(s.subjectId),
             })),
           }));
         return { weekNumber, days };
@@ -143,7 +228,21 @@ export const GET = withErrorHandling(
       exam,
       student: { id: student.id, name: student.name },
       weeks,
-      unscheduledTopics,
+      // Every topic is now listed, so nothing is left out. Kept, empty, for
+      // pages loaded before this change.
+      unscheduledTopics: [],
+      today: {
+        listed: todays.length,
+        done: doneToday,
+        revisionDay: earlier && isRevisionDay(today, student.sundayRevision),
+        // The buffer week: the week before the exam is free (no list, no revision).
+        bufferWeek:
+          !!exam && plan.useBufferWeek &&
+          today >= toDateString(addDays(fromDateString(exam.examDate), -BUFFER_WEEK_DAYS)),
+      },
+      thisWeek,
+      comingUp,
+      status,
     });
   },
 );

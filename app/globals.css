@@ -22,6 +22,41 @@ html {
   scroll-behavior: smooth;
 }
 
+/* iPhone Safari draws date and time fields with its own minimum width and
+   ignores width: 100%, so in a narrow card they poke out of it. Without the
+   native look they size like any other field; the date picker still opens
+   on tap. The value is left-aligned like other fields' text. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* Points at a field that must be filled first (the marksheet's "Out of"):
+   a short shake, or only the dark border for those who prefer less motion. */
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.animate-nudge {
+  animation: nudge 0.45s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-nudge {
+    animation: none;
+  }
+}
+
 @keyframes pulse-soft {
   0%,
   100% {

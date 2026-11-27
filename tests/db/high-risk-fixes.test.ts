@@ -143,12 +143,15 @@ describe('high-risk fixes', { skip: SKIP_DB }, () => {
     assert.ok((rows[0] as { last: string }).last < inDays(10));
   });
 
-  test('settings refuse unknown study days and more than 120 minutes', async () => {
+  test('settings take whether Sunday is a revision day, and save it', async () => {
     const route = await import('@/app/api/students/[id]/settings/route');
     const put = (body: object) =>
       call(route.PUT as Handler, '/x', { method: 'PUT', body, params: { id: ids.child } });
-    assert.equal((await put({ studyDays: ['mon'], schoolDayMinutes: 45, holidayDayMinutes: 90 })).status, 400);
-    assert.equal((await put({ studyDays: ['Mon'], schoolDayMinutes: 121, holidayDayMinutes: 90 })).status, 400);
+    assert.equal((await put({})).status, 400);
+    assert.equal((await put({ sundayRevision: 'yes' })).status, 400);
+    assert.equal((await put({ sundayRevision: false })).status, 200);
+    const [s] = await ctx.db.select().from(ctx.schema.students).where(ctx.sql`id = ${ids.child}`);
+    assert.equal(s.sundayRevision, false);
   });
 
   test('deleting a topic deletes the marks that only covered it, and keeps the rest', async () => {

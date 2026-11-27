@@ -1,20 +1,20 @@
 'use client';
 
 import { subjectClashFor } from '@/lib/subject-name';
-import { useCallback, useEffect, useState, use } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, use } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api-client';
 import { MAX_FULL_MARKS } from '@/lib/validation';
 import { suggestTopicsFor } from '@/lib/common-topics';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { academicYearOf, earlierExamChoices } from '@/lib/utils/academic-year';
+import { Button } from '@/components/ui/Button';
 import { cardClass } from '@/components/ui/Card';
 import { Tag } from '@/components/ui/Tag';
 import { Field, Select, fieldClass, fieldOnColourClass, fieldOnColourShapeClass } from '@/components/ui/Field';
 import { PageMain, PageShell } from '@/components/ui/PageShell';
-import { AppHeader, headerLinkClass } from '@/components/ui/AppHeader';
+import { StudentHeader } from '@/components/ui/StudentHeader';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Notice } from '@/components/ui/Notice';
 
@@ -41,15 +41,37 @@ interface Topic {
   subjectId: string;
   parentTopicId: string | null;
   difficultyRating: number;
+  /** The exam it was taught for (an earlier one is revised on weekends). */
+  examId: string | null;
+  examName: string | null;
 }
 
 interface StudentDetail {
   student: { id: string; name: string; grade: string };
   subjects: Subject[];
   topics: Topic[];
-  exams: { id: string; examDate: string; isPrimary: boolean }[];
+  exams: { id: string; name: string; examDate: string; isPrimary: boolean }[];
+  currentExamId: string | null;
   latestPlan: { id: string } | null;
 }
+
+type SelfRating = 'not_sure' | 'ok' | 'know_well';
+/** A topic studied for an earlier exam: which one, and how well it's known. */
+interface Earlier {
+  examId?: string;
+  examName: string;
+  selfRating?: SelfRating;
+}
+
+/** Where a new topic belongs: the current exam, or one of these earlier ones. */
+interface ExamChoices {
+  currentExamId: string | null;
+  currentExamName: string | null;
+  earlier: { key: string; examId?: string; examName: string }[];
+}
+const ExamChoicesContext = createContext<ExamChoices>({ currentExamId: null, currentExamName: null, earlier: [] });
+
+const AN_EARLIER_EXAM = 'An earlier exam';
 
 // Every change on this page is held in the draft until the parent clicks the
 // one Save button. Nothing reaches the database, the analysis or the plan
@@ -65,6 +87,8 @@ interface DraftTopic {
   parentTopicId: string | null;
   name: string;
   difficultyRating: number;
+  /** Set when it was studied for an earlier exam rather than taught now. */
+  earlier?: Earlier;
 }
 interface SubjectEdit {
   name: string;
@@ -321,6 +345,24 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
     .map((t) => ({ ...t, ...draft.topicEdits[t.id] }));
 
   const active = subjects.filter((s) => s.isActive);
+
+  // A new topic is taught now (the current exam) unless the parent picks the
+  // earlier exam it was studied for: one of the child's own past exams of
+  // the same academic year, or one of the year's exams from before they joined.
+  const currentExam = detail?.exams.find((e) => e.id === detail.currentExamId) ?? null;
+  const earlierThisYear = currentExam
+    ? earlierExamChoices(academicYearOf(currentExam.examDate), detail?.exams ?? []).filter(
+        (c) => c.examId !== currentExam.id,
+      )
+    : [];
+  const examChoices: ExamChoices = {
+    currentExamId: currentExam?.id ?? null,
+    currentExamName: currentExam?.name ?? null,
+    earlier:
+      earlierThisYear.length > 0
+        ? earlierThisYear
+        : [{ key: `name:${AN_EARLIER_EXAM}`, examName: AN_EARLIER_EXAM }],
+  };
   const archived = subjects.filter((s) => !s.isActive);
   const topicsFor = (subjectId: string) =>
     topics.filter((t) => t.subjectId === subjectId);
@@ -408,22 +450,12 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
     await load();
   }
 
-  const navItems = [
-    { href: `/students/${params.id}/plan`, label: 'Plan' },
-    { href: `/students/${params.id}/tests`, label: 'Test history' },
-    { href: `/students/${params.id}/settings`, label: 'Settings' },
-  ];
 
   return (
-    <PageShell className="pb-16 sm:pb-8">
+    <ExamChoicesContext.Provider value={examChoices}>
+    <PageShell className={draftCount > 0 ? 'pb-44 sm:pb-32' : 'pb-16 sm:pb-8'}>
 
-      <AppHeader menu={{ items: navItems, breakpoint: 'lg' }}>
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href} className={headerLinkClass}>
-            {item.label}
-          </Link>
-        ))}
-      </AppHeader>
+      <StudentHeader studentId={params.id} current="subjects" />
 
       <PageMain>
         {!detail && !error && (
@@ -455,13 +487,9 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     There&apos;s no study plan yet
                   </p>
                   <p className="mt-1 text-sm leading-6 text-black">
-                    Saved changes are used when you generate one.
+                    It starts as soon as you save: topics taught for the current exam
+                    join it the next day.
                   </p>
-                  <div className="mt-3">
-                    <ButtonLink href={`/students/${params.id}/settings`}>
-                      Generate a plan in Settings
-                    </ButtonLink>
-                  </div>
                 </div>
               )}
 
@@ -474,33 +502,40 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                 </div>
               )}
 
+              {/* With changes waiting, Save stays on screen at the bottom:
+                  add everything first, then save once. */}
               {draftCount > 0 && (
-                <div className="mb-5 rounded-[28px] border-2 border-dashed border-[#F7CC46] bg-[#fdf4d8] p-5">
-                  <p className="text-base font-bold text-black">
-                    {draftCount} change{draftCount === 1 ? '' : 's'} waiting
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-black">
-                    Add as many as you need. None of them are in the plan or
-                    analysis until you press Save and update plan. If you leave
-                    this page, you will be asked to confirm, and they are
-                    discarded.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button onClick={save} isLoading={isSaving}>
-                      {detail.latestPlan ? 'Save and update plan' : 'Save'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={isSaving}
-                      onClick={() => setDraft(EMPTY_DRAFT)}
-                    >
-                      Discard all
-                    </Button>
+                <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#fdf4d8] px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:px-7">
+                  {error && (
+                    <p role="alert" className="mx-auto mb-2 max-w-[1400px] text-sm font-semibold text-red-700">
+                      {error}
+                    </p>
+                  )}
+                  <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
+                    <p className="min-w-0 text-sm leading-6 text-black">
+                      <span className="font-bold">
+                        {draftCount} change{draftCount === 1 ? '' : 's'} not saved yet.
+                      </span>{' '}
+                      Add everything you need, then save once.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="white"
+                        className="border-[1.5px] border-black/15"
+                        disabled={isSaving}
+                        onClick={() => setDraft(EMPTY_DRAFT)}
+                      >
+                        Discard
+                      </Button>
+                      <Button onClick={save} isLoading={isSaving}>
+                        {detail.latestPlan ? 'Save and update plan' : 'Save'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {error && (
+              {error && draftCount === 0 && (
                 <Notice className="mb-5">
                   {error}
                 </Notice>
@@ -542,7 +577,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                     onDeleteTopic={(id) =>
                       update({ deletedTopics: [...draft.deletedTopics, id] })
                     }
-                    onAddDraftTopic={(parentId, name, difficultyRating) =>
+                    onAddDraftTopic={(parentId, name, difficultyRating, earlier) =>
                       update({
                         topics: [
                           ...draft.topics,
@@ -551,6 +586,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
                             parentTopicId: parentId,
                             name,
                             difficultyRating,
+                            earlier,
                           },
                         ],
                       })
@@ -659,6 +695,7 @@ export default function SubjectsPage(props: { params: Promise<{ id: string }> })
         )}
       </PageMain>
     </PageShell>
+    </ExamChoicesContext.Provider>
   );
 }
 
@@ -697,6 +734,7 @@ function SubjectCard({
     parentTopicId: string | null,
     name: string,
     difficultyRating: number,
+    earlier?: Earlier,
   ) => void;
   onRemoveDraftTopic: (index: number) => void;
 }) {
@@ -704,6 +742,9 @@ function SubjectCard({
   const [name, setName] = useState(subject.name);
   const [fullMarks, setFullMarks] = useState(subject.fullMarks);
   const [examWeight, setExamWeight] = useState<ExamWeight>(subject.examWeight);
+  // The open "add" form: a new topic ('topic'), a sub-topic under a topic
+  // (its id), or none. Only one is open at a time.
+  const [adding, setAdding] = useState<string | null>(null);
   const topLevel = topics.filter((t) => !t.parentTopicId);
   const subTopicsOf = (id: string) =>
     topics.filter((t) => t.parentTopicId === id);
@@ -783,9 +824,13 @@ function SubjectCard({
               {topLevel.length} topic{topLevel.length === 1 ? '' : 's'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BookIcon className="h-[22px] w-[22px] text-black" />
-            <Button onClick={() => setIsEditing(true)}>
+            <Button onClick={() => setAdding('topic')}>
+              <PlusIcon />
+              Add topic
+            </Button>
+            <Button variant="white" onClick={() => setIsEditing(true)}>
               <PencilIcon />
               Edit
             </Button>
@@ -852,12 +897,32 @@ function SubjectCard({
                       )}
                       onRemove={onRemoveDraftTopic}
                     />
-                    <AddTopicInput
-                      placeholder="Add a sub-topic (optional)"
-                      buttonLabel="Sub-topic"
-                      ariaLabel="Add sub-topic"
-                      onAdd={(name, d) => onAddDraftTopic(t.id, name, d)}
-                    />
+                    {adding === t.id ? (
+                      <AddTopicInput
+                        title={`New sub-topic under ${t.name}`}
+                        buttonLabel="Add sub-topic"
+                        parentExam={t}
+                        taken={[
+                          ...subs.map((st) => st.name),
+                          ...draftTopics.filter((d) => d.parentTopicId === t.id).map((d) => d.name),
+                        ]}
+                        takenWhere={`under ${t.name}`}
+                        onCancel={() => setAdding(null)}
+                        onAdd={(name, d, earlier) => {
+                          onAddDraftTopic(t.id, name, d, earlier);
+                          setAdding(null);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAdding(t.id)}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-black/75 underline-offset-4 hover:underline"
+                      >
+                        <PlusIcon />
+                        Add a sub-topic
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -868,11 +933,19 @@ function SubjectCard({
           items={draftTopics.filter((d) => !d.parentTopicId)}
           onRemove={onRemoveDraftTopic}
         />
-        <AddTopicInput
-          buttonLabel="Topic"
-          ariaLabel="Add topic"
-          onAdd={(name, d) => onAddDraftTopic(null, name, d)}
-        />
+        {adding === 'topic' && (
+          <AddTopicInput
+            title={`New topic in ${subject.name}`}
+            buttonLabel="Add topic"
+            taken={[...topLevel.map((t) => t.name), ...draftTopics.filter((d) => !d.parentTopicId).map((d) => d.name)]}
+            takenWhere={`in ${subject.name}`}
+            onCancel={() => setAdding(null)}
+            onAdd={(name, d, earlier) => {
+              onAddDraftTopic(null, name, d, earlier);
+              setAdding(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -944,9 +1017,10 @@ function TopicRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3">
+    <div className="min-w-0">
+    <div className="flex items-start justify-between gap-2">
       <span
-        className={`flex min-w-[8rem] flex-1 items-center gap-2 break-words text-black ${
+        className={`flex min-w-0 flex-1 items-center gap-2 break-words pt-2.5 text-black ${
           isSub ? 'text-sm font-normal' : 'text-base font-bold'
         }`}
       >
@@ -955,17 +1029,7 @@ function TopicRow({
           {topic.name} {edited && <Unsaved />}
         </span>
       </span>
-      <div className="ml-auto flex shrink-0 items-center">
-        {!hasSubTopics &&
-          (isSub ? (
-            <span className="mr-1.5 text-sm font-bold text-black">
-              Difficulty {topic.difficultyRating}
-            </span>
-          ) : (
-            <span className="mr-1.5 inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-sm font-bold text-black">
-              Difficulty {topic.difficultyRating}
-            </span>
-          ))}
+      <div className="flex shrink-0 items-center">
         <IconBtn
           label={`Edit ${topic.name}`}
           onClick={() => setIsEditing(true)}
@@ -988,6 +1052,16 @@ function TopicRow({
         </IconBtn>
       </div>
     </div>
+      {/* Its exam and difficulty, on their own line so they wrap on a phone. */}
+      <div className={`flex flex-wrap items-center gap-1.5 ${isSub ? 'pl-6' : ''}`}>
+        <EarlierTag topic={topic} />
+        {!hasSubTopics && (
+          <span className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-black sm:text-sm">
+            Difficulty {topic.difficultyRating}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -996,7 +1070,7 @@ function DraftChips({
   items,
   onRemove,
 }: {
-  items: { i: number; name: string; difficultyRating: number }[];
+  items: { i: number; name: string; difficultyRating: number; earlier?: Earlier }[];
   onRemove: (index: number) => void;
 }) {
   if (items.length === 0) return null;
@@ -1007,7 +1081,8 @@ function DraftChips({
           key={d.i}
           className="flex items-center gap-1 rounded-full border-[1.5px] border-dashed border-black/30 bg-white/70 pl-4 text-sm font-semibold text-black"
         >
-          {d.name} · difficulty {d.difficultyRating} · added
+          {d.name} · difficulty {d.difficultyRating}
+          {d.earlier ? ` · ${d.earlier.examName}` : ''} · not saved yet
           <button
             type="button"
             aria-label={`Remove ${d.name}`}
@@ -1022,20 +1097,54 @@ function DraftChips({
   );
 }
 
+// An earlier-exam topic's exam, shown next to it. This exam's topics have none.
+function EarlierTag({ topic }: { topic: Topic }) {
+  const { currentExamId } = useContext(ExamChoicesContext);
+  if (!topic.examName || topic.examId === currentExamId) return null;
+  return (
+    <span
+      title="Studied for an earlier exam: revised on weekends"
+      className="inline-flex max-w-full items-center rounded-full bg-black/80 px-2.5 py-0.5 text-xs font-bold text-white"
+    >
+      {topic.examName}
+    </span>
+  );
+}
+
+// The form for a new topic or sub-topic, opened from "Add topic" or "Add a
+// sub-topic". Adding puts it in the list as unsaved; Save and update plan
+// saves everything at once.
 function AddTopicInput({
-  placeholder = 'Add a topic',
-  buttonLabel = 'Topic',
-  ariaLabel,
+  title,
+  buttonLabel,
+  parentExam,
+  taken,
+  takenWhere,
   onAdd,
+  onCancel,
 }: {
-  placeholder?: string;
-  buttonLabel?: string;
-  ariaLabel?: string;
-  onAdd: (name: string, difficultyRating: number) => void;
+  title: string;
+  buttonLabel: string;
+  /** Names already used where this one would go (saved or not), to refuse a duplicate. */
+  taken: string[];
+  /** Where those are, for the message: "in Science", "under Algebra". */
+  takenWhere: string;
+  /** For a sub-topic: its topic, whose exam it starts on. */
+  parentExam?: Pick<Topic, 'examId' | 'examName'>;
+  onAdd: (name: string, difficultyRating: number, earlier?: Earlier) => void;
+  onCancel: () => void;
 }) {
+  const choices = useContext(ExamChoicesContext);
+  const parentKey =
+    parentExam && parentExam.examId !== choices.currentExamId && parentExam.examName
+      ? (choices.earlier.find((c) => (parentExam.examId ? c.examId === parentExam.examId : c.examName === parentExam.examName))?.key ?? 'now')
+      : 'now';
   const [value, setValue] = useState('');
   const [difficulty, setDifficulty] = useState(''); // '' = not chosen yet
+  const [when, setWhen] = useState(parentKey); // 'now' or an earlier exam's key
+  const [selfRating, setSelfRating] = useState<SelfRating>('not_sure');
   const [error, setError] = useState<string | null>(null);
+  const earlierChoice = choices.earlier.find((c) => c.key === when);
 
   function add() {
     const name = value.trim();
@@ -1043,62 +1152,104 @@ function AddTopicInput({
       setError('Enter a name.');
       return;
     }
+    const norm = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (taken.some((n) => norm(n) === norm(name))) {
+      setError(`“${name}” is already a topic ${takenWhere}.`);
+      return;
+    }
     if (!difficulty) {
       setError('Choose a difficulty from 1 to 5.');
       return;
     }
-    onAdd(name, Number(difficulty));
+    onAdd(
+      name,
+      Number(difficulty),
+      earlierChoice ? { examId: earlierChoice.examId, examName: earlierChoice.examName, selfRating } : undefined,
+    );
     setValue('');
     setDifficulty('');
     setError(null);
   }
 
   return (
-    <div className="min-w-0">
-      {/* flex-wrap: on narrow screens the text box takes a full row and the
-          difficulty picker + button sit together on the row below. */}
-      <div className="flex flex-wrap gap-2">
-        <input
-          className={`${fieldOnColourShapeClass} w-full min-w-0 sm:w-auto sm:flex-1`}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            setError(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
-        />
-        <Select
-          onColour
-          className="min-w-[150px] flex-1 sm:w-[150px] sm:flex-none"
-          value={difficulty}
-          onChange={(e) => {
-            setDifficulty(e.target.value);
-            setError(null);
-          }}
-        >
-          <option value="" disabled>
-            Difficulty…
-          </option>
-          {[1, 2, 3, 4, 5].map((d) => (
-            <option key={d} value={d}>
-              Difficulty {d}
+    <div className="mt-2 min-w-0 rounded-3xl bg-white p-4 shadow-sm sm:p-5">
+      <p className="mb-3 text-base font-bold text-black">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name" className="min-w-0 sm:col-span-2">
+          <input
+            autoFocus
+            className={fieldClass}
+            placeholder="e.g. Quadratic equations"
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                add();
+              }
+            }}
+          />
+        </Field>
+        <Field label="Difficulty" className="min-w-0">
+          <Select
+            value={difficulty}
+            onChange={(e) => {
+              setDifficulty(e.target.value);
+              setError(null);
+            }}
+          >
+            <option value="" disabled>
+              Choose…
             </option>
-          ))}
-        </Select>
-        <Button variant="outline" aria-label={ariaLabel} onClick={add}>
+            {[1, 2, 3, 4, 5].map((d) => (
+              <option key={d} value={d}>
+                Difficulty {d}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="When was it taught?" className="min-w-0">
+          <Select value={when} onChange={(e) => setWhen(e.target.value)}>
+            <option value="now">
+              Taught now{choices.currentExamName ? ` (for ${choices.currentExamName})` : ''}
+            </option>
+            {choices.earlier.map((c) => (
+              <option key={c.key} value={c.key}>
+                Studied for {c.examName}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {earlierChoice && (
+          <Field label="Confidence" className="min-w-0">
+            <Select value={selfRating} onChange={(e) => setSelfRating(e.target.value as SelfRating)}>
+              <option value="not_sure">Low confidence</option>
+              <option value="ok">Confident</option>
+              <option value="know_well">Highly confident</option>
+            </Select>
+          </Field>
+        )}
+      </div>
+      <p className="mt-3 text-sm text-[#65615D]">
+        {earlierChoice
+          ? 'Earlier topics are revised on weekends, with suggestions.'
+          : 'It comes onto the list the day after you save.'}
+      </p>
+      {error && (
+        <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{error}</p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={add}>
           <PlusIcon />
           {buttonLabel}
         </Button>
+        <Button variant="white" className="border-[1.5px] border-black/15" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
-      {error && (
-        <p className="mt-1.5 text-sm font-semibold text-red-700">{error}</p>
-      )}
     </div>
   );
 }

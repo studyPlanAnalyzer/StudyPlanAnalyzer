@@ -72,34 +72,29 @@ function test(name: string, fn: () => void) {
 
 console.log('plan-generator regression tests\n');
 
-test('the plan reaches all the way to the schedule end date, not stopping weeks early', () => {
+test('a new topic is learned on its learn-from day, however many share it', () => {
+  // Taught on the 1st and 2nd of the start week: no pacing, no cap.
   const s = subject('s1', {
-    marksHistory: {
-      records: [{ percent: 30, fullMarks: 100 }],
-      latestConfidence: null,
-    },
-    topics: [topic('algebra', 's1'), topic('geometry', 's1')],
+    topics: Array.from({ length: 30 }, (_, i) => ({
+      ...topic(`t${i}`, 's1'),
+      learnFrom: i < 20 ? '2026-09-25' : '2026-09-26',
+    })),
   });
-
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
-
-  const lastSessionDate = result.sessions
-    .map((s) => s.scheduledDate)
-    .sort()
-    .slice(-1)[0];
-  // The exam is Nov 7; a healthy plan should keep scheduling content into
-  // the final week or two, not die out a month early (the original bug).
-  assert.ok(
-    lastSessionDate >= '2026-10-24',
-    `expected content late in the plan, last session was ${lastSessionDate}`,
-  );
+  const learns = result.sessions.filter((x) => x.sessionType === 'learn');
+  assert.equal(learns.length, 30, 'every topic gets its learn session');
+  assert.equal(learns.filter((x) => x.scheduledDate === '2026-09-25').length, 20);
+  assert.equal(learns.filter((x) => x.scheduledDate === '2026-09-26').length, 10);
+  // Each one's first follow-up comes the next study day.
+  for (const l of learns) {
+    const next = result.sessions.find((x) => x.topicId === l.topicId && x.sessionType === 'review');
+    assert.ok(next && next.scheduledDate > l.scheduledDate, `${l.topicId} has its follow-up`);
+  }
 });
 
 test('capacity utilization is high after the leveling pass — no more 45-of-60-minute days', () => {
@@ -114,8 +109,6 @@ test('capacity utilization is high after the leveling pass — no more 45-of-60-
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -147,8 +140,6 @@ test('a confident (strong) subject gets only a learn and one review per topic', 
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -185,8 +176,6 @@ test('every subject gets real presence in the plan — none end up with zero ses
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [weak, strong],
     startDate: START_DATE,
   });
@@ -221,8 +210,6 @@ test('a 99% score with LOW confidence gets more study time than a confident 99%'
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 90,
-    holidayDayMinutes: 90,
     subjects: [confident, unsure],
     startDate: START_DATE,
   });
@@ -268,8 +255,6 @@ test('an in-progress topic gets a single review session anchored to its real due
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -301,8 +286,6 @@ test('a topic with many repetitions is still scheduled for another review', () =
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -325,8 +308,6 @@ test('scheduleEndDate stops the schedule early when a buffer week is requested',
     examDate: EXAM_DATE,
     scheduleEndDate,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -341,25 +322,25 @@ test('scheduleEndDate stops the schedule early when a buffer week is requested',
   );
 });
 
-test('an impossible-to-fit topic is reported in unscheduledTopicIds, not silently dropped', () => {
+test('no topic is ever left out: with no minutes budget, every topic is listed', () => {
   const s = subject('s6', {
     marksHistory: {
       records: [{ percent: 10, fullMarks: 100 }],
       latestConfidence: null,
     },
-    topics: [topic('t6', 's6', { difficultyRating: 5 })],
+    topics: Array.from({ length: 120 }, (_, i) => topic(`t${i}`, 's6', { difficultyRating: 5 })),
   });
 
   const result = generateStudyPlan({
-    examDate: new Date(Date.UTC(2026, 8, 25)),
+    examDate: new Date(Date.UTC(2026, 8, 30)),
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 5,
-    holidayDayMinutes: 5,
     subjects: [s],
     startDate: START_DATE,
   });
 
-  assert.ok(result.unscheduledTopicIds.includes('t6'));
+  assert.deepEqual(result.unscheduledTopicIds, []);
+  const listed = new Set(result.sessions.map((x) => x.topicId));
+  assert.equal(listed.size, 120);
 });
 
 test('estimated confidence maps to the agreed percents', () => {
@@ -402,8 +383,6 @@ test('a low-estimate subject gets more study time than a high-estimate one', () 
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [
       subject('weakish', {
         estimatedConfidence: 'low',
@@ -463,8 +442,6 @@ test('a brand-new topic gets one learn session and a single review the next day 
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -502,8 +479,6 @@ test('a topic rated Again/Hard (count 0, next review set) gets one review, not a
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
@@ -513,9 +488,9 @@ test('a topic rated Again/Hard (count 0, next review set) gets one review, not a
   assert.ok(core[0].scheduledDate >= '2026-10-05');
 });
 
-test('interval cap is proportional to the time left, within 3..21 days', () => {
+test('interval cap is proportional to the time left, within 5..21 days', () => {
   assert.equal(intervalCapForExam(60), 9);
-  assert.equal(intervalCapForExam(10), 3);
+  assert.equal(intervalCapForExam(10), 5);
   assert.equal(intervalCapForExam(400), 21);
 });
 
@@ -541,14 +516,13 @@ test('a review due after the schedule ends is moved into the final days', () => 
   const result = generateStudyPlan({
     examDate: EXAM_DATE,
     studyDays: ALL_DAYS,
-    schoolDayMinutes: 60,
-    holidayDayMinutes: 90,
     subjects: [s],
     startDate: START_DATE,
   });
   const core = result.sessions.filter((x) => x.topicId === 't1' && !x.isFiller);
   assert.equal(core.length, 1);
-  assert.ok(core[0].scheduledDate >= '2026-11-02');
+  // The plan ends Nov 6; the last 14 days start Oct 24.
+  assert.ok(core[0].scheduledDate >= '2026-10-24' && core[0].scheduledDate <= '2026-11-06');
 });
 
 test('test trend: drops cost more than rises earn, rises stop at 2.5', () => {

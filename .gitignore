@@ -27,3 +27,5 @@ yarn-error.log*
 .DS_Store
 .vercel
 .vscode/
+# dev clock (fake "today" for local testing)
+.dev-today

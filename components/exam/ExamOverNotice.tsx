@@ -1,9 +1,13 @@
 import { ButtonLink } from '@/components/ui/Button';
-import { formatDay } from '@/lib/utils/date-utils';
+import { Notice } from '@/components/ui/Notice';
+import { formatDay, todayKey } from '@/lib/utils/date-utils';
+import { breakReminder, breakReminderText } from '@/lib/utils/exam-break';
 
 /**
  * Shown instead of a study plan once the exam it was built for is over (the
- * plan is removed at that point). Offers the two ways forward.
+ * plan is removed at that point). Offers the two ways forward. From 2 weeks
+ * after the exam it also nudges, gently at first and more firmly from 3
+ * weeks (see breakReminder): the review clock is paused, but memory isn't.
  */
 export function ExamOverNotice({
   studentId,
@@ -14,6 +18,7 @@ export function ExamOverNotice({
   examName: string;
   examDate: string;
 }) {
+  const reminder = breakReminder(examDate, todayKey());
   return (
     <div className="rounded-[32px] bg-white p-6 shadow-[0_12px_30px_rgba(0,0,0,0.07)] sm:p-8 lg:p-10">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
@@ -32,6 +37,16 @@ export function ExamOverNotice({
             cleared. Start the next exam cycle to get a new plan, or begin a new
             academic session if your child has moved on.
           </p>
+
+          {reminder && (
+            <Notice
+              tone={reminder.stage === 'firm' ? 'warning' : 'info'}
+              className="mt-5"
+              role="status"
+            >
+              {breakReminderText(reminder)}
+            </Notice>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <ButtonLink
